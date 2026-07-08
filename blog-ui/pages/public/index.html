@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home | DevBlog</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="../../assets/css/style.css">
+  <link rel="stylesheet" href="../../assets/css/public.css">
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top public-navbar">
+    <div class="container-xl">
+      <a class="navbar-brand fw-bold text-primary" href="index.html">
+        <i class="bi bi-braces-asterisk me-1"></i>DevBlog
+      </a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="mainNav">
+        <form class="d-flex mx-lg-4 my-3 my-lg-0 flex-grow-1" action="hashtag.html">
+          <div class="input-group search-box">
+            <span class="input-group-text bg-light border-end-0">
+              <i class="bi bi-search"></i>
+            </span>
+            <input class="form-control bg-light border-start-0" placeholder="Tìm kiếm bài viết, hashtag...">
+          </div>
+        </form>
+
+        <ul class="navbar-nav align-items-lg-center gap-lg-2">
+          <li class="nav-item">
+            <a class="nav-link active fw-semibold" href="index.html">Bài viết</a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="category.html">Danh mục</a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="hashtag.html">Hashtag</a>
+          </li>
+
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+              <i class="bi bi-translate"></i> VI
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#">Tiếng Việt</a></li>
+              <li><a class="dropdown-item" href="#">English</a></li>
+            </ul>
+          </li>
+
+          <li class="nav-item">
+            <button class="btn btn-sm btn-outline-secondary" data-theme-toggle>
+              <i class="bi bi-moon-stars"></i>
+            </button>
+          </li>
+
+          <!-- Guest -->
+          <li class="nav-item guest-only">
+            <a class="btn btn-primary btn-sm px-3" href="auth.html">Đăng nhập</a>
+          </li>
+
+          <!-- Logged user -->
+          <li class="nav-item dropdown user-only d-none">
+            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+              <span class="avatar-sm">S</span>
+              <span class="d-lg-none">Tài khoản</span>
+            </a>
+
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+              <li>
+                <h6 class="dropdown-header">Lê Hồng Sơn</h6>
+              </li>
+
+              <li>
+                <a class="dropdown-item" href="../account/profile.html">
+                  <i class="bi bi-person me-2"></i>Profile
+                </a>
+              </li>
+
+              <li>
+                <a class="dropdown-item" href="../account/request-blog-owner.html">
+                  <i class="bi bi-send me-2"></i>Yêu cầu Blog Owner
+                </a>
+              </li>
+
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+
+              <li class="role-owner role-mod role-admin d-none">
+                <a class="dropdown-item" href="../dashboard/owner/dashboard.html">
+                  <i class="bi bi-pencil-square me-2"></i>Owner Dashboard
+                </a>
+              </li>
+
+              <li class="role-mod role-admin d-none">
+                <a class="dropdown-item" href="../dashboard/moderator/dashboard.html">
+                  <i class="bi bi-shield-check me-2"></i>Moderator Dashboard
+                </a>
+              </li>
+
+              <li class="role-admin d-none">
+                <a class="dropdown-item" href="../dashboard/admin/dashboard.html">
+                  <i class="bi bi-gear me-2"></i>Admin Dashboard
+                </a>
+              </li>
+
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+
+              <li>
+                <button class="dropdown-item text-danger" data-role-set="guest">
+                  <i class="bi bi-box-arrow-right me-2"></i>Logout demo
+                </button>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Demo Role Bar -->
+  <div class="demo-role-bar border-bottom bg-light">
+    <div class="container-xl d-flex flex-wrap align-items-center gap-2 py-2 small">
+      <span class="text-muted">Demo trạng thái header:</span>
+      <button class="btn btn-sm btn-outline-secondary" data-role-set="guest">Guest</button>
+      <button class="btn btn-sm btn-outline-secondary" data-role-set="user">User</button>
+      <button class="btn btn-sm btn-outline-secondary" data-role-set="owner">Blog Owner</button>
+      <button class="btn btn-sm btn-outline-secondary" data-role-set="moderator">Moderator</button>
+      <button class="btn btn-sm btn-outline-secondary" data-role-set="admin">Super Admin</button>
+    </div>
+  </div>
+
+  <main class="container-xl py-4">
+
+    <!-- Category Bar -->
+    <section class="category-bar soft-card mb-4">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <a href="index.html" class="category-pill active">Tất cả</a>
+        <a href="category.html" class="category-pill">Backend</a>
+        <a href="category.html" class="category-pill">Frontend</a>
+        <a href="category.html" class="category-pill">Angular</a>
+        <a href="category.html" class="category-pill">NodeJS</a>
+        <a href="category.html" class="category-pill">Database</a>
+        <a href="category.html" class="category-pill">DevOps</a>
+        <a href="category.html" class="category-pill">AI</a>
+      </div>
+    </section>
+
+    <div class="row g-4">
+
+      <!-- Left Sidebar -->
+      <aside class="col-lg-2 d-none d-lg-block">
+        <div class="card soft-card mb-3">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Khám phá</h6>
+
+            <ul class="sidebar-menu">
+              <li>
+                <a href="index.html">
+                  <i class="bi bi-house"></i> Trang chủ
+                </a>
+              </li>
+
+              <li>
+                <a href="hashtag.html">
+                  <i class="bi bi-fire"></i> Trending
+                </a>
+              </li>
+
+              <li>
+                <a href="category.html">
+                  <i class="bi bi-folder"></i> Danh mục
+                </a>
+              </li>
+
+              <li>
+                <a href="hashtag.html">
+                  <i class="bi bi-hash"></i> Hashtag
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card soft-card">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Tags nổi bật</h6>
+
+            <div class="d-flex flex-column gap-2">
+              <a href="hashtag.html" class="left-tag">#angular</a>
+              <a href="hashtag.html" class="left-tag">#nodejs</a>
+              <a href="hashtag.html" class="left-tag">#mysql</a>
+              <a href="hashtag.html" class="left-tag">#sequelize</a>
+              <a href="hashtag.html" class="left-tag">#jwt</a>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Feed -->
+      <section class="col-lg-7">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+          <div>
+            <h4 class="fw-bold mb-1">Bài viết mới nhất</h4>
+            <small class="text-muted">Cập nhật kiến thức lập trình mỗi ngày</small>
+          </div>
+
+          <select class="form-select form-select-sm w-auto">
+            <option>Mới nhất</option>
+            <option>Nhiều lượt xem</option>
+            <option>Nhiều lượt thích</option>
+            <option>Nhiều bình luận</option>
+          </select>
+        </div>
+
+        <!-- Post 1 -->
+        <article class="card post-card soft-card mb-3">
+          <div class="card-body">
+            <div class="d-flex gap-3">
+              <div class="vote-col text-center d-none d-sm-block">
+                <button class="btn btn-light btn-sm like-btn">
+                  <i class="bi bi-caret-up-fill"></i>
+                </button>
+                <div class="fw-bold">43</div>
+                <button class="btn btn-light btn-sm">
+                  <i class="bi bi-bookmark"></i>
+                </button>
+              </div>
+
+              <div class="post-thumb d-none d-md-flex">
+                <i class="bi bi-code-slash"></i>
+              </div>
+
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <span class="avatar-sm">S</span>
+                  <small class="text-muted">Sơn Dev • 1 giờ trước • 5 phút đọc</small>
+                </div>
+
+                <div class="mb-2">
+                  <a href="category.html" class="category-badge">Backend</a>
+                  <a href="category.html" class="category-badge">ExpressJS</a>
+                </div>
+
+                <h5 class="fw-bold mb-2">
+                  <a href="post-detail.html" class="post-title">
+                    Thiết kế Blog đa ngôn ngữ với ExpressJS và Sequelize
+                  </a>
+                </h5>
+
+                <p class="text-muted mb-3">
+                  Hướng dẫn cách xây dựng blog từ database, backend ExpressJS đến frontend Angular theo hướng module.
+                </p>
+
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                  <div class="d-flex flex-wrap gap-2">
+                    <a class="tag" href="hashtag.html">#expressjs</a>
+                    <a class="tag" href="hashtag.html">#angular</a>
+                    <a class="tag" href="hashtag.html">#sequelize</a>
+                  </div>
+
+                  <small class="text-muted">
+                    <i class="bi bi-eye"></i> 1311
+                    <i class="bi bi-chat ms-2"></i> 4
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Post 2 -->
+        <article class="card post-card soft-card mb-3">
+          <div class="card-body">
+            <div class="d-flex gap-3">
+              <div class="vote-col text-center d-none d-sm-block">
+                <button class="btn btn-light btn-sm like-btn">
+                  <i class="bi bi-caret-up-fill"></i>
+                </button>
+                <div class="fw-bold">31</div>
+                <button class="btn btn-light btn-sm">
+                  <i class="bi bi-bookmark"></i>
+                </button>
+              </div>
+
+              <div class="post-thumb d-none d-md-flex">
+                <i class="bi bi-shield-lock"></i>
+              </div>
+
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <span class="avatar-sm">A</span>
+                  <small class="text-muted">Admin Dev • 2 giờ trước • 7 phút đọc</small>
+                </div>
+
+                <div class="mb-2">
+                  <a href="category.html" class="category-badge">Frontend</a>
+                  <a href="category.html" class="category-badge">Angular</a>
+                </div>
+
+                <h5 class="fw-bold mb-2">
+                  <a href="post-detail.html" class="post-title">
+                    Angular Routing và Guard phân quyền theo Role
+                  </a>
+                </h5>
+
+                <p class="text-muted mb-3">
+                  Cách tổ chức route cho Guest, User, Blog Owner, Moderator và Super Admin trong Angular.
+                </p>
+
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                  <div class="d-flex flex-wrap gap-2">
+                    <a class="tag" href="hashtag.html">#angular</a>
+                    <a class="tag" href="hashtag.html">#guard</a>
+                    <a class="tag" href="hashtag.html">#jwt</a>
+                  </div>
+
+                  <small class="text-muted">
+                    <i class="bi bi-eye"></i> 980
+                    <i class="bi bi-chat ms-2"></i> 6
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Post 3 -->
+        <article class="card post-card soft-card mb-3">
+          <div class="card-body">
+            <div class="d-flex gap-3">
+              <div class="vote-col text-center d-none d-sm-block">
+                <button class="btn btn-light btn-sm like-btn">
+                  <i class="bi bi-caret-up-fill"></i>
+                </button>
+                <div class="fw-bold">27</div>
+                <button class="btn btn-light btn-sm">
+                  <i class="bi bi-bookmark"></i>
+                </button>
+              </div>
+
+              <div class="post-thumb d-none d-md-flex">
+                <i class="bi bi-database"></i>
+              </div>
+
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <span class="avatar-sm">N</span>
+                  <small class="text-muted">NodeJS Lab • 3 giờ trước • 6 phút đọc</small>
+                </div>
+
+                <div class="mb-2">
+                  <a href="category.html" class="category-badge">Database</a>
+                  <a href="category.html" class="category-badge">MySQL</a>
+                </div>
+
+                <h5 class="fw-bold mb-2">
+                  <a href="post-detail.html" class="post-title">
+                    Thiết kế database Blog: đơn ngôn ngữ hay đa ngôn ngữ?
+                  </a>
+                </h5>
+
+                <p class="text-muted mb-3">
+                  Phân tích cách thiết kế bảng posts, categories, languages và translations trong hệ thống blog.
+                </p>
+
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                  <div class="d-flex flex-wrap gap-2">
+                    <a class="tag" href="hashtag.html">#mysql</a>
+                    <a class="tag" href="hashtag.html">#database</a>
+                    <a class="tag" href="hashtag.html">#dbdiagram</a>
+                  </div>
+
+                  <small class="text-muted">
+                    <i class="bi bi-eye"></i> 722
+                    <i class="bi bi-chat ms-2"></i> 3
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <nav class="mt-4">
+          <ul class="pagination">
+            <li class="page-item active">
+              <a class="page-link" href="#">1</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">2</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">Next</a>
+            </li>
+          </ul>
+        </nav>
+      </section>
+
+      <!-- Right Sidebar -->
+      <aside class="col-lg-3">
+        <div class="card soft-card mb-3">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Top Authors</h6>
+
+            <div class="d-flex align-items-center mb-3">
+              <span class="avatar-sm me-2">S</span>
+              <div>
+                <div class="fw-semibold">Sơn Dev</div>
+                <small class="text-muted">120 followers</small>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center mb-3">
+              <span class="avatar-sm me-2">A</span>
+              <div>
+                <div class="fw-semibold">Angular Master</div>
+                <small class="text-muted">98 followers</small>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center">
+              <span class="avatar-sm me-2">N</span>
+              <div>
+                <div class="fw-semibold">NodeJS Lab</div>
+                <small class="text-muted">86 followers</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card soft-card mb-3">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Trending Posts</h6>
+
+            <ol class="ps-3 small mb-0">
+              <li class="mb-2">
+                <a href="post-detail.html">Thiết kế REST API chuẩn cho Blog</a>
+              </li>
+              <li class="mb-2">
+                <a href="post-detail.html">Angular Interceptor gắn JWT</a>
+              </li>
+              <li>
+                <a href="post-detail.html">Sequelize migration cơ bản</a>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="card soft-card">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Popular Tags</h6>
+
+            <div class="d-flex flex-wrap gap-2">
+              <a href="hashtag.html" class="tag">#nodejs</a>
+              <a href="hashtag.html" class="tag">#angular</a>
+              <a href="hashtag.html" class="tag">#mysql</a>
+              <a href="hashtag.html" class="tag">#sequelize</a>
+              <a href="hashtag.html" class="tag">#jwt</a>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer class="border-top bg-white mt-5 py-4">
+    <div class="container-xl d-flex flex-wrap justify-content-between gap-3 small text-muted">
+      <span>© 2026 DevBlog UI Prototype</span>
+      <span>HTML tĩnh • Bootstrap 5 • Inspired by Viblo layout</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../assets/js/main.js"></script>
+
+</body>
+
+</html>

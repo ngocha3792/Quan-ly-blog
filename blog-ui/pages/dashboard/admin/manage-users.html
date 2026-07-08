@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manage Users | DevBlog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/blog-ui/assets/css/style.css">
+</head>
+
+<body class="dashboard-body">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <h4 class="text-white fw-bold mb-4"><i class="bi bi-braces-asterisk me-2"></i>DevBlog</h4>
+      <a class="" href="/blog-ui/pages/dashboard/admin/dashboard.html"><i class="bi bi-speedometer2"></i>Dashboard</a>
+      <a class="active" href="/blog-ui/pages/dashboard/admin/manage-users.html"><i class="bi bi-people"></i>Quản lý users</a>
+      <a class="" href="/blog-ui/pages/dashboard/admin/manage-languages.html"><i class="bi bi-translate"></i>Quản lý languages</a>
+      <hr class="border-secondary">
+      <a href="/blog-ui/pages/public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div><strong>Manage Users</strong>
+          <div class="small text-muted">Admin dashboard</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary" data-theme-toggle>
+            <i class="bi bi-moon-stars"></i>
+          </button>
+          <span class="avatar-sm">S</span>
+        </div>
+      </header>
+
+      <section class="dashboard-content">
+        <div class="d-flex justify-content-between mb-3">
+          <h3 class="fw-bold">Users</h3>
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModModal">
+            <i class="bi bi-person-plus me-2"></i>Tạo Moderator
+          </button>
+        </div>
+
+        <div class="table-card">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>son@example.com</td>
+                <td><span class="text-secondary fw-semibold">NORMAL_USER</span></td>
+                <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
+                <td>
+                  <button class="btn btn-sm btn-outline-primary border-0" title="Cấp quyền Blog Owner"
+                    onclick="return confirm('Bạn có chắc chắn muốn nâng cấp user này lên Blog Owner?');">
+                    <i class="bi bi-arrow-up-circle-fill"></i> Cấp quyền
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td>owner@example.com</td>
+                <td><span class="text-primary fw-semibold">BLOG_OWNER</span></td>
+                <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
+                <td>
+                  <button class="btn btn-sm btn-outline-warning border-0 text-dark" title="Tước quyền Blog Owner"
+                    onclick="return confirm('Bạn có chắc chắn muốn giáng cấp user này về Normal User?');">
+                    <i class="bi bi-arrow-down-circle-fill"></i> Tước quyền
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td>mod@example.com</td>
+                <td><span class="text-danger fw-semibold">CONTENT_MODERATOR</span></td>
+                <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
+                <td>
+                  <button class="btn btn-sm btn-outline-danger border-0" title="Khóa tài khoản"
+                    onclick="return confirm('Bạn có chắc chắn muốn khóa tài khoản Moderator này?');">
+                    <i class="bi bi-lock-fill"></i> Khóa user
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal fade" id="createModModal" tabindex="-1" aria-labelledby="createModModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="createModModalLabel">Tạo tài khoản Moderator</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formCreateMod">
+            <div class="mb-3">
+              <label for="modEmail" class="form-label">Địa chỉ Email</label>
+              <input type="email" class="form-control" id="modEmail" placeholder="mod@example.com" required>
+            </div>
+            <div class="mb-3">
+              <label for="modPassword" class="form-label">Mật khẩu tạm thời</label>
+              <input type="password" class="form-control" id="modPassword" placeholder="Nhập mật khẩu cho Moderator"
+                required>
+              <div class="form-text">Moderator có thể đổi mật khẩu này sau khi đăng nhập.</div>
+            </div>
+            <div class="mb-3">
+              <label for="modNote" class="form-label">Ghi chú (Tùy chọn)</label>
+              <textarea class="form-control" id="modNote" rows="2"
+                placeholder="Ví dụ: Phụ trách kiểm duyệt mảng Backend..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" form="formCreateMod" class="btn btn-primary">Tạo tài khoản</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/blog-ui/assets/js/main.js"></script>
+</body>
+
+</html>
