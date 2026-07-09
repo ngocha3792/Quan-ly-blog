@@ -1,0 +1,116 @@
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top public-navbar">
+  <div class="container-xl">
+    <a class="navbar-brand fw-bold text-primary" href="/blog-ui/pages/public/index.html">
+      <i class="bi bi-braces-asterisk me-1"></i>DevBlog
+    </a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="mainNav">
+      <form class="d-flex mx-lg-4 my-3 my-lg-0 flex-grow-1" action="/blog-ui/pages/public/hashtag.html">
+        <div class="input-group search-box">
+          <span class="input-group-text bg-light border-end-0">
+            <i class="bi bi-search"></i>
+          </span>
+          <input class="form-control bg-light border-start-0" placeholder="Tìm kiếm bài viết, hashtag...">
+        </div>
+      </form>
+
+      <ul class="navbar-nav align-items-lg-center gap-lg-2">
+        <li class="nav-item">
+          <a class="nav-link active fw-semibold" href="/blog-ui/pages/public/index.html">Bài viết</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="/blog-ui/pages/public/category.html">Danh mục</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="/blog-ui/pages/public/hashtag.html">Hashtag</a>
+        </li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+            <i class="bi bi-translate"></i> VI
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#">Tiếng Việt</a></li>
+            <li><a class="dropdown-item" href="#">English</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item">
+          <button class="btn btn-sm btn-outline-secondary" data-theme-toggle>
+            <i class="bi bi-moon-stars"></i>
+          </button>
+        </li>
+
+        <li class="nav-item guest-only">
+          <a class="btn btn-primary btn-sm px-3" href="/blog-ui/pages/public/auth.html">Đăng nhập</a>
+        </li>
+
+        <li class="nav-item dropdown user-only d-none">
+          <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+            <span class="avatar-sm">S</span>
+            <span class="d-lg-none">Tài khoản</span>
+          </a>
+
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li>
+              <h6 class="dropdown-header">Lê Hồng Sơn</h6>
+            </li>
+            <li>
+              <a class="dropdown-item" href="/blog-ui/account/profile.html">
+                <i class="bi bi-person me-2"></i>Profile
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="/blog-ui/account/request-blog-owner.html">
+                <i class="bi bi-send me-2"></i>Yêu cầu Blog Owner
+              </a>
+            </li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li class="role-owner role-mod role-admin d-none">
+              <a class="dropdown-item" href="/blog-ui/dashboard/owner/dashboard.html">
+                <i class="bi bi-pencil-square me-2"></i>Owner Dashboard
+              </a>
+            </li>
+            <li class="role-mod role-admin d-none">
+              <a class="dropdown-item" href="/blog-ui/dashboard/moderator/dashboard.html">
+                <i class="bi bi-shield-check me-2"></i>Moderator Dashboard
+              </a>
+            </li>
+            <li class="role-admin d-none">
+              <a class="dropdown-item" href="/blog-ui/dashboard/admin/dashboard.html">
+                <i class="bi bi-gear me-2"></i>Admin Dashboard
+              </a>
+            </li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li>
+              <button class="dropdown-item text-danger" data-role-set="guest">
+                <i class="bi bi-box-arrow-right me-2"></i>Logout demo
+              </button>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="demo-role-bar border-bottom bg-light">
+  <div class="container-xl d-flex flex-wrap align-items-center gap-2 py-2 small">
+    <span class="text-muted">Demo trạng thái header:</span>
+    <button class="btn btn-sm btn-outline-secondary" data-role-set="guest">Guest</button>
+    <button class="btn btn-sm btn-outline-secondary" data-role-set="user">User</button>
+    <button class="btn btn-sm btn-outline-secondary" data-role-set="owner">Blog Owner</button>
+    <button class="btn btn-sm btn-outline-secondary" data-role-set="moderator">Moderator</button>
+    <button class="btn btn-sm btn-outline-secondary" data-role-set="admin">Super Admin</button>
+  </div>
+</div>
