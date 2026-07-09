@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="/../css/style.css">
+  <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 
 <body>
@@ -42,8 +42,7 @@
           </li>
           <li class="nav-item"><button class="btn btn-sm btn-outline-secondary" data-theme-toggle><i
                 class="bi bi-moon-stars"></i></button></li>
-          <li class="nav-item guest-only"><a class="btn btn-primary btn-sm px-3"
-              href="auth.html">Đăng nhập</a></li>
+          <li class="nav-item guest-only"><a class="btn btn-primary btn-sm px-3" href="auth.html">Đăng nhập</a></li>
           <li class="nav-item dropdown user-only d-none">
             <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown"><span
                 class="avatar-sm">S</span><span class="d-lg-none">Tài khoản</span></a>
@@ -51,10 +50,10 @@
               <li>
                 <h6 class="dropdown-header">Lê Hồng Sơn</h6>
               </li>
-              <li><a class="dropdown-item" href="../account/profile.html"><i
-                    class="bi bi-person me-2"></i>Profile</a></li>
-              <li><a class="dropdown-item" href="../account/request-blog-owner.html"><i
-                    class="bi bi-send me-2"></i>Yêu cầu Blog Owner</a></li>
+              <li><a class="dropdown-item" href="../account/profile.html"><i class="bi bi-person me-2"></i>Profile</a>
+              </li>
+              <li><a class="dropdown-item" href="../account/request-blog-owner.html"><i class="bi bi-send me-2"></i>Yêu
+                  cầu Blog Owner</a></li>
               <li>
                 <hr class="dropdown-divider">
               </li>
@@ -64,8 +63,8 @@
               <li class="role-mod role-admin d-none"><a class="dropdown-item"
                   href="../dashboard/moderator/dashboard.html"><i class="bi bi-shield-check me-2"></i>Moderator
                   Dashboard</a></li>
-              <li class="role-admin d-none"><a class="dropdown-item"
-                  href="../dashboard/admin/dashboard.html"><i class="bi bi-gear me-2"></i>Admin Dashboard</a>
+              <li class="role-admin d-none"><a class="dropdown-item" href="../dashboard/admin/dashboard.html"><i
+                    class="bi bi-gear me-2"></i>Admin Dashboard</a>
               </li>
               <li>
                 <hr class="dropdown-divider">
@@ -110,18 +109,20 @@
                     class="bi bi-bookmark"></i></button>
               </div>
               <div class="flex-grow-1">
-                <div class="d-flex align-items-center gap-2 mb-2"><span class="avatar-sm">S</span><small
-                    class="text-muted">Sơn Dev • 6 giờ trước • 5 phút đọc</small></div>
-                <h5 class="fw-bold"><a href="post-detail.html"
-                    class="text-decoration-none text-dark">Angular component hóa từ HTML tĩnh</a></h5>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                    <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                  </a>
+                  <small class="text-muted">• 6 giờ trước • 5 phút đọc</small>
+                </div>
+                <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Angular component
+                    hóa từ HTML tĩnh</a></h5>
                 <p class="text-muted mb-3">Bài viết hướng dẫn cách xây dựng blog từ database, backend ExpressJS đến
                   frontend Angular theo hướng module.</p>
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                  <div class="d-flex flex-wrap gap-2"><a class="tag"
-                      href="hashtag.html">#expressjs</a><a class="tag"
-                      href="hashtag.html">#angular</a><a class="tag"
-                      href="hashtag.html">#sequelize</a></div><small class="text-muted"><i
-                      class="bi bi-eye"></i> 1866 • <i class="bi bi-chat"></i> 9</small>
+                  <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#expressjs</a><a class="tag"
+                      href="hashtag.html">#angular</a><a class="tag" href="hashtag.html">#sequelize</a></div><small
+                    class="text-muted"><i class="bi bi-eye"></i> 1866 • <i class="bi bi-chat"></i> 9</small>
                 </div>
               </div>
             </div>
@@ -136,18 +137,20 @@
                     class="bi bi-bookmark"></i></button>
               </div>
               <div class="flex-grow-1">
-                <div class="d-flex align-items-center gap-2 mb-2"><span class="avatar-sm">S</span><small
-                    class="text-muted">Sơn Dev • 7 giờ trước • 5 phút đọc</small></div>
-                <h5 class="fw-bold"><a href="post-detail.html"
-                    class="text-decoration-none text-dark">Dùng interceptor để gắn access token</a></h5>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                    <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                  </a>
+                  <small class="text-muted">• 7 giờ trước • 5 phút đọc</small>
+                </div>
+                <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Dùng interceptor
+                    để gắn access token</a></h5>
                 <p class="text-muted mb-3">Bài viết hướng dẫn cách xây dựng blog từ database, backend ExpressJS đến
                   frontend Angular theo hướng module.</p>
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                  <div class="d-flex flex-wrap gap-2"><a class="tag"
-                      href="hashtag.html">#expressjs</a><a class="tag"
-                      href="hashtag.html">#angular</a><a class="tag"
-                      href="hashtag.html">#sequelize</a></div><small class="text-muted"><i
-                      class="bi bi-eye"></i> 1977 • <i class="bi bi-chat"></i> 10</small>
+                  <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#expressjs</a><a class="tag"
+                      href="hashtag.html">#angular</a><a class="tag" href="hashtag.html">#sequelize</a></div><small
+                    class="text-muted"><i class="bi bi-eye"></i> 1977 • <i class="bi bi-chat"></i> 10</small>
                 </div>
               </div>
             </div>
@@ -159,19 +162,37 @@
           <div class="card soft-card mb-3">
             <div class="card-body">
               <h6 class="fw-bold mb-3">Top Authors</h6>
-              <div class="d-flex align-items-center mb-3"><span class="avatar-sm me-2">A</span>
+              <div class="d-flex align-items-center mb-3">
+                <a href="../account/profile.html" class="text-decoration-none">
+                  <span class="avatar-sm me-2">A</span>
+                </a>
                 <div>
-                  <div class="fw-semibold">Author 1</div><small class="text-muted">113 followers</small>
+                  <a href="../account/profile.html" class="text-decoration-none text-dark">
+                    <div class="fw-semibold">Author 1</div>
+                  </a>
+                  <small class="text-muted">113 followers</small>
                 </div>
               </div>
-              <div class="d-flex align-items-center mb-3"><span class="avatar-sm me-2">B</span>
+              <div class="d-flex align-items-center mb-3">
+                <a href="../account/profile.html" class="text-decoration-none">
+                  <span class="avatar-sm me-2">B</span>
+                </a>
                 <div>
-                  <div class="fw-semibold">Author 2</div><small class="text-muted">106 followers</small>
+                  <a href="../account/profile.html" class="text-decoration-none text-dark">
+                    <div class="fw-semibold">Author 2</div>
+                  </a>
+                  <small class="text-muted">106 followers</small>
                 </div>
               </div>
-              <div class="d-flex align-items-center mb-3"><span class="avatar-sm me-2">C</span>
+              <div class="d-flex align-items-center mb-3">
+                <a href="../account/profile.html" class="text-decoration-none">
+                  <span class="avatar-sm me-2">C</span>
+                </a>
                 <div>
-                  <div class="fw-semibold">Author 3</div><small class="text-muted">99 followers</small>
+                  <a href="../account/profile.html" class="text-decoration-none text-dark">
+                    <div class="fw-semibold">Author 3</div>
+                  </a>
+                  <small class="text-muted">99 followers</small>
                 </div>
               </div>
             </div>
@@ -179,9 +200,8 @@
           <div class="card soft-card mb-3">
             <div class="card-body">
               <h6 class="fw-bold mb-3">Popular Tags</h6>
-              <div class="d-flex flex-wrap gap-2"><a href="hashtag.html" class="tag">#nodejs</a><a
-                  href="hashtag.html" class="tag">#angular</a><a
-                  href="hashtag.html" class="tag">#mysql</a><a href="hashtag.html"
+              <div class="d-flex flex-wrap gap-2"><a href="hashtag.html" class="tag">#nodejs</a><a href="hashtag.html"
+                  class="tag">#angular</a><a href="hashtag.html" class="tag">#mysql</a><a href="hashtag.html"
                   class="tag">#sequelize</a><a href="hashtag.html" class="tag">#jwt</a></div>
             </div>
           </div>
