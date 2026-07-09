@@ -108,7 +108,27 @@
                   value="son@example.com"></div>
               <div class="col-12"><label class="form-label">Bio</label><textarea class="form-control"
                   rows="4">Frontend/NodeJS intern learner.</textarea></div>
-            </div><button class="btn btn-primary mt-4">Lưu thay đổi</button>
+            </div><button class="btn btn-primary mt-4" data-bs-toggle="modal" data-bs-target="#saveSuccessModal">Lưu
+              thay đổi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save Success Modal -->
+    <div class="modal fade" id="saveSuccessModal" tabindex="-1" aria-labelledby="saveSuccessModalLabel"
+      aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="saveSuccessModalLabel">Thông báo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Đã lưu thay đổi thông tin cá nhân thành công!
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Đóng</button>
           </div>
         </div>
       </div>
