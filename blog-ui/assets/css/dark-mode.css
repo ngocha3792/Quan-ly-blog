@@ -1,0 +1,91 @@
+.dark-mode {
+    --bg: #11162d;
+    --card: #1a203f;
+    --text: #f8f9fa;
+    --muted: #8890ac;
+    --border: #2c3563;
+    --primary: #00e5ff;
+    background: var(--bg);
+    color: var(--text);
+}
+
+body.dark-mode {
+    background: linear-gradient(135deg, #3f2d6f 0%, #6f2d6f 100%) !important;
+    background-attachment: fixed !important;
+}
+
+.dark-mode .bg-white,
+.dark-mode .card,
+.dark-mode .table-card,
+.dark-mode .dashboard-header,
+.dark-mode footer,
+.dark-mode .navbar, 
+.dark-mode .nav-link, 
+.dark-mode .dashboard-content,
+.dark-mode .category-bar {
+    background: var(--card) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+.dark-mode .text-dark {
+    color: var(--text) !important;
+}
+
+.dark-mode .text-muted {
+    color: var(--muted) !important;
+}
+
+.dark-mode .bg-light,
+.dark-mode .demo-role-bar {
+    background: var(--border) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+.dark-mode .form-control,
+.dark-mode .input-group-text,
+.dark-mode .form-select,
+.dark-mode .comment-box {
+    background: var(--bg) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+.dark-mode .btn-primary {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: #000 !important;
+}
+
+.dark-mode .text-primary,
+.dark-mode .navbar-brand {
+    color: var(--primary) !important;
+}
+
+.dark-mode .tag,
+.dark-mode .category-pill,
+.dark-mode .category-badge,
+.dark-mode .btn-outline-secondary {
+    background-color: var(--border) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+.dark-mode .category-pill:hover,
+.dark-mode .category-pill.active {
+    background-color: var(--primary) !important;
+    color: #000 !important;
+}
+
+.dark-mode .post-title,
+.dark-mode a.text-dark {
+    color: var(--text) !important;
+}
+
+.dark-mode .post-title:hover,
+.dark-mode a.text-dark:hover,
+.dark-mode .sidebar-menu a:hover,
+.dark-mode .left-tag:hover {
+    color: var(--primary) !important;
+}

@@ -1,0 +1,160 @@
+/* Navbar & Search */
+.public-navbar {
+    backdrop-filter: blur(8px);
+}
+
+.search-box .form-control,
+.search-box .input-group-text {
+    border-color: #e9edf3;
+}
+
+/* Post Cards */
+.post-card {
+    border: 1px solid #edf0f3;
+    transition: 0.2s ease;
+}
+
+.post-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.post-card h5 {
+    line-height: 1.35;
+}
+
+.post-title {
+    color: #111827;
+    text-decoration: none;
+}
+
+.post-title:hover {
+    color: #0d6efd;
+}
+
+.post-thumb {
+    width: 130px;
+    height: 90px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #e5e7eb;
+}
+
+.vote-col {
+    width: 48px;
+    min-width: 48px;
+}
+
+/* Tags & Badges */
+.tag {
+    font-size: .82rem;
+    text-decoration: none;
+    color: #0b74de;
+    background: #eaf4ff;
+    border-radius: 999px;
+    padding: .25rem .6rem;
+}
+
+.category-badge {
+    display: inline-block;
+    text-decoration: none;
+    background: #eaf2ff;
+    color: #0d6efd;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+/* Category Bar */
+.category-bar {
+    padding: 14px 16px;
+    background: #fff;
+    border-radius: 14px;
+}
+
+.category-pill {
+    text-decoration: none;
+    color: #374151;
+    background: #f3f4f6;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: 0.2s;
+}
+
+.category-pill:hover,
+.category-pill.active {
+    background: #0d6efd;
+    color: #fff;
+}
+
+/* Hero Card */
+.hero-card {
+    background: linear-gradient(135deg, #0b74de, #17a2b8);
+    color: white;
+    border-radius: 22px;
+}
+
+/* Sidebar Elements */
+.public-sidebar {
+    position: sticky;
+    top: 110px;
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li {
+    margin-bottom: 10px;
+}
+
+.sidebar-menu a {
+    text-decoration: none;
+    color: #374151;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-menu a:hover {
+    color: #0d6efd;
+}
+
+.left-tag {
+    text-decoration: none;
+    color: #374151;
+    font-size: 14px;
+}
+
+.left-tag:hover {
+    color: #0d6efd;
+}
+
+/* Comments */
+.comment-box {
+    border-left: 3px solid #e5e7eb;
+    padding-left: 1rem;
+}
+
+/* Auth Card */
+.auth-card {
+    max-width: 460px;
+    margin: auto;
+}
+
+/* Responsive */
+@media(max-width:991px) {
+    .public-sidebar {
+        position: static;
+    }
+    .vote-col {
+        display: none;
+    }
+}

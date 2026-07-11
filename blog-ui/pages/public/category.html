@@ -9,9 +9,11 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="../../assets/css/style.css">
+  <link rel="stylesheet" href="../../assets/css/global.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/dark-mode.css">
 
 </head>
 
@@ -34,11 +36,12 @@
           <li class="nav-item"><a class="nav-link active fw-semibold" href="category.html">Danh mục</a></li>
           <li class="nav-item"><a class="nav-link " href="hashtag.html">Hashtag</a></li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-translate"></i>
-              VI</a>
+            <a class="nav-link dropdown-toggle d-flex align-items-center gap-1" href="#" data-bs-toggle="dropdown">
+              <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> VI
+            </a>
             <ul class="dropdown-menu dropdown-menu-end">
-              <li><a class="dropdown-item" href="#">Tiếng Việt</a></li>
-              <li><a class="dropdown-item" href="#">English</a></li>
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"><img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> Tiếng Việt</a></li>
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"><img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px;"> English</a></li>
             </ul>
           </li>
           <li class="nav-item"><button class="btn btn-sm btn-outline-secondary" data-theme-toggle><i
@@ -91,68 +94,187 @@
   <main class="container-xl py-4">
     <div class="row g-4">
       <div class="col-lg-8">
+        <!-- Header Danh mục -->
         <div class="card soft-card mb-3">
           <div class="card-body">
-            <h3 class="fw-bold">Danh mục: Backend</h3>
-            <p class="text-muted mb-0">Các bài viết thuộc danh mục Backend.</p>
+            <h3 class="fw-bold" id="category-title">Danh mục: Backend</h3>
+            <p class="text-muted mb-0" id="category-description">Các bài viết thuộc danh mục Backend.</p>
           </div>
         </div>
-        <article class="card post-card soft-card mb-3">
-          <div class="card-body">
-            <div class="d-flex gap-3">
-              <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
-                    class="bi bi-caret-up-fill"></i></button>
-                <div class="fw-bold">46</div><button class="btn btn-light btn-sm"><i
-                    class="bi bi-bookmark"></i></button>
-              </div>
-              <div class="flex-grow-1">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                  <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
-                    <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
-                  </a>
-                  <small class="text-muted">• 4 giờ trước • 5 phút đọc</small>
+
+        <div id="posts-wrapper">
+          <!-- Backend Posts -->
+          <div class="category-post-group" data-category="backend">
+            <article class="card post-card soft-card mb-3">
+              <div class="card-body">
+                <div class="d-flex gap-3">
+                  <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
+                        class="bi bi-caret-up-fill"></i></button>
+                    <div class="fw-bold">46</div><button class="btn btn-light btn-sm"><i
+                        class="bi bi-bookmark"></i></button>
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                        <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                      </a>
+                      <small class="text-muted">• 4 giờ trước • 5 phút đọc</small>
+                    </div>
+                    <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Express
+                        middleware, validator và format response</a></h5>
+                    <p class="text-muted mb-3">Bài viết hướng dẫn cách xây dựng blog từ database, backend ExpressJS đến
+                      frontend Angular theo hướng module.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#expressjs</a><a class="tag"
+                          href="hashtag.html">#angular</a><a class="tag" href="hashtag.html">#sequelize</a></div><small
+                        class="text-muted"><i class="bi bi-eye"></i> 1644 • <i class="bi bi-chat"></i> 7</small>
+                    </div>
+                  </div>
                 </div>
-                <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Express
-                    middleware, validator và format response</a></h5>
-                <p class="text-muted mb-3">Bài viết hướng dẫn cách xây dựng blog từ database, backend ExpressJS đến
-                  frontend Angular theo hướng module.</p>
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                  <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#expressjs</a><a class="tag"
-                      href="hashtag.html">#angular</a><a class="tag" href="hashtag.html">#sequelize</a></div><small
-                    class="text-muted"><i class="bi bi-eye"></i> 1644 • <i class="bi bi-chat"></i> 7</small>
+              </div>
+            </article>
+            <article class="card post-card soft-card mb-3">
+              <div class="card-body">
+                <div class="d-flex gap-3">
+                  <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
+                        class="bi bi-caret-up-fill"></i></button>
+                    <div class="fw-bold">47</div><button class="btn btn-light btn-sm"><i
+                        class="bi bi-bookmark"></i></button>
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                        <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                      </a>
+                      <small class="text-muted">• 5 giờ trước • 5 phút đọc</small>
+                    </div>
+                    <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Sequelize
+                        association cho Blog project</a></h5>
+                    <p class="text-muted mb-3">Bài viết hướng dẫn cách xây dựng blog từ database, backend ExpressJS đến
+                      frontend Angular theo hướng module.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#expressjs</a><a class="tag"
+                          href="hashtag.html">#angular</a><a class="tag" href="hashtag.html">#sequelize</a></div><small
+                        class="text-muted"><i class="bi bi-eye"></i> 1755 • <i class="bi bi-chat"></i> 8</small>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </article>
           </div>
-        </article>
-        <article class="card post-card soft-card mb-3">
-          <div class="card-body">
-            <div class="d-flex gap-3">
-              <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
-                    class="bi bi-caret-up-fill"></i></button>
-                <div class="fw-bold">47</div><button class="btn btn-light btn-sm"><i
-                    class="bi bi-bookmark"></i></button>
-              </div>
-              <div class="flex-grow-1">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                  <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
-                    <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
-                  </a>
-                  <small class="text-muted">• 5 giờ trước • 5 phút đọc</small>
+
+          <!-- Frontend Posts -->
+          <div class="category-post-group d-none" data-category="frontend">
+            <article class="card post-card soft-card mb-3">
+              <div class="card-body">
+                <div class="d-flex gap-3">
+                  <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
+                        class="bi bi-caret-up-fill"></i></button>
+                    <div class="fw-bold">43</div><button class="btn btn-light btn-sm"><i
+                        class="bi bi-bookmark"></i></button>
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                        <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                      </a>
+                      <small class="text-muted">• 2 giờ trước • 5 phút đọc</small>
+                    </div>
+                    <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Angular Standalone Component và Single Page Application</a></h5>
+                    <p class="text-muted mb-3">Hướng dẫn cấu hình dự án Angular sử dụng Standalone Component để tối ưu hóa hiệu năng và đơn giản hóa cấu trúc thư mục.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#angular</a><a class="tag"
+                          href="hashtag.html">#frontend</a><a class="tag" href="hashtag.html">#standalone</a></div><small
+                        class="text-muted"><i class="bi bi-eye"></i> 1205 • <i class="bi bi-chat"></i> 3</small>
+                    </div>
+                  </div>
                 </div>
-                <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Sequelize
-                    association cho Blog project</a></h5>
-                <p class="text-muted mb-3">Bài viết hướng dẫn cách xây dựng blog từ database, backend ExpressJS đến
-                  frontend Angular theo hướng module.</p>
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                  <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#expressjs</a><a class="tag"
-                      href="hashtag.html">#angular</a><a class="tag" href="hashtag.html">#sequelize</a></div><small
-                    class="text-muted"><i class="bi bi-eye"></i> 1755 • <i class="bi bi-chat"></i> 8</small>
+              </div>
+            </article>
+            <article class="card post-card soft-card mb-3">
+              <div class="card-body">
+                <div class="d-flex gap-3">
+                  <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
+                        class="bi bi-caret-up-fill"></i></button>
+                    <div class="fw-bold">39</div><button class="btn btn-light btn-sm"><i
+                        class="bi bi-bookmark"></i></button>
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                        <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                      </a>
+                      <small class="text-muted">• 3 giờ trước • 5 phút đọc</small>
+                    </div>
+                    <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Tối ưu hóa CSS với Variable và Dark Mode</a></h5>
+                    <p class="text-muted mb-3">Cách sử dụng CSS custom properties (variables) để xây dựng hệ thống design token hỗ trợ Light/Dark mode mượt mà.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#css</a><a class="tag"
+                          href="hashtag.html">#frontend</a><a class="tag" href="hashtag.html">#darkmode</a></div><small
+                        class="text-muted"><i class="bi bi-eye"></i> 988 • <i class="bi bi-chat"></i> 5</small>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </article>
           </div>
-        </article>
+
+          <!-- Database Posts -->
+          <div class="category-post-group d-none" data-category="database">
+            <article class="card post-card soft-card mb-3">
+              <div class="card-body">
+                <div class="d-flex gap-3">
+                  <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
+                        class="bi bi-caret-up-fill"></i></button>
+                    <div class="fw-bold">55</div><button class="btn btn-light btn-sm"><i
+                        class="bi bi-bookmark"></i></button>
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                        <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                      </a>
+                      <small class="text-muted">• 1 ngày trước • 8 phút đọc</small>
+                    </div>
+                    <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Thiết kế Cấu trúc Database cho Hệ thống Blog Đa Ngôn Ngữ</a></h5>
+                    <p class="text-muted mb-3">Phân tích các giải pháp thiết kế cơ sở dữ liệu cho phép dịch nội dung bài viết sang nhiều ngôn ngữ khác nhau.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#mysql</a><a class="tag"
+                          href="hashtag.html">#database</a><a class="tag" href="hashtag.html">#translation</a></div><small
+                        class="text-muted"><i class="bi bi-eye"></i> 2100 • <i class="bi bi-chat"></i> 12</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+            <article class="card post-card soft-card mb-3">
+              <div class="card-body">
+                <div class="d-flex gap-3">
+                  <div class="vote-col text-center"><button class="btn btn-light btn-sm like-btn"><i
+                        class="bi bi-caret-up-fill"></i></button>
+                    <div class="fw-bold">62</div><button class="btn btn-light btn-sm"><i
+                        class="bi bi-bookmark"></i></button>
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <a href="../account/profile.html" class="text-decoration-none d-flex align-items-center gap-2">
+                        <span class="avatar-sm">S</span><span class="small text-dark fw-medium">Sơn Dev</span>
+                      </a>
+                      <small class="text-muted">• 2 ngày trước • 6 phút đọc</small>
+                    </div>
+                    <h5 class="fw-bold"><a href="post-detail.html" class="text-decoration-none text-dark">Tối ưu hóa Query với Indexing trong MySQL</a></h5>
+                    <p class="text-muted mb-3">Hướng dẫn chi tiết cách sử dụng Index trong MySQL để tăng tốc độ truy vấn cơ sở dữ liệu lên gấp 10 lần.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <div class="d-flex flex-wrap gap-2"><a class="tag" href="hashtag.html">#mysql</a><a class="tag"
+                          href="hashtag.html">#database</a><a class="tag" href="hashtag.html">#indexing</a></div><small
+                        class="text-muted"><i class="bi bi-eye"></i> 3422 • <i class="bi bi-chat"></i> 15</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
       </div>
       <div class="col-lg-4">
         <aside class="public-sidebar">
@@ -194,6 +316,28 @@
               </div>
             </div>
           </div>
+          
+          <!-- Hộp chọn danh mục -->
+          <div class="card soft-card mb-3">
+            <div class="card-body">
+              <h6 class="fw-bold mb-3">Danh mục</h6>
+              <div class="list-group list-group-flush gap-1" id="category-list">
+                <a href="category.html?cat=frontend" class="list-group-item list-group-item-action border-0 rounded d-flex justify-content-between align-items-center" data-cat="frontend">
+                  <span><i class="bi bi-laptop me-2"></i>Frontend</span>
+                  <span class="badge bg-light text-dark rounded-pill">2</span>
+                </a>
+                <a href="category.html?cat=backend" class="list-group-item list-group-item-action border-0 rounded d-flex justify-content-between align-items-center" data-cat="backend">
+                  <span><i class="bi bi-server me-2"></i>Backend</span>
+                  <span class="badge bg-light text-dark rounded-pill">2</span>
+                </a>
+                <a href="category.html?cat=database" class="list-group-item list-group-item-action border-0 rounded d-flex justify-content-between align-items-center" data-cat="database">
+                  <span><i class="bi bi-database me-2"></i>Database</span>
+                  <span class="badge bg-light text-dark rounded-pill">2</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
           <div class="card soft-card mb-3">
             <div class="card-body">
               <h6 class="fw-bold mb-3">Popular Tags</h6>
@@ -222,6 +366,67 @@
   </footer>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../assets/js/main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const categoryData = {
+        frontend: {
+          title: "Danh mục: Frontend",
+          desc: "Các bài viết thuộc danh mục Frontend."
+        },
+        backend: {
+          title: "Danh mục: Backend",
+          desc: "Các bài viết thuộc danh mục Backend."
+        },
+        database: {
+          title: "Danh mục: Database",
+          desc: "Các bài viết thuộc danh mục Database."
+        }
+      };
+
+      function switchCategory(cat) {
+        if (!categoryData[cat]) cat = "backend";
+        
+        // Update Title & Desc
+        document.getElementById("category-title").innerText = categoryData[cat].title;
+        document.getElementById("category-description").innerText = categoryData[cat].desc;
+        
+        // Hide all post groups, show selected
+        document.querySelectorAll(".category-post-group").forEach(group => {
+          if (group.getAttribute("data-category") === cat) {
+            group.classList.remove("d-none");
+          } else {
+            group.classList.add("d-none");
+          }
+        });
+        
+        // Update active class in sidebar selector
+        document.querySelectorAll("#category-list a").forEach(link => {
+          if (link.getAttribute("data-cat") === cat) {
+            link.classList.add("active");
+          } else {
+            link.classList.remove("active");
+          }
+        });
+      }
+
+      // Add click listener
+      document.querySelectorAll("#category-list a").forEach(link => {
+        link.addEventListener("click", function(e) {
+          e.preventDefault();
+          const cat = this.getAttribute("data-cat");
+          // Update URL without reload
+          const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?cat=' + cat;
+          window.history.pushState({path:newUrl}, '', newUrl);
+          switchCategory(cat);
+        });
+      });
+
+      // Init on load
+      const urlParams = new URLSearchParams(window.location.search);
+      const initialCat = urlParams.get('cat') || 'backend';
+      switchCategory(initialCat);
+    });
+  </script>
 </body>
 
 </html>
