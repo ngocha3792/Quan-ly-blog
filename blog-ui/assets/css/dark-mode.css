@@ -379,3 +379,9 @@ body.dark-mode {
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important; /* Viền xanh khi đang gõ */
 }
 
+/* Fix màu chữ placeholder (Email, Mật khẩu...) cho dễ nhìn */
+.dark-mode .form-control::placeholder,
+[data-bs-theme="dark"] .form-control::placeholder {
+    color: #a1a5b7 !important;
+    opacity: 1 !important;
+}
