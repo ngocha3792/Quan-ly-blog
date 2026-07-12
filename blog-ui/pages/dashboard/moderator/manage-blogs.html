@@ -38,9 +38,9 @@
             data-theme-toggle><i class="bi bi-moon-stars"></i></button><span class="avatar-sm">S</span></div>
       </header>
       <section class="dashboard-content">
-        <div class="table-card">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+        <div class="card table-card border-0 shadow-sm">
+          <table class="table align-middle mb-0 table-hover">
+            <thead>
               <tr>
                 <th>Blog</th>
                 <th>Author</th>
@@ -50,9 +50,9 @@
             </thead>
             <tbody>
               <tr>
-                <td>Bài viết spam</td>
+                <td class="fw-medium">Bài viết spam</td>
                 <td>User A</td>
-                <td>Spam link</td>
+                <td><span class="badge bg-danger-subtle text-danger-emphasis">Spam link</span></td>
                 <td>
                   <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Xóa"
                     onclick="return confirm('Bạn có chắc chắn muốn xóa bài viết này không?');">
@@ -65,9 +65,9 @@
                 </td>
               </tr>
               <tr>
-                <td>Nội dung sai chuẩn</td>
+                <td class="fw-medium">Nội dung sai chuẩn</td>
                 <td>Owner B</td>
-                <td>Vi phạm</td>
+                <td><span class="badge bg-warning-subtle text-warning-emphasis">Vi phạm</span></td>
                 <td>
                   <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Xóa"
                     onclick="return confirm('Bạn có chắc chắn muốn xóa bài viết này không?');">

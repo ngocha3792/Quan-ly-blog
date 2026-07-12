@@ -92,7 +92,7 @@
 
       <div class="alert alert-danger d-none" id="error-alert">
         <i class="bi bi-exclamation-triangle-fill me-2"></i>
-        <span id="error-msg">Email hoặc máº­t khẩu không chính xác!</span>
+        <span id="error-msg">Email hoặc mật khẩu không chính xác!</span>
       </div>
 
       <form id="manager-login-form" onsubmit="handleManagerLogin(event)">
@@ -112,11 +112,11 @@
           </div>
         </div>
 
-        <button type="submit" class="btn btn-manager w-100 py-2.5 mb-3">ÄÄƒng nháº­p</button>
+        <button type="submit" class="btn btn-manager w-100 py-2.5 mb-3">Đăng nhập</button>
 
         <div class="text-center">
           <a href="../public/index.html" class="text-decoration-none text-secondary small hover-text-white transition">
-            <i class="bi bi-arrow-left me-1"></i> Quay lại trang chá»§
+            <i class="bi bi-arrow-left me-1"></i> Quay lại trang chủ
           </a>
         </div>
       </form>
@@ -147,7 +147,7 @@
         localStorage.setItem('demoUserName', 'Super Admin');
         window.location.href = 'admin/dashboard.html';
       } else {
-        errorMsg.innerText = "Email hoặc máº­t khẩu không chính xác hoặc không có quyá»n truy cập quản lý!";
+        errorMsg.innerText = "Email hoặc mật khẩu không chính xác hoặc không có quyền truy cập quản lý!";
         errorAlert.classList.remove('d-none');
       }
     }
