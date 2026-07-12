@@ -27,34 +27,40 @@
       <a class="active" href="manage-categories.html"><i class="bi bi-folder"></i>Quản lý categories</a>
       <hr class="border-secondary">
       <a href="../../public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+       <a href="../../public/auth.html" class="text-danger" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+        <i class="bi bi-box-arrow-right"></i>Đăng xuất
+      </a>
     </aside>
 
     <main class="dashboard-main">
       <header class="dashboard-header">
         <div><strong>Manage Categories</strong>
-          <div class="small text-muted">Moderator dashboard</div>
+          <div class="small text-muted">Quản lý danh mục</div>
         </div>
         <div class="d-flex align-items-center gap-2">
           <button class="btn btn-sm btn-outline-secondary" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
           <span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
         </div>
       </header>
 
       <section class="dashboard-content">
         <div class="d-flex justify-content-between mb-3">
-          <h3 class="fw-bold">Categories</h3>
+          <h3 class="fw-bold">Danh mục</h3>
           <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">Thêm
-            category</button>
+            danh mục</button>
         </div>
 
         <div class="card table-card border-0 shadow-sm">
           <table class="table align-middle mb-0 table-hover">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Language</th>
-                <th>Posts</th>
-                <th>Action</th>
+                <th>Tên</th>
+                <th>Ngôn ngữ</th>
+                <th>Bài viết</th>
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>

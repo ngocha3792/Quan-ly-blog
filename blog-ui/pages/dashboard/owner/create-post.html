@@ -50,17 +50,23 @@
       <a class="active" href="create-post.html"><i class="bi bi-plus-circle"></i>Tạo bài viết</a>
       <hr class="border-secondary">
       <a href="../../public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+      <a href="../../public/auth.html" class="text-danger" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+        <i class="bi bi-box-arrow-right"></i>Đăng xuất
+      </a>
     </aside>
     <main class="dashboard-main">
       <header class="dashboard-header">
         <div><strong>Create Post</strong>
-          <div class="small text-muted">Owner dashboard</div>
+          <div class="small text-muted">Tạo bài viết mới</div>
         </div>
         <div class="d-flex align-items-center gap-2">
           <button class="btn btn-sm btn-outline-secondary" data-theme-toggle>
             <i class="bi bi-moon-stars"></i>
           </button>
           <span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
         </div>
       </header>
 
@@ -72,12 +78,12 @@
             <form id="postForm">
               <div class="row g-3">
                 <div class="col-md-8">
-                  <label class="form-label">Title <span class="text-danger">*</span></label>
+                  <label class="form-label">Tiêu đề<span class="text-danger">*</span></label>
                   <input type="text" id="postTitle" class="form-control" placeholder="Nhập tiêu đề..." required>
                 </div>
                 
                 <div class="col-md-4">
-                  <label class="form-label">Language</label>
+                  <label class="form-label">Ngôn ngữ</label>
                   <div class="dropdown">
                     <button id="langDropdownBtn" class="form-select text-start d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                       <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> <span>VI</span>
@@ -90,7 +96,7 @@
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Categories</label>
+                  <label class="form-label">Danh mục</label>
                   <select id="postCategories" class="form-select" multiple style="height: 100px;">
                     <option value="Backend" selected>Backend</option>
                     <option value="Frontend">Frontend</option>

@@ -25,18 +25,24 @@
       <a class="" href="create-post.html"><i class="bi bi-plus-circle"></i>Tạo bài viết</a>
       <hr class="border-secondary">
       <a href="../../public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+      <a href="../../public/auth.html" class="text-danger" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+        <i class="bi bi-box-arrow-right"></i>Đăng xuất
+      </a>
     </aside>
     
     <main class="dashboard-main">
       <header class="dashboard-header">
         <div><strong>Manage My Posts</strong>
-          <div class="small text-muted">Owner dashboard</div>
+          <div class="small text-muted">Quản lý bài viết của bạn</div>
         </div>
         <div class="d-flex align-items-center gap-2">
           <button class="btn btn-sm btn-outline-secondary" data-theme-toggle>
             <i class="bi bi-moon-stars"></i>
           </button>
           <span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
         </div>
       </header>
       
@@ -51,11 +57,11 @@
           <table class="table align-middle mb-0 table-hover-custom">
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Language</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th>Tiêu đề</th>
+                <th>Danh mục</th>
+                <th>Ngôn ngữ</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
