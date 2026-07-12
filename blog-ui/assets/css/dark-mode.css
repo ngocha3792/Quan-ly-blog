@@ -128,6 +128,32 @@ body.dark-mode {
     color: var(--muted) !important;
 }
 
+/* Hover & Active states cho thanh công cụ Quill */
+.dark-mode .ql-snow .ql-toolbar button:hover .ql-stroke,
+.dark-mode .ql-snow .ql-toolbar button.ql-active .ql-stroke,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-label:hover .ql-stroke,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-label.ql-active .ql-stroke,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-item:hover .ql-stroke,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-item.ql-selected .ql-stroke {
+    stroke: var(--primary) !important;
+}
+
+.dark-mode .ql-snow .ql-toolbar button:hover .ql-fill,
+.dark-mode .ql-snow .ql-toolbar button.ql-active .ql-fill,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-label:hover .ql-fill,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-label.ql-active .ql-fill,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-item:hover .ql-fill,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-item.ql-selected .ql-fill {
+    fill: var(--primary) !important;
+}
+
+.dark-mode .ql-snow .ql-toolbar .ql-picker-label:hover,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-label.ql-active,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-item:hover,
+.dark-mode .ql-snow .ql-toolbar .ql-picker-item.ql-selected {
+    color: var(--primary) !important;
+}
+
 #category-list .list-group-item.active .badge {
   background-color: var(--bs-body-bg) !important;
   color: var(--bs-primary) !important;
