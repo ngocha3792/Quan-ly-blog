@@ -385,3 +385,24 @@ body.dark-mode {
     color: #a1a5b7 !important;
     opacity: 1 !important;
 }
+
+[data-bs-theme="dark"] .profile-nav .list-group-item,
+    [data-theme="dark"] .profile-nav .list-group-item,
+    body.dark-mode .profile-nav .list-group-item {
+        color: #a1a1aa !important; /* Chữ xám sáng cho mục chưa chọn (dễ đọc) */
+    }
+
+    [data-bs-theme="dark"] .profile-nav .list-group-item:hover,
+    [data-theme="dark"] .profile-nav .list-group-item:hover,
+    body.dark-mode .profile-nav .list-group-item:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: #ffffff !important; /* Chữ trắng sáng lên khi hover */
+    }
+
+    [data-bs-theme="dark"] .profile-nav .list-group-item.active,
+    [data-theme="dark"] .profile-nav .list-group-item.active,
+    body.dark-mode .profile-nav .list-group-item.active {
+        background-color: rgba(13, 110, 253, 0.15) !important; /* Nền xanh lam nhạt, trong suốt */
+        color: #6ea8fe !important; /* Chữ xanh lam sáng rõ */
+        border-right: 3px solid #6ea8fe !important;
+    }
