@@ -49,9 +49,9 @@
           </button>
         </div>
 
-        <div class="table-card">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+        <div class="card table-card border-0 shadow-sm">
+          <table class="table align-middle mb-0 table-hover">
+            <thead>
               <tr>
                 <th>Code</th>
                 <th>Name</th>
@@ -63,7 +63,7 @@
             <tbody>
               <tr>
                 <td class="fw-bold text-uppercase">vi</td>
-                <td>Tiếng Việt</td>
+                <td><img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px; border-radius: 2px;" class="me-2">Tiếng Việt</td>
                 <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1"><i
                       class="bi bi-star-fill me-1"></i> Default</span></td>
                 <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
@@ -80,7 +80,7 @@
               </tr>
               <tr>
                 <td class="fw-bold text-uppercase">en</td>
-                <td>English</td>
+                <td><img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px; border-radius: 2px;" class="me-2">English</td>
                 <td><span class="text-muted">-</span></td>
                 <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
                 <td>
@@ -96,7 +96,7 @@
               </tr>
               <tr>
                 <td class="fw-bold text-uppercase">ja</td>
-                <td>Japanese</td>
+                <td><img src="https://flagcdn.com/w20/jp.png" alt="JP" style="width: 20px; border-radius: 2px;" class="me-2">Japanese</td>
                 <td><span class="text-muted">-</span></td>
                 <td><span class="badge bg-secondary rounded-pill px-3 py-2">INACTIVE</span></td>
                 <td>
@@ -119,7 +119,7 @@
 
   <div class="modal fade" id="addLanguageModal" tabindex="-1" aria-labelledby="addLanguageModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title fw-bold" id="addLanguageModalLabel">Thêm Ngôn ngữ mới</h5>
@@ -127,6 +127,27 @@
         </div>
         <div class="modal-body">
           <form id="formAddLanguage">
+            
+            <div class="mb-3">
+              <label class="form-label">Quốc gia (Cờ)</label>
+              <div class="dropdown">
+                <button class="btn btn-outline-secondary w-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" id="addFlagBtn">
+                  <span class="d-flex align-items-center gap-2"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px; border-radius: 2px;"> Vietnam (VN)</span>
+                  <i class="bi bi-chevron-down"></i>
+                </button>
+                <ul class="dropdown-menu w-100 shadow" id="addFlagOptions" style="max-height: 250px; overflow-y: auto;">
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="vn" data-name="Vietnam (VN)"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px;"> Vietnam (VN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="us" data-name="English (US)"><img src="https://flagcdn.com/w20/us.png" style="width: 20px;"> English (US)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="gb" data-name="English (UK)"><img src="https://flagcdn.com/w20/gb.png" style="width: 20px;"> English (UK)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="jp" data-name="Japan (JP)"><img src="https://flagcdn.com/w20/jp.png" style="width: 20px;"> Japan (JP)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="kr" data-name="South Korea (KR)"><img src="https://flagcdn.com/w20/kr.png" style="width: 20px;"> South Korea (KR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="cn" data-name="China (CN)"><img src="https://flagcdn.com/w20/cn.png" style="width: 20px;"> China (CN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="fr" data-name="France (FR)"><img src="https://flagcdn.com/w20/fr.png" style="width: 20px;"> France (FR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="de" data-name="Germany (DE)"><img src="https://flagcdn.com/w20/de.png" style="width: 20px;"> Germany (DE)</a></li>
+                </ul>
+              </div>
+            </div>
+
             <div class="mb-3">
               <label for="langCode" class="form-label">Mã ngôn ngữ (Code)</label>
               <input type="text" class="form-control" id="langCode" placeholder="VD: vi, en, fr..." required>
@@ -145,8 +166,8 @@
             </div>
           </form>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
           <button type="submit" form="formAddLanguage" class="btn btn-primary">Lưu ngôn ngữ</button>
         </div>
       </div>
@@ -155,7 +176,7 @@
 
   <div class="modal fade" id="editLanguageModal" tabindex="-1" aria-labelledby="editLanguageModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title fw-bold" id="editLanguageModalLabel">Chỉnh sửa Ngôn ngữ</h5>
@@ -163,6 +184,27 @@
         </div>
         <div class="modal-body">
           <form id="formEditLanguage">
+            
+            <div class="mb-3">
+              <label class="form-label">Quốc gia (Cờ)</label>
+              <div class="dropdown">
+                <button class="btn btn-outline-secondary w-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" id="editFlagBtn">
+                  <span class="d-flex align-items-center gap-2"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px; border-radius: 2px;"> Vietnam (VN)</span>
+                  <i class="bi bi-chevron-down"></i>
+                </button>
+                <ul class="dropdown-menu w-100 shadow" id="editFlagOptions" style="max-height: 250px; overflow-y: auto;">
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="vn" data-name="Vietnam (VN)"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px;"> Vietnam (VN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="us" data-name="English (US)"><img src="https://flagcdn.com/w20/us.png" style="width: 20px;"> English (US)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="gb" data-name="English (UK)"><img src="https://flagcdn.com/w20/gb.png" style="width: 20px;"> English (UK)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="jp" data-name="Japan (JP)"><img src="https://flagcdn.com/w20/jp.png" style="width: 20px;"> Japan (JP)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="kr" data-name="South Korea (KR)"><img src="https://flagcdn.com/w20/kr.png" style="width: 20px;"> South Korea (KR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="cn" data-name="China (CN)"><img src="https://flagcdn.com/w20/cn.png" style="width: 20px;"> China (CN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="fr" data-name="France (FR)"><img src="https://flagcdn.com/w20/fr.png" style="width: 20px;"> France (FR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="de" data-name="Germany (DE)"><img src="https://flagcdn.com/w20/de.png" style="width: 20px;"> Germany (DE)</a></li>
+                </ul>
+              </div>
+            </div>
+
             <div class="mb-3">
               <label for="editLangCode" class="form-label">Mã ngôn ngữ (Code)</label>
               <input type="text" class="form-control" id="editLangCode" value="vi" required>
@@ -182,13 +224,66 @@
           </form>
         </div>
         <div class="modal-footer border-top-0">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
           <button type="submit" form="formEditLanguage" class="btn btn-primary">Cập nhật</button>
         </div>
       </div>
     </div>
   </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      
+      // 1. Logic thay đổi cờ khi chọn trong Dropdown
+      function setupFlagDropdown(optionsId, btnId) {
+        const options = document.querySelectorAll(`#${optionsId} .dropdown-item`);
+        const btn = document.getElementById(btnId);
+        
+        options.forEach(item => {
+          item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const flag = this.getAttribute('data-flag');
+            const name = this.getAttribute('data-name');
+            // Gán lại nội dung HTML cho nút bấm
+            btn.innerHTML = `<span class="d-flex align-items-center gap-2"><img src="https://flagcdn.com/w20/${flag}.png" style="width: 20px; border-radius: 2px;"> ${name}</span><i class="bi bi-chevron-down"></i>`;
+          });
+        });
+      }
 
+      setupFlagDropdown('addFlagOptions', 'addFlagBtn');
+      setupFlagDropdown('editFlagOptions', 'editFlagBtn');
+
+      // 2. Fix triệt để lỗi kẹt màn hình đen khi Lưu
+      const formAdd = document.getElementById('formAddLanguage');
+      if (formAdd) {
+        formAdd.addEventListener('submit', function (e) {
+          e.preventDefault(); 
+          
+          // Mẹo: Dùng JS bấm thẳng vào nút [X] (Close) để kích hoạt chuẩn tiến trình đóng của Bootstrap
+          document.querySelector('#addLanguageModal .btn-close').click();
+          
+          // Đợi 350ms cho hiệu ứng đóng chạy xong rồi mới thả Alert
+          setTimeout(() => {
+            alert('Mock: Đã thêm Ngôn ngữ thành công!');
+            formAdd.reset(); // Xóa sạch dữ liệu vừa nhập
+          }, 350);
+        });
+      }
+
+      const formEdit = document.getElementById('formEditLanguage');
+      if (formEdit) {
+        formEdit.addEventListener('submit', function (e) {
+          e.preventDefault(); 
+          
+          document.querySelector('#editLanguageModal .btn-close').click();
+          
+          setTimeout(() => {
+            alert('Mock: Cập nhật Ngôn ngữ thành công!');
+          }, 350);
+        });
+      }
+
+    });
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../../assets/js/main.js"></script>
 </body>
