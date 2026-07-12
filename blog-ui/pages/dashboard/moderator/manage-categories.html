@@ -9,9 +9,12 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="../../../assets/css/style.css">
+  <link rel="stylesheet" href="../../../assets/css/global.css">
+  <link rel="stylesheet" href="../../../assets/css/components.css">
+  <link rel="stylesheet" href="../../../assets/css/dashboard.css">
+  <link rel="stylesheet" href="../../../assets/css/dark-mode.css">
 </head>
 
 <body class="dashboard-body">
@@ -44,9 +47,9 @@
             category</button>
         </div>
 
-        <div class="table-card">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+        <div class="card table-card border-0 shadow-sm">
+          <table class="table align-middle mb-0 table-hover">
+            <thead>
               <tr>
                 <th>Name</th>
                 <th>Language</th>
@@ -56,8 +59,12 @@
             </thead>
             <tbody>
               <tr>
-                <td>Backend</td>
-                <td>VI</td>
+                <td class="fw-medium">Backend</td>
+                <td>
+                  <span class="badge bg-light text-dark border lang-badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1">
+                    <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 16px; border-radius: 2px;"> VI
+                  </span>
+                </td>
                 <td>24</td>
                 <td>
                   <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
@@ -71,8 +78,12 @@
                 </td>
               </tr>
               <tr>
-                <td>Frontend</td>
-                <td>VI</td>
+                <td class="fw-medium">Frontend</td>
+                <td>
+                  <span class="badge bg-light text-dark border lang-badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1">
+                    <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 16px; border-radius: 2px;"> VI
+                  </span>
+                </td>
                 <td>18</td>
                 <td>
                   <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
@@ -86,8 +97,12 @@
                 </td>
               </tr>
               <tr>
-                <td>Database</td>
-                <td>EN</td>
+                <td class="fw-medium">Database</td>
+                <td>
+                  <span class="badge bg-light text-dark border lang-badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1">
+                    <img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 16px; border-radius: 2px;"> EN
+                  </span>
+                </td>
                 <td>9</td>
                 <td>
                   <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
@@ -103,16 +118,18 @@
             </tbody>
           </table>
         </div>
+          </table>
+        </div>
       </section>
     </main>
   </div>
 // Form khi bấm vào nút hình bút chì(Chỉnh sửa Category) trên Action
   <div class="modal fade" id="editCategoryModal" tabindex="-1" aria-labelledby="editCategoryModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="editCategoryModalLabel">Chỉnh sửa Category</h5>
+          <h5 class="modal-title fw-bold" id="editCategoryModalLabel">Chỉnh sửa Category</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -130,21 +147,20 @@
             </div>
           </form>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-          <button type="submit" form="formEditCategory" class="btn btn-warning text-dark">Cập nhật</button>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" form="formEditCategory" class="btn btn-primary">Cập nhật</button>
         </div>
       </div>
     </div>
   </div>
- // Form khi bấm vào nút Thêm Category
-  
+// Form khi bấm vào nút Thêm Category
   <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="addCategoryModalLabel">Thêm Category Mới</h5>
+          <h5 class="modal-title fw-bold" id="addCategoryModalLabel">Thêm Category Mới</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -162,8 +178,8 @@
             </div>
           </form>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
           <button type="submit" form="formAddCategory" class="btn btn-primary">Lưu Category</button>
         </div>
       </div>
@@ -172,5 +188,49 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../../assets/js/main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      
+      // 1. Xử lý Form Thêm Category
+      const formAdd = document.getElementById('formAddCategory');
+      if (formAdd) {
+        formAdd.addEventListener('submit', function (e) {
+          e.preventDefault(); // CHẶN HÀNH VI LOAD LẠI TRANG GÂY LỖI 404
+          
+          // Lấy tên category vừa nhập để in ra thông báo cho xịn
+          const catName = document.getElementById('categoryName').value;
+          
+          // Đóng Modal Thêm
+          const addModalEl = document.getElementById('addCategoryModal');
+          const addModal = bootstrap.Modal.getInstance(addModalEl) || new bootstrap.Modal(addModalEl);
+          addModal.hide();
+
+          // Hiện thông báo Mock
+          alert(`Mock: Đã thêm Category "${catName}" thành công!`);
+          
+          // Xóa trắng form để lần sau mở lên nhập tiếp
+          formAdd.reset();
+        });
+      }
+
+      // 2. Xử lý Form Cập nhật Category (để không bị dính lỗi tương tự)
+      const formEdit = document.getElementById('formEditCategory');
+      if (formEdit) {
+        formEdit.addEventListener('submit', function (e) {
+          e.preventDefault(); // CHẶN LỖI 404
+          
+          // Đóng Modal Sửa
+          const editModalEl = document.getElementById('editCategoryModal');
+          const editModal = bootstrap.Modal.getInstance(editModalEl) || new bootstrap.Modal(editModalEl);
+          editModal.hide();
+
+          // Hiện thông báo Mock
+          alert('Mock: Cập nhật Category thành công!');
+        });
+      }
+
+    });
+  </script>
+  
 </body>
 </html>

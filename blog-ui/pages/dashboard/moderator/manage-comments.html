@@ -9,9 +9,12 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="../../../assets/css/style.css">
+  <link rel="stylesheet" href="../../../assets/css/global.css">
+  <link rel="stylesheet" href="../../../assets/css/components.css">
+  <link rel="stylesheet" href="../../../assets/css/dashboard.css">
+  <link rel="stylesheet" href="../../../assets/css/dark-mode.css">
 
 </head>
 
@@ -36,9 +39,9 @@
       </header>
 
       <section class="dashboard-content">
-        <div class="table-card">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+        <div class="card table-card border-0 shadow-sm">
+          <table class="table align-middle mb-0 table-hover">
+            <thead>
               <tr>
                 <th>Comment</th>
                 <th>User</th>
@@ -48,9 +51,9 @@
             </thead>
             <tbody>
               <tr>
-                <td>Bình luận không phù hợp</td>
+                <td class="fw-medium">Bình luận không phù hợp</td>
                 <td>User C</td>
-                <td>Angular Guard</td>
+                <td><a href="#" class="text-decoration-none">Angular Guard</a></td>
                 <td>
                   <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
                     onclick="return confirm('Bạn có chắc chắn muốn xóa bình luận này không?');">
@@ -59,9 +62,9 @@
                 </td>
               </tr>
               <tr>
-                <td>Spam hashtag</td>
+                <td class="fw-medium">Spam hashtag</td>
                 <td>User D</td>
-                <td>NodeJS API</td>
+                <td><a href="#" class="text-decoration-none">NodeJS API</a></td>
                 <td>
                   <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
                     onclick="return confirm('Bạn có chắc chắn muốn xóa bình luận này không?');">
