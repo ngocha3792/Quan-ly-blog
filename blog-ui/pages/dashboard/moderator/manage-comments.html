@@ -9,8 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../../assets/css/global.css">
   <link rel="stylesheet" href="../../../assets/css/components.css">
   <link rel="stylesheet" href="../../../assets/css/dashboard.css">
@@ -22,20 +21,26 @@
   <div class="dashboard-shell">
     <aside class="dashboard-sidebar">
       <h4 class="text-white fw-bold mb-4"><i class="bi bi-braces-asterisk me-2"></i>DevBlog</h4><a class=""
-        href="dashboard.html"><i class="bi bi-speedometer2"></i>Dashboard</a><a
-        class="" href="manage-blogs.html"><i class="bi bi-journal-text"></i>Quản lý blogs</a><a class="active"
-        href="manage-comments.html"><i class="bi bi-chat-left-text"></i>Quản lý
+        href="dashboard.html"><i class="bi bi-speedometer2"></i>Dashboard</a><a class="" href="manage-blogs.html"><i
+          class="bi bi-journal-text"></i>Quản lý blogs</a><a class="active" href="manage-comments.html"><i
+          class="bi bi-chat-left-text"></i>Quản lý
         comments</a><a class="" href="manage-categories.html"><i class="bi bi-folder"></i>Quản lý categories</a>
       <hr class="border-secondary"><a href="../../public/index.html"><i class="bi bi-house"></i>Về trang
         public</a>
+         <a href="../../public/auth.html" class="text-danger" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+        <i class="bi bi-box-arrow-right"></i>Đăng xuất
+      </a>
     </aside>
     <main class="dashboard-main">
       <header class="dashboard-header">
         <div><strong>Manage Comments</strong>
-          <div class="small text-muted">Moderator dashboard</div>
+          <div class="small text-muted">Quản lý bình luận</div>
         </div>
         <div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-outline-secondary"
-            data-theme-toggle><i class="bi bi-moon-stars"></i></button><span class="avatar-sm">S</span></div>
+            data-theme-toggle><i class="bi bi-moon-stars"></i></button><span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a></div>
       </header>
 
       <section class="dashboard-content">
@@ -43,10 +48,10 @@
           <table class="table align-middle mb-0 table-hover">
             <thead>
               <tr>
-                <th>Comment</th>
-                <th>User</th>
-                <th>Post</th>
-                <th>Action</th>
+                <th>Bình luận</th>
+                <th>Người dùng</th>
+                <th>Bài viết</th>
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
