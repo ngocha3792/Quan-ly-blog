@@ -178,23 +178,24 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        border: 2px solid var(--bs-body-bg); /* Tự đổi màu viền theo nền sáng/tối */
+        border: 2px solid var(--bs-body-bg); /* Viền tự đổi theo nền */
     }
     .profile-nav .list-group-item {
         border: none;
         padding: 12px 20px;
-        color: var(--bs-body-color); /* Tự động theo theme */
+        color: #4b5563; /* Chữ xám đậm */
         background-color: transparent;
         font-weight: 500;
         transition: all 0.2s;
     }
     
     .profile-nav .list-group-item:hover {
-        background-color: rgba(0, 0, 0, 0.04);
+        background-color: #f3f4f6;
+        color: #111827;
     }
     
     .profile-nav .list-group-item.active {
-        background-color: #ebf5ff; /* Màu sáng mặc định */
+        background-color: #ebf5ff;
         color: #0d6efd;
         border-right: 3px solid #0d6efd;
         border-radius: 0;
