@@ -406,3 +406,41 @@ body.dark-mode {
         color: #6ea8fe !important; /* Chữ xanh lam sáng rõ */
         border-right: 3px solid #6ea8fe !important;
     }
+
+/* --- FIX LỖI TEXT TRONG DARK MODE CHO KHÁM PHÁ & TAGS --- */
+    
+    /* 1. Đổi màu tiêu đề (Khám phá, Tags nổi bật) */
+    [data-bs-theme="dark"] aside .card-body h6,
+    [data-theme="dark"] aside .card-body h6,
+    body.dark-mode aside .card-body h6 {
+      color: #f8f9fa !important; /* Trắng sáng */
+    }
+
+    /* 2. Đổi màu link trong menu Khám phá */
+    [data-bs-theme="dark"] .sidebar-menu a,
+    [data-theme="dark"] .sidebar-menu a,
+    body.dark-mode .sidebar-menu a {
+      color: #ced4da !important; /* Xám nhạt */
+    }
+
+    [data-bs-theme="dark"] .sidebar-menu a:hover,
+    [data-bs-theme="dark"] .sidebar-menu a.active,
+    [data-theme="dark"] .sidebar-menu a:hover,
+    [data-theme="dark"] .sidebar-menu a.active,
+    body.dark-mode .sidebar-menu a:hover,
+    body.dark-mode .sidebar-menu a.active {
+      color: #ffffff !important; /* Trắng tinh khi hover/active */
+    }
+
+    /* 3. Đổi màu Tags nổi bật (#angular, #nodejs...) */
+    [data-bs-theme="dark"] .left-tag,
+    [data-theme="dark"] .left-tag,
+    body.dark-mode .left-tag {
+      color: #adb5bd !important; /* Xám nhạt */
+    }
+
+    [data-bs-theme="dark"] .left-tag:hover,
+    [data-theme="dark"] .left-tag:hover,
+    body.dark-mode .left-tag:hover {
+      color: #ffffff !important; /* Trắng khi hover */
+    }
