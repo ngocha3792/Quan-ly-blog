@@ -63,71 +63,44 @@
                 <th class="col-w-actions text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td class="fw-medium">Backend</td>
-                <td class="text-nowrap text-center">
-                  <span class="badge bg-light text-dark border lang-badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1">
-                    <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 16px; border-radius: 2px;"> VI
-                  </span>
-                </td>
-                <td class="text-nowrap text-center">24</td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
-                    data-bs-target="#editCategoryModal">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa category Backend không?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-medium">Frontend</td>
-                <td class="text-nowrap text-center">
-                  <span class="badge bg-light text-dark border lang-badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1">
-                    <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 16px; border-radius: 2px;"> VI
-                  </span>
-                </td>
-                <td class="text-nowrap text-center">18</td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
-                    data-bs-target="#editCategoryModal">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa category Frontend không?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-medium">Database</td>
-                <td class="text-nowrap text-center">
-                  <span class="badge bg-light text-dark border lang-badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1">
-                    <img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 16px; border-radius: 2px;"> EN
-                  </span>
-                </td>
-                <td class="text-nowrap text-center">9</td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
-                    data-bs-target="#editCategoryModal">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa category Database không?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
+            <tbody id="categories-table-body">
+              <!-- Render by JS -->
             </tbody>
           </table>
+        </div>
+        
+        <div class="mt-4">
+          <nav>
+            <ul class="pagination justify-content-center" id="categories-pagination">
+              <!-- Pagination rendered by JS -->
+            </ul>
+          </nav>
         </div>
       </section>
     </main>
   </div>
-// Form khi bấm vào nút hình bút chì(Chỉnh sửa Category) trên Action
+
+  <!-- Modal Danh sách bài viết của Category -->
+  <div class="modal fade" id="categoryPostsModal" tabindex="-1" aria-labelledby="categoryPostsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="categoryPostsModalLabel">Danh sách bài viết: <span id="categoryPostsName" class="text-primary"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="list-group" id="categoryPostsList">
+            <!-- Render by JS -->
+          </div>
+        </div>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form khi bấm vào nút hình bút chì(Chỉnh sửa Category) trên Action -->
   <div class="modal fade" id="editCategoryModal" tabindex="-1" aria-labelledby="editCategoryModalLabel"
     aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -232,6 +205,132 @@
           alert('Mock: Cập nhật Category thành công!');
         });
       }
+
+      // 3. Mock Data & Render Danh mục
+      const baseCategories = [
+        { name: 'Backend', lang: 'VI', langFlag: 'vn', postCount: 24 },
+        { name: 'Frontend', lang: 'EN', langFlag: 'gb', postCount: 18 },
+        { name: 'Database', lang: 'VI', langFlag: 'vn', postCount: 9 },
+        { name: 'DevOps', lang: 'EN', langFlag: 'gb', postCount: 15 }
+      ];
+
+      let categoriesMockData = [];
+      for (let i = 0; i < 25; i++) {
+        let cat = { ...baseCategories[i % baseCategories.length] };
+        cat.id = i + 1;
+        cat.name = `${cat.name} ${i + 1}`;
+        categoriesMockData.push(cat);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 8;
+
+      function renderCategories() {
+        const tbody = document.getElementById("categories-table-body");
+        if (!tbody) return;
+        
+        let htmlString = "";
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentCats = categoriesMockData.slice(startIndex, endIndex);
+
+        currentCats.forEach(cat => {
+          htmlString += `
+              <tr>
+                <td class="fw-medium">
+                  <a href="#" class="text-decoration-none text-dark post-title" onclick="showCategoryPosts('${cat.name}')">${cat.name}</a>
+                </td>
+                <td class="text-nowrap text-center">
+                  <span class="badge bg-light text-dark border lang-badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1">
+                    <img src="https://flagcdn.com/w20/${cat.langFlag}.png" alt="${cat.lang}" style="width: 16px; border-radius: 2px;"> ${cat.lang}
+                  </span>
+                </td>
+                <td class="text-nowrap text-center">${cat.postCount}</td>
+                <td class="text-nowrap text-center">
+                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal" data-bs-target="#editCategoryModal">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa" onclick="if(confirm('Bạn có chắc chắn muốn xóa category này không?')) alert('Đã xóa!');">
+                    <i class="bi bi-trash3-fill"></i>
+                  </button>
+                </td>
+              </tr>
+          `;
+        });
+        
+        tbody.innerHTML = htmlString;
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("categories-pagination");
+        if (!paginationWrapper) return;
+        
+        const totalPages = Math.ceil(categoriesMockData.length / itemsPerPage);
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        paginationWrapper.innerHTML = paginationHtml;
+        
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) return;
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              renderCategories();
+            }
+          });
+        });
+      }
+
+      window.showCategoryPosts = function(categoryName) {
+        document.getElementById('categoryPostsName').innerText = categoryName;
+        
+        // Mock 3 posts for this category
+        const listWrapper = document.getElementById('categoryPostsList');
+        let postsHtml = '';
+        for(let i=1; i<=3; i++) {
+           postsHtml += `
+            <a href="../../public/post-detail.html" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-transparent">
+              <div>
+                <h6 class="mb-1 fw-bold text-dark">Bài viết demo số ${i} cho danh mục ${categoryName}</h6>
+                <small class="text-muted">Tác giả: DevMaster | Xuất bản: 20/07/2026</small>
+              </div>
+              <span class="badge bg-primary rounded-pill">14 views</span>
+            </a>
+           `;
+        }
+        listWrapper.innerHTML = postsHtml;
+
+        const modal = new bootstrap.Modal(document.getElementById('categoryPostsModal'));
+        modal.show();
+      };
+
+      renderCategories();
 
     });
   </script>

@@ -58,6 +58,16 @@ body.dark-mode {
     opacity: 0.7;
 }
 
+.dark-mode .form-check-input {
+    background-color: var(--bg) !important;
+    border-color: var(--border) !important;
+}
+
+.dark-mode .form-check-input:checked {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
 .dark-mode .btn-primary {
     background-color: var(--primary) !important;
     border-color: var(--primary) !important;
@@ -434,201 +444,6 @@ body.dark-mode {
 
     /* 3. Đổi màu Tags nổi bật (#angular, #nodejs...) */
     [data-bs-theme="dark"] .left-tag,
-    color: #e4e6ef !important;
-}
-
-.dark-mode .modal .form-control:focus,
-.dark-mode .modal .form-select:focus,
-[data-bs-theme="dark"] .modal .form-control:focus,
-[data-bs-theme="dark"] .modal .form-select:focus {
-    border-color: #0d6efd !important; /* Viền xanh khi bấm vào */
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
-}
-
-/* 5. Chỉnh màu Label cho dễ đọc */
-.dark-mode .modal .form-label,
-[data-bs-theme="dark"] .modal .form-label {
-    color: #a1a5b7 !important;
-}
-
-.dark-mode .card,
-[data-bs-theme="dark"] .card {
-    background-color: #1e1e2d !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-}
-
-/* 2. Ghi đè class "bg-white" bị gắn cứng ở tiêu đề Card (Card Header) */
-.dark-mode .card-header,
-[data-bs-theme="dark"] .card-header {
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-    color: #ffffff !important;
-}
-
-/* 3. Tiêu diệt triệt để cái nền trắng chói lóa của Bảng */
-.dark-mode .table,
-.dark-mode .table th,
-.dark-mode .table td,
-[data-bs-theme="dark"] .table,
-[data-bs-theme="dark"] .table th,
-[data-bs-theme="dark"] .table td {
-    background-color: transparent !important;
-    color: #e4e6ef !important;
-    border-bottom-color: rgba(255, 255, 255, 0.05) !important;
-}
-
-/* 4. Đổi màu ô Select box (Ví dụ: ô "Theo Lượt xem") */
-.dark-mode .form-select,
-[data-bs-theme="dark"] .form-select {
-    background-color: #151521 !important;
-    color: #e4e6ef !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
-}
-
-.dark-mode .demo-role-bar,
-[data-bs-theme="dark"] .demo-role-bar {
-    background-color: #151521 !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* Hiệu ứng nổi bật rực rỡ cho nút đang được chọn (Active) */
-.dark-mode .demo-role-bar .btn.active,
-[data-bs-theme="dark"] .demo-role-bar .btn.active {
-    background-color: #0d6efd !important; /* Đổ màu nền xanh Primary */
-    color: #ffffff !important; /* Chữ trắng */
-    border-color: #0d6efd !important;
-    box-shadow: 0 0 12px rgba(13, 110, 253, 0.4) !important; /* Đổ bóng phát sáng */
-}
-
-.dark-mode .nav-pills .nav-link,
-[data-bs-theme="dark"] .nav-pills .nav-link {
-    color: #a1a5b7; /* Tab chưa chọn sẽ có màu xám mờ tinh tế */
-    transition: all 0.3s ease;
-}
-
-.dark-mode .nav-pills .nav-link:hover,
-[data-bs-theme="dark"] .nav-pills .nav-link:hover {
-    color: #e4e6ef; /* Sáng lên một chút khi rê chuột */
-}
-
-/* Khi tab được kích hoạt (Active) thì sẽ phát sáng */
-.dark-mode .nav-pills .nav-link.active,
-[data-bs-theme="dark"] .nav-pills .nav-link.active {
-    background-color: #0d6efd !important; /* Màu xanh Primary */
-    color: #ffffff !important;
-    box-shadow: 0 0 12px rgba(13, 110, 253, 0.4) !important; /* Đổ bóng phát sáng cực đẹp */
-}
-
-/* =========================================
-   2. FIX MENU DROPDOWN (PROFILE & NGÔN NGỮ)
-   ========================================= */
-/* Ép màu nền của menu thả xuống thành màu tối */
-.dark-mode .dropdown-menu,
-[data-bs-theme="dark"] .dropdown-menu {
-    background-color: #1e1e2d !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25) !important;
-}
-
-/* Đổi màu chữ các mục bên trong thành màu sáng */
-.dark-mode .dropdown-item,
-[data-bs-theme="dark"] .dropdown-item {
-    color: #e4e6ef !important;
-}
-
-/* Khi rê chuột vào mục nào thì mục đó đổi màu nền nhẹ nhàng */
-.dark-mode .dropdown-item:hover,
-.dark-mode .dropdown-item:focus,
-[data-bs-theme="dark"] .dropdown-item:hover,
-[data-bs-theme="dark"] .dropdown-item:focus {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    color: #0d6efd !important; /* Chữ đổi sang xanh blue */
-}
-
-/* Fix tiêu đề trong menu (Ví dụ: tên Lê Hồng Sơn) */
-.dark-mode .dropdown-header,
-[data-bs-theme="dark"] .dropdown-header {
-    color: #a1a5b7 !important;
-}
-
-/* Làm mờ thanh gạch ngang phân cách */
-.dark-mode .dropdown-divider,
-[data-bs-theme="dark"] .dropdown-divider {
-    border-top-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* =========================================
-   3. FIX LUÔN Ô NHẬP LIỆU (INPUT) TRONG FORM 
-   ========================================= */
-.dark-mode .auth-card .form-control,
-[data-bs-theme="dark"] .auth-card .form-control {
-    background-color: #151521 !important; /* Màu nền input tối hơn thẻ Card một chút */
-    border-color: rgba(255, 255, 255, 0.15) !important;
-    color: #e4e6ef !important;
-}
-
-.dark-mode .auth-card .form-control:focus,
-[data-bs-theme="dark"] .auth-card .form-control:focus {
-    border-color: #0d6efd !important;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important; /* Viền xanh khi đang gõ */
-}
-
-/* Fix màu chữ placeholder (Email, Mật khẩu...) cho dễ nhìn */
-.dark-mode .form-control::placeholder,
-[data-bs-theme="dark"] .form-control::placeholder {
-    color: #a1a5b7 !important;
-    opacity: 1 !important;
-}
-
-[data-bs-theme="dark"] .profile-nav .list-group-item,
-    [data-theme="dark"] .profile-nav .list-group-item,
-    body.dark-mode .profile-nav .list-group-item {
-        color: #a1a1aa !important; /* Chữ xám sáng cho mục chưa chọn (dễ đọc) */
-    }
-
-    [data-bs-theme="dark"] .profile-nav .list-group-item:hover,
-    [data-theme="dark"] .profile-nav .list-group-item:hover,
-    body.dark-mode .profile-nav .list-group-item:hover {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        color: #ffffff !important; /* Chữ trắng sáng lên khi hover */
-    }
-
-    [data-bs-theme="dark"] .profile-nav .list-group-item.active,
-    [data-theme="dark"] .profile-nav .list-group-item.active,
-    body.dark-mode .profile-nav .list-group-item.active {
-        background-color: rgba(13, 110, 253, 0.15) !important; /* Nền xanh lam nhạt, trong suốt */
-        color: #6ea8fe !important; /* Chữ xanh lam sáng rõ */
-        border-right: 3px solid #6ea8fe !important;
-    }
-
-/* --- FIX LỖI TEXT TRONG DARK MODE CHO KHÁM PHÁ & TAGS --- */
-    
-    /* 1. Đổi màu tiêu đề (Khám phá, Tags nổi bật) */
-    [data-bs-theme="dark"] aside .card-body h6,
-    [data-theme="dark"] aside .card-body h6,
-    body.dark-mode aside .card-body h6 {
-      color: #f8f9fa !important; /* Trắng sáng */
-    }
-
-    /* 2. Đổi màu link trong menu Khám phá */
-    [data-bs-theme="dark"] .sidebar-menu a,
-    [data-theme="dark"] .sidebar-menu a,
-    body.dark-mode .sidebar-menu a {
-      color: #ced4da !important; /* Xám nhạt */
-    }
-
-    [data-bs-theme="dark"] .sidebar-menu a:hover,
-    [data-bs-theme="dark"] .sidebar-menu a.active,
-    [data-theme="dark"] .sidebar-menu a:hover,
-    [data-theme="dark"] .sidebar-menu a.active,
-    body.dark-mode .sidebar-menu a:hover,
-    body.dark-mode .sidebar-menu a.active {
-      color: #ffffff !important; /* Trắng tinh khi hover/active */
-    }
-
-    /* 3. Đổi màu Tags nổi bật (#angular, #nodejs...) */
-    [data-bs-theme="dark"] .left-tag,
     [data-theme="dark"] .left-tag,
     body.dark-mode .left-tag {
       color: #adb5bd !important; /* Xám nhạt */
@@ -643,4 +458,51 @@ body.dark-mode {
 .dark-mode .dashboard-content .table thead th,
 [data-bs-theme="dark"] .dashboard-content .table thead th {
     background-color: rgba(255, 255, 255, 0.03) !important;
+}
+/* --- PAGINATION DARK MODE --- */
+.dark-mode .page-link,
+[data-bs-theme="dark"] .page-link,
+body.dark-mode .page-link {
+    background-color: #151521 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #e4e6ef !important;
+}
+
+.dark-mode .page-link:hover,
+[data-bs-theme="dark"] .page-link:hover,
+body.dark-mode .page-link:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #0d6efd !important;
+}
+
+.dark-mode .page-item.active .page-link,
+[data-bs-theme="dark"] .page-item.active .page-link,
+body.dark-mode .page-item.active .page-link {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 8px rgba(13, 110, 253, 0.4) !important;
+}
+
+.dark-mode .page-item.disabled .page-link,
+[data-bs-theme="dark"] .page-item.disabled .page-link,
+body.dark-mode .page-item.disabled .page-link {
+    background-color: #1a203f !important;
+    color: #6c757d !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* --- ALERTS TRONG DARK MODE --- */
+.dark-mode .alert-warning,
+[data-bs-theme="dark"] .alert-warning,
+body.dark-mode .alert-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    border-color: rgba(255, 193, 7, 0.2) !important;
+    color: #ffc107 !important;
+}
+
+.dark-mode .alert-warning .text-dark,
+[data-bs-theme="dark"] .alert-warning .text-dark,
+body.dark-mode .alert-warning .text-dark {
+    color: #f8f9fa !important;
 }

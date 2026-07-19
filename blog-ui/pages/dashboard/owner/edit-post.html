@@ -107,12 +107,29 @@
 
                 <div class="col-md-6">
                   <label class="form-label">Danh mục</label>
-                  <select id="postCategories" class="form-select" multiple style="height: 100px;">
-                    <option value="Backend">Backend</option>
-                    <option value="Frontend">Frontend</option>
-                    <option value="Database">Database</option>
-                  </select>
-                  <small class="text-muted">Giữ Ctrl (hoặc Cmd) để chọn nhiều</small>
+                  <div class="form-control p-2" style="height: 100px; overflow-y: auto;" id="postCategoriesGroup">
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Backend" id="catBackend">
+                      <label class="form-check-label" for="catBackend">Backend</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Frontend" id="catFrontend">
+                      <label class="form-check-label" for="catFrontend">Frontend</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Database" id="catDatabase">
+                      <label class="form-check-label" for="catDatabase">Database</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Angular" id="catAngular">
+                      <label class="form-check-label" for="catAngular">Angular</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="NodeJS" id="catNodeJS">
+                      <label class="form-check-label" for="catNodeJS">NodeJS</label>
+                    </div>
+                  </div>
+                  <small class="text-muted">Tích chọn các danh mục phù hợp (không cần giữ Ctrl)</small>
                 </div>
                 
                 <div class="col-md-6">
@@ -283,11 +300,11 @@
       titleInput.value = postLangData[currentEditLang].title;
       document.getElementById('postHashtags').value = existingPostData.hashtags;
 
-      // - Categories (Select multiple)
-      const categorySelect = document.getElementById('postCategories');
-      Array.from(categorySelect.options).forEach(option => {
-        if (existingPostData.categories.includes(option.value)) {
-          option.selected = true;
+      // - Categories (Checkboxes)
+      const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
+      categoryCheckboxes.forEach(checkbox => {
+        if (existingPostData.categories.includes(checkbox.value)) {
+          checkbox.checked = true;
         }
       });
 
@@ -321,7 +338,8 @@
       // Xử lý Lưu (Cập nhật)
       document.getElementById('btnPublish').addEventListener('click', function() {
         const hashtags = document.getElementById('postHashtags').value.trim();
-        const selectedCategories = Array.from(categorySelect.selectedOptions).map(opt => opt.value);
+        // Lấy danh sách danh mục đã check
+        const selectedCategories = Array.from(document.querySelectorAll('.category-checkbox:checked')).map(cb => cb.value);
         
         // Kiểm tra xem user có chọn file mới không, nếu không thì lấy file cũ
         const thumbInput = document.getElementById('postThumbnail');

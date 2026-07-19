@@ -54,37 +54,176 @@
                 <th class="col-w-actions text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td class="fw-medium">Bình luận không phù hợp</td>
-                <td class="text-nowrap">User C</td>
-                <td><a href="#" class="text-decoration-none">Angular Guard</a></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa bình luận này không?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-medium">Spam hashtag</td>
-                <td class="text-nowrap">User D</td>
-                <td><a href="#" class="text-decoration-none">NodeJS API</a></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa bình luận này không?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
+            <tbody id="comments-table-body">
+              <!-- Render by JS -->
             </tbody>
           </table>
+        </div>
+        
+        <div class="mt-4">
+          <nav>
+            <ul class="pagination justify-content-center" id="comments-pagination">
+              <!-- Pagination rendered by JS -->
+            </ul>
+          </nav>
         </div>
       </section>
     </main>
   </div>
+
+  <!-- Modal Xem trước bài viết -->
+  <div class="modal fade" id="previewBlogModal" tabindex="-1" aria-labelledby="previewBlogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="previewBlogModalLabel">Xem trước: <span id="previewBlogHeaderTitle">Tiêu đề bài viết</span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Hiển thị nội dung bình luận -->
+          <div class="alert alert-warning border-warning-subtle shadow-sm mb-4">
+            <div class="d-flex align-items-center mb-2">
+              <i class="bi bi-chat-quote-fill text-warning fs-5 me-2"></i>
+              <h6 class="fw-bold mb-0">Nội dung bình luận bị báo cáo / chờ duyệt:</h6>
+            </div>
+            <p class="mb-0 text-dark" id="previewCommentText">Nội dung bình luận sẽ hiển thị ở đây...</p>
+          </div>
+
+          <hr class="mb-4">
+
+          <!-- Ngữ cảnh bài viết -->
+          <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-text me-2"></i>Ngữ cảnh bài viết:</h5>
+          <div class="mb-3">
+            <span class="badge bg-secondary-subtle text-secondary-emphasis me-2" id="previewBlogCategory">Category</span>
+            <span class="text-muted small">Ngôn ngữ gốc: <span id="previewBlogLang">EN</span> | Đã xuất bản</span>
+          </div>
+          <h2 class="mb-4 fw-bold" id="previewBlogTitle">Tiêu đề bài viết</h2>
+          <div class="text-muted mb-4">Tác giả: <span id="previewBlogAuthor" class="fw-medium text-dark"></span></div>
+          <div class="blog-content text-dark" style="line-height: 1.8;">
+            <p>Đây là nội dung mô phỏng của bài viết liên kết với bình luận này. Moderator có thể đọc nhanh nội dung bài viết ngay tại đây để có ngữ cảnh tốt hơn khi xử lý bình luận.</p>
+            <p>Ví dụ: một bình luận có thể trông không rõ ràng, nhưng khi đặt vào ngữ cảnh của bài viết thì lại hoàn toàn hợp lệ.</p>
+            <pre class="bg-light p-3 rounded border text-dark mt-2 mb-4"><code>console.log("Context is key!");</code></pre>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../../assets/js/main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const baseComments = [
+        { text: 'Bình luận không phù hợp', user: 'User C', postTitle: 'Angular Guard' },
+        { text: 'Spam hashtag', user: 'User D', postTitle: 'NodeJS API' },
+        { text: 'Hay quá, bài viết rất chi tiết', user: 'DevMaster', postTitle: 'Thiết kế Blog đa ngôn ngữ' }
+      ];
+
+      let commentsMockData = [];
+      for (let i = 0; i < 25; i++) {
+        let comment = { ...baseComments[i % baseComments.length] };
+        comment.id = i + 1;
+        comment.text = `${comment.text} (số ${i + 1})`;
+        commentsMockData.push(comment);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 8;
+
+      function renderComments() {
+        const tbody = document.getElementById("comments-table-body");
+        if (!tbody) return;
+        
+        let htmlString = "";
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentComments = commentsMockData.slice(startIndex, endIndex);
+
+        currentComments.forEach(comment => {
+          htmlString += `
+              <tr>
+                <td class="fw-medium">${comment.text}</td>
+                <td class="text-nowrap">${comment.user}</td>
+                <td>
+                  <a href="#" class="text-decoration-none text-dark post-title" data-bs-toggle="modal" data-bs-target="#previewBlogModal"
+                     onclick="document.getElementById('previewBlogHeaderTitle').innerText='${comment.postTitle}'; document.getElementById('previewBlogTitle').innerText='${comment.postTitle}'; document.getElementById('previewBlogAuthor').innerText='Author'; document.getElementById('previewBlogCategory').innerText='Frontend'; document.getElementById('previewBlogLang').innerText='VI'; document.getElementById('previewCommentText').innerText='${comment.text}';">
+                     ${comment.postTitle}
+                  </a>
+                </td>
+                <td class="text-nowrap text-center">
+                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
+                    onclick="if(confirm('Bạn có chắc chắn muốn xóa bình luận này không?')) alert('Đã xóa!');">
+                    <i class="bi bi-trash3-fill"></i>
+                  </button>
+                </td>
+              </tr>
+          `;
+        });
+        
+        tbody.innerHTML = htmlString;
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("comments-pagination");
+        if (!paginationWrapper) return;
+        
+        const totalPages = Math.ceil(commentsMockData.length / itemsPerPage);
+        
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+        
+        // Previous
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        
+        // Next
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        
+        paginationWrapper.innerHTML = paginationHtml;
+        
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) {
+              return;
+            }
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              renderComments();
+            }
+          });
+        });
+      }
+
+      renderComments();
+    });
+  </script>
 </body>
 
 </html>
