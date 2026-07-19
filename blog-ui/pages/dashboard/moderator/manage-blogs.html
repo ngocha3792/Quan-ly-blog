@@ -51,47 +51,39 @@
             <thead>
               <tr>
                 <th>Tiêu đề</th>
-                <th>Tác giả</th>
-                <th>Trạng thái</th>
-                <th>Thao tác</th>
+                <th class="col-w-md text-nowrap">Tác giả</th>
+                <th class="col-w-md text-nowrap text-center">Trạng thái</th>
+                <th class="col-w-lg text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td class="fw-medium">Hướng dẫn học ReactJS cơ bản cho người mới</td>
-                <td>User A</td>
-                <td><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
-                <td>
+                <td class="text-nowrap">User A</td>
+                <td class="text-nowrap text-center"><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
+                <td class="text-nowrap text-center">
                   <button class="btn btn-sm btn-outline-success border-0 me-1" title="Duyệt bài"
                     onclick="if(confirm('Xác nhận duyệt bài viết này?')) alert('Đã duyệt bài viết thành công!');">
                     <i class="bi bi-check-circle-fill"></i>
                   </button>
                   <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Từ chối"
-                    onclick="if(confirm('Bạn có chắc chắn muốn từ chối bài viết này?')) alert('Đã từ chối bài viết!');">
+                    data-bs-toggle="modal" data-bs-target="#rejectModal">
                     <i class="bi bi-x-circle-fill"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Yêu cầu chỉnh sửa"
-                    onclick="alert('Đã gửi yêu cầu chỉnh sửa tới tác giả!');">
-                    <i class="bi bi-pencil-square"></i>
                   </button>
                 </td>
               </tr>
               <tr>
                 <td class="fw-medium">10 mẹo tối ưu hiệu suất với CSS</td>
-                <td>DevMaster</td>
-                <td><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
-                <td>
+                <td class="text-nowrap">DevMaster</td>
+                <td class="text-nowrap text-center"><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
+                <td class="text-nowrap text-center">
                   <button class="btn btn-sm btn-outline-success border-0 me-1" title="Duyệt bài"
                     onclick="if(confirm('Xác nhận duyệt bài viết này?')) alert('Đã duyệt bài viết thành công!');">
                     <i class="bi bi-check-circle-fill"></i>
                   </button>
                   <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Từ chối"
-                    onclick="if(confirm('Bạn có chắc chắn muốn từ chối bài viết này?')) alert('Đã từ chối bài viết!');">
+                    data-bs-toggle="modal" data-bs-target="#rejectModal">
                     <i class="bi bi-x-circle-fill"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Yêu cầu chỉnh sửa"
-                    onclick="alert('Đã gửi yêu cầu chỉnh sửa tới tác giả!');">
-                    <i class="bi bi-pencil-square"></i>
                   </button>
                 </td>
               </tr>
@@ -101,8 +93,52 @@
       </section>
     </main>
   </div>
+
+  <!-- Modal Từ chối bài viết -->
+  <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="rejectModalLabel">Từ chối bài viết</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formRejectBlog">
+            <div class="mb-3">
+              <label for="rejectReason" class="form-label">Lý do từ chối</label>
+              <textarea class="form-control" id="rejectReason" rows="3" placeholder="Ví dụ: Bài viết vi phạm chính sách nội dung, hoặc cần chỉnh sửa lại phần mở đầu..." required></textarea>
+              <div class="form-text">Tác giả sẽ nhận được thông báo kèm lý do này để chỉnh sửa và gửi lại.</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" form="formRejectBlog" class="btn btn-danger">Xác nhận Từ chối</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../../assets/js/main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const formReject = document.getElementById('formRejectBlog');
+      if (formReject) {
+        formReject.addEventListener('submit', function (e) {
+          e.preventDefault();
+          const reason = document.getElementById('rejectReason').value;
+          
+          document.querySelector('#rejectModal .btn-close').click();
+          
+          setTimeout(() => {
+            alert('Mock: Đã từ chối bài viết với lý do:\n' + reason);
+            formReject.reset();
+          }, 350);
+        });
+      }
+    });
+  </script>
 </body>
 
 </html>
