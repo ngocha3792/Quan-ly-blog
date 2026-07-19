@@ -56,42 +56,74 @@
                 <th class="col-w-lg text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td class="fw-medium">Hướng dẫn học ReactJS cơ bản cho người mới</td>
-                <td class="text-nowrap">User A</td>
-                <td class="text-nowrap text-center"><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-success border-0 me-1" title="Duyệt bài"
-                    onclick="if(confirm('Xác nhận duyệt bài viết này?')) alert('Đã duyệt bài viết thành công!');">
-                    <i class="bi bi-check-circle-fill"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Từ chối"
-                    data-bs-toggle="modal" data-bs-target="#rejectModal">
-                    <i class="bi bi-x-circle-fill"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-medium">10 mẹo tối ưu hiệu suất với CSS</td>
-                <td class="text-nowrap">DevMaster</td>
-                <td class="text-nowrap text-center"><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-success border-0 me-1" title="Duyệt bài"
-                    onclick="if(confirm('Xác nhận duyệt bài viết này?')) alert('Đã duyệt bài viết thành công!');">
-                    <i class="bi bi-check-circle-fill"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Từ chối"
-                    data-bs-toggle="modal" data-bs-target="#rejectModal">
-                    <i class="bi bi-x-circle-fill"></i>
-                  </button>
-                </td>
-              </tr>
+            <tbody id="blogs-table-body">
+              <!-- Render by JS -->
             </tbody>
           </table>
         </div>
+
+        <div class="mt-4">
+          <nav>
+            <ul class="pagination justify-content-center" id="blogs-pagination">
+              <!-- Pagination rendered by JS -->
+            </ul>
+          </nav>
+        </div>
       </section>
     </main>
+  </div>
+
+  <!-- Modal Xem trước bài viết -->
+  <div class="modal fade" id="previewBlogModal" tabindex="-1" aria-labelledby="previewBlogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="previewBlogModalLabel">Xem trước: <span id="previewBlogHeaderTitle">Tiêu đề bài viết</span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <span class="badge bg-secondary-subtle text-secondary-emphasis me-2" id="previewBlogCategory">Frontend</span>
+            <span class="text-muted small">Ngôn ngữ gốc: <span id="previewBlogLang">VI</span> | Chờ duyệt</span>
+          </div>
+          <h2 class="mb-4 fw-bold" id="previewBlogTitle">Tiêu đề bài viết</h2>
+          <div class="text-muted mb-4">Tác giả: <span id="previewBlogAuthor" class="fw-medium text-dark"></span></div>
+          <div class="blog-content text-dark" style="line-height: 1.8;">
+            <p>Đây là nội dung mô phỏng của bài viết để Moderator có thể đọc và đánh giá trước khi duyệt. Trong thực tế, nội dung này sẽ được load từ database dựa vào ID của bài viết.</p>
+            <p>Dưới đây là một ví dụ về nội dung bài viết dài hơn để kiểm tra khả năng cuộn trang (scroll) của Modal. Khi một bài viết có nhiều chi tiết, hình ảnh hoặc các đoạn mã nguồn, Moderator cần phải kiểm tra kỹ lưỡng trước khi quyết định duyệt (Approve) hoặc từ chối (Reject).</p>
+            
+            <h4 class="fw-bold mt-4">1. Tại sao tính năng này quan trọng?</h4>
+            <p>Việc kiểm duyệt bài viết giúp đảm bảo nền tảng DevBlog luôn giữ được chất lượng nội dung tốt nhất. Các bài viết rác (spam) hoặc copy từ nguồn khác mà không ghi nguồn sẽ bị loại bỏ.</p>
+            
+            <h4 class="fw-bold mt-4">2. Yêu cầu định dạng bài viết</h4>
+            <ul>
+              <li>Tiêu đề phải rõ ràng, không giật tít câu view (clickbait).</li>
+              <li>Nội dung không chứa ngôn từ kích động, thù địch hoặc spam.</li>
+              <li>Các đoạn code cần được đặt trong thẻ Code block (pre/code) một cách hợp lệ.</li>
+            </ul>
+            
+            <h4 class="fw-bold mt-4">3. Ví dụ đoạn code hợp lệ</h4>
+            <pre class="bg-light p-3 rounded border text-dark mt-2 mb-4"><code>function isContentValid(content) {
+  // Bài viết phải có ít nhất 500 ký tự
+  if (content.length < 500) return false;
+  
+  // Không được chứa các từ ngữ cấm
+  if (containsSpam(content)) return false;
+  
+  return true;
+}
+
+console.log("Hello Moderator! Chúc bạn một ngày làm việc vui vẻ.");</code></pre>
+            
+            <p>Bên cạnh đó, việc bố cục bài viết hợp lý cũng được đánh giá cao. Bài viết nên có các thẻ tiêu đề (Heading) từ H2, H3 để chia nhỏ nội dung, giúp người đọc dễ theo dõi hơn.</p>
+            <p>Cảm ơn tác giả đã đóng góp nội dung hữu ích cho cộng đồng của chúng ta!</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal Từ chối bài viết -->
@@ -137,6 +169,120 @@
           }, 350);
         });
       }
+
+      // Mock Data 25 bài viết
+      const baseBlogs = [
+        { title: 'Hướng dẫn học ReactJS cơ bản cho người mới', author: 'User A', category: 'Frontend', lang: 'VI' },
+        { title: '10 mẹo tối ưu hiệu suất với CSS', author: 'DevMaster', category: 'Frontend', lang: 'EN' },
+        { title: 'Tìm hiểu về Web Components', author: 'CodeLover', category: 'Web Design', lang: 'VI' }
+      ];
+
+      let blogsMockData = [];
+      for (let i = 0; i < 25; i++) {
+        let blog = { ...baseBlogs[i % baseBlogs.length] };
+        blog.id = i + 1;
+        blog.title = `${blog.title} (Phần ${i + 1})`;
+        blogsMockData.push(blog);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 8;
+
+      function renderBlogs() {
+        const tbody = document.getElementById("blogs-table-body");
+        if (!tbody) return;
+        
+        let htmlString = "";
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentBlogs = blogsMockData.slice(startIndex, endIndex);
+
+        currentBlogs.forEach(blog => {
+          htmlString += `
+              <tr>
+                <td class="fw-medium">
+                  <a href="#" class="text-decoration-none text-dark post-title" data-bs-toggle="modal" data-bs-target="#previewBlogModal" 
+                     onclick="document.getElementById('previewBlogHeaderTitle').innerText='${blog.title}'; document.getElementById('previewBlogTitle').innerText='${blog.title}'; document.getElementById('previewBlogAuthor').innerText='${blog.author}'; document.getElementById('previewBlogCategory').innerText='${blog.category}'; document.getElementById('previewBlogLang').innerText='${blog.lang}';">
+                     ${blog.title}
+                  </a>
+                </td>
+                <td class="text-nowrap">${blog.author}</td>
+                <td class="text-nowrap text-center"><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
+                <td class="text-nowrap text-center">
+                  <button class="btn btn-sm btn-outline-success border-0 me-1" title="Duyệt bài"
+                    onclick="if(confirm('Xác nhận duyệt bài viết này?')) alert('Đã duyệt bài viết thành công!');">
+                    <i class="bi bi-check-circle-fill"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Từ chối"
+                    data-bs-toggle="modal" data-bs-target="#rejectModal">
+                    <i class="bi bi-x-circle-fill"></i>
+                  </button>
+                </td>
+              </tr>
+          `;
+        });
+        
+        tbody.innerHTML = htmlString;
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("blogs-pagination");
+        if (!paginationWrapper) return;
+        
+        const totalPages = Math.ceil(blogsMockData.length / itemsPerPage);
+        
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+        
+        // Previous
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        
+        // Numbered Pages
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        
+        // Next
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        
+        paginationWrapper.innerHTML = paginationHtml;
+        
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) {
+              return;
+            }
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              renderBlogs();
+            }
+          });
+        });
+      }
+
+      renderBlogs();
     });
   </script>
 </body>

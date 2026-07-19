@@ -19,11 +19,15 @@
 
   <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top public-navbar">
     <div class="container-xl">
-      <a class="navbar-brand fw-bold text-primary" href="index.html"><i class="bi bi-braces-asterisk me-1"></i>DevBlog</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+      <a class="navbar-brand fw-bold text-primary" href="index.html"><i
+          class="bi bi-braces-asterisk me-1"></i>DevBlog</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span
+          class="navbar-toggler-icon"></span></button>
       <div class="collapse navbar-collapse" id="mainNav">
         <form class="d-flex mx-lg-4 my-3 my-lg-0 flex-grow-1" action="hashtag.html">
-          <div class="input-group search-box"><span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span><input class="form-control bg-light border-start-0" placeholder="Tìm kiếm bài viết, hashtag..."></div>
+          <div class="input-group search-box"><span class="input-group-text bg-light border-end-0"><i
+                class="bi bi-search"></i></span><input class="form-control bg-light border-start-0"
+              placeholder="Tìm kiếm bài viết, hashtag..."></div>
         </form>
         <ul class="navbar-nav align-items-lg-center gap-lg-2">
           <li class="nav-item"><a class="nav-link " href="index.html">Bài viết</a></li>
@@ -34,26 +38,42 @@
               <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> VI
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
-              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"><img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> Tiếng Việt</a></li>
-              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"><img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px;"> English</a></li>
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"><img
+                    src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> Tiếng Việt</a></li>
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"><img
+                    src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px;"> English</a></li>
             </ul>
           </li>
-          <li class="nav-item"><button class="btn btn-sm btn-outline-secondary" data-theme-toggle><i class="bi bi-moon-stars"></i></button></li>
+          <li class="nav-item"><button class="btn btn-sm btn-outline-secondary" data-theme-toggle><i
+                class="bi bi-moon-stars"></i></button></li>
           <li class="nav-item guest-only"><a class="btn btn-primary btn-sm px-3" href="auth.html">Đăng nhập</a></li>
           <li class="nav-item dropdown user-only d-none">
-            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown"><span class="avatar-sm">S</span><span class="d-lg-none">Tài khoản</span></a>
+            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown"><span
+                class="avatar-sm">S</span><span class="d-lg-none">Tài khoản</span></a>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
               <li>
                 <h6 class="dropdown-header">Lê Hồng Sơn</h6>
               </li>
-              <li><a class="dropdown-item" href="../account/profile.html"><i class="bi bi-person me-2"></i>Profile</a></li>
-              <li><a class="dropdown-item" href="../account/request-blog-owner.html"><i class="bi bi-send me-2"></i>Yêu cầu Blog Owner</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li class="role-owner role-mod role-admin d-none"><a class="dropdown-item" href="../dashboard/owner/dashboard.html"><i class="bi bi-pencil-square me-2"></i>Owner Dashboard</a></li>
-              <li class="role-mod role-admin d-none"><a class="dropdown-item" href="../dashboard/moderator/dashboard.html"><i class="bi bi-shield-check me-2"></i>Moderator Dashboard</a></li>
-              <li class="role-admin d-none"><a class="dropdown-item" href="../dashboard/admin/dashboard.html"><i class="bi bi-gear me-2"></i>Admin Dashboard</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><button class="dropdown-item text-danger" data-role-set="guest"><i class="bi bi-box-arrow-right me-2"></i>Logout demo</button></li>
+              <li><a class="dropdown-item" href="../account/profile.html"><i class="bi bi-person me-2"></i>Profile</a>
+              </li>
+              <li><a class="dropdown-item" href="../account/request-blog-owner.html"><i class="bi bi-send me-2"></i>Yêu
+                  cầu Blog Owner</a></li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li class="role-owner role-mod role-admin d-none"><a class="dropdown-item"
+                  href="../dashboard/owner/dashboard.html"><i class="bi bi-pencil-square me-2"></i>Owner Dashboard</a>
+              </li>
+              <li class="role-mod role-admin d-none"><a class="dropdown-item"
+                  href="../dashboard/moderator/dashboard.html"><i class="bi bi-shield-check me-2"></i>Moderator
+                  Dashboard</a></li>
+              <li class="role-admin d-none"><a class="dropdown-item" href="../dashboard/admin/dashboard.html"><i
+                    class="bi bi-gear me-2"></i>Admin Dashboard</a></li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li><button class="dropdown-item text-danger" data-role-set="guest"><i
+                    class="bi bi-box-arrow-right me-2"></i>Logout demo</button></li>
             </ul>
           </li>
         </ul>
@@ -71,11 +91,11 @@
       <button class="btn btn-sm btn-outline-secondary" data-role-set="admin">Super Admin</button>
     </div>
   </div>
-  
+
   <main class="container-xl py-4">
     <div class="row g-4">
       <div class="col-lg-8">
-        
+
         <section class="category-bar soft-card mb-4" id="top-category-list">
           <div class="d-flex flex-wrap align-items-center gap-2">
             <a href="#" class="category-pill active" data-cat="all">Tất cả</a>
@@ -88,7 +108,7 @@
             <a href="#" class="category-pill" data-cat="ai">AI</a>
           </div>
         </section>
-        
+
         <div class="card soft-card mb-3">
           <div class="card-body">
             <h3 class="fw-bold" id="category-title">Danh mục: Tất cả</h3>
@@ -96,13 +116,17 @@
           </div>
         </div>
 
-        <div id="posts-wrapper">
-          </div>
+        <div id="posts-wrapper"></div>
+        <nav class="mt-4">
+          <ul class="pagination justify-content-center" id="category-pagination">
+            <!-- Phân trang sẽ được render bằng JS -->
+          </ul>
+        </nav>
       </div>
-      
+
       <div class="col-lg-4">
         <aside class="public-sidebar">
-          
+
           <div class="card soft-card mb-3">
             <div class="card-body">
               <h6 class="fw-bold mb-3">Top Authors</h6>
@@ -145,7 +169,9 @@
           <div class="card soft-card mb-3">
             <div class="card-body">
               <h6 class="fw-bold mb-3">Popular Tags</h6>
-              <div class="d-flex flex-wrap gap-2"><a href="hashtag.html" class="tag">#nodejs</a><a href="hashtag.html" class="tag">#angular</a><a href="hashtag.html" class="tag">#mysql</a><a href="hashtag.html" class="tag">#sequelize</a><a href="hashtag.html" class="tag">#jwt</a></div>
+              <div class="d-flex flex-wrap gap-2"><a href="hashtag.html" class="tag">#nodejs</a><a href="hashtag.html"
+                  class="tag">#angular</a><a href="hashtag.html" class="tag">#mysql</a><a href="hashtag.html"
+                  class="tag">#sequelize</a><a href="hashtag.html" class="tag">#jwt</a></div>
             </div>
           </div>
           <div class="card soft-card">
@@ -162,17 +188,18 @@
       </div>
     </div>
   </main>
-  
+
   <footer class="border-top bg-white mt-5 py-4">
-    <div class="container-xl d-flex flex-wrap justify-content-between gap-3 small text-muted"><span>© 2026 DevBlog UI Prototype</span><span>HTML tĩnh • Bootstrap 5 • Inspired by developer blog feeds</span></div>
+    <div class="container-xl d-flex flex-wrap justify-content-between gap-3 small text-muted"><span>© 2026 DevBlog UI
+        Prototype</span><span>HTML tĩnh • Bootstrap 5 • Inspired by developer blog feeds</span></div>
   </footer>
-  
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../assets/js/main.js"></script>
-  
+
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      
+
       const categoryData = {
         all: {
           title: "Tất cả bài viết",
@@ -208,7 +235,7 @@
         }
       };
 
-      const mockPosts = [
+      const baseMockPosts = [
         {
           id: 1, category: 'backend', author: 'Sơn Dev', time: '4 giờ trước', readTime: '5 phút đọc',
           title: 'Express middleware, validator và format response',
@@ -247,27 +274,48 @@
         }
       ];
 
+      // Tạo thêm dữ liệu giả
+      let mockPosts = [];
+      const categoriesList = ['backend', 'frontend', 'database', 'angular', 'nodejs', 'devops', 'ai'];
+      for (let i = 0; i < 35; i++) {
+        let post = { ...baseMockPosts[i % baseMockPosts.length] };
+        post.id = i + 1;
+        post.title = `${post.title} (Phần ${i + 1})`;
+        // Phân bổ đều các danh mục
+        post.category = categoriesList[i % categoriesList.length];
+        mockPosts.push(post);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 5;
+      let currentFilteredPosts = [];
+
       function renderPosts(cat) {
         const wrapper = document.getElementById("posts-wrapper");
         wrapper.innerHTML = "";
 
-        const filteredPosts = mockPosts.filter(post => cat === 'all' || post.category === cat);
+        currentFilteredPosts = mockPosts.filter(post => cat === 'all' || post.category === cat);
 
-        if (filteredPosts.length === 0) {
+        if (currentFilteredPosts.length === 0) {
           wrapper.innerHTML = `<div class="text-center text-muted py-5">Chưa có bài viết nào trong danh mục này.</div>`;
+          document.getElementById("category-pagination").innerHTML = '';
           return;
         }
 
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pagePosts = currentFilteredPosts.slice(startIndex, endIndex);
+
         let htmlString = `<div class="category-post-group animate-fade-in" data-category="${cat}">`;
-        
-        filteredPosts.forEach(post => {
+
+        pagePosts.forEach(post => {
           let tagsHtml = post.tags.map(tag => `<a class="tag" href="hashtag.html">${tag}</a>`).join('');
-          
+
           htmlString += `
             <article class="card post-card soft-card mb-3">
               <div class="card-body">
                 <div class="d-flex gap-3">
-                  <div class="vote-col text-center">
+                  <div class="vote-col text-center d-none d-sm-block">
                     <button class="btn btn-light btn-sm like-btn"><i class="bi bi-caret-up-fill"></i></button>
                     <div class="fw-bold">${post.votes}</div>
                     <button class="btn btn-light btn-sm"><i class="bi bi-bookmark"></i></button>
@@ -284,7 +332,7 @@
                     <p class="text-muted mb-3">${post.desc}</p>
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                       <div class="d-flex flex-wrap gap-2">${tagsHtml}</div>
-                      <small class="text-muted"><i class="bi bi-eye"></i> ${post.views} • <i class="bi bi-chat"></i> ${post.comments}</small>
+                      <small class="text-muted"><i class="bi bi-eye"></i> ${post.views} • <i class="bi bi-chat ms-2"></i> ${post.comments}</small>
                     </div>
                   </div>
                 </div>
@@ -292,9 +340,66 @@
             </article>
           `;
         });
-        
+
         htmlString += `</div>`;
         wrapper.innerHTML = htmlString;
+
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("category-pagination");
+        const totalPages = Math.ceil(currentFilteredPosts.length / itemsPerPage);
+
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+
+        // Nút Previous
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+
+        // Các số trang
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+
+        // Nút Next
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+
+        paginationWrapper.innerHTML = paginationHtml;
+
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) {
+              return;
+            }
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              const cat = document.querySelector("#top-category-list a.category-pill.active").getAttribute("data-cat") || 'all';
+              renderPosts(cat);
+              document.getElementById('category-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          });
+        });
       }
 
       function switchCategory(cat) {
@@ -303,6 +408,7 @@
         document.getElementById("category-title").innerText = categoryData[cat].title;
         document.getElementById("category-description").innerText = categoryData[cat].desc;
 
+        currentPage = 1;
         renderPosts(cat);
 
         document.querySelectorAll("#category-list a").forEach(link => {
@@ -323,15 +429,15 @@
       }
 
       const categoryLinks = document.querySelectorAll("#category-list a, #top-category-list a.category-pill");
-      
+
       categoryLinks.forEach(link => {
         link.addEventListener("click", function (e) {
           e.preventDefault();
           const cat = this.getAttribute("data-cat");
-          
+
           const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?cat=' + cat;
           window.history.pushState({ path: newUrl }, '', newUrl);
-          
+
           switchCategory(cat);
         });
       });
@@ -348,18 +454,27 @@
           this.classList.add('active');
         });
       });
-      
+
     });
   </script>
-  
+
   <style>
-      .animate-fade-in {
-          animation: fadeIn 0.3s ease-in-out;
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
       }
-      @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(5px); }
-          to { opacity: 1; transform: translateY(0); }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
+    }
   </style>
 </body>
+
 </html>

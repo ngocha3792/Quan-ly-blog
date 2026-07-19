@@ -64,43 +64,18 @@
                 <th class="col-w-actions text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td class="fw-medium">Thiết kế Blog đa ngôn ngữ</td>
-                <td class="text-nowrap">Backend</td>
-                <td class="text-nowrap text-center"><span class="badge bg-secondary-subtle text-secondary-emphasis border">VI</span></td>
-                <td class="text-nowrap text-center"><span class="badge bg-success rounded-pill px-3 py-1">PUBLISHED</span></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-info border-0 me-1 action-btn" title="Xem" data-bs-toggle="modal" data-bs-target="#previewModal1">
-                    <i class="bi bi-eye"></i>
-                  </button>
-                  <a href="edit-post.html" class="btn btn-sm btn-outline-primary border-0 me-1 action-btn" title="Chỉnh sửa">
-                    <i class="bi bi-pencil-square"></i>
-                  </a>
-                  <button class="btn btn-sm btn-outline-danger border-0 action-btn" title="Xóa" onclick="return confirm('Bạn có chắc chắn muốn xóa bài viết này?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-medium">Angular Interceptor</td>
-                <td class="text-nowrap">Frontend</td>
-                <td class="text-nowrap text-center"><span class="badge bg-secondary-subtle text-secondary-emphasis border">EN</span></td>
-                <td class="text-nowrap text-center"><span class="badge bg-secondary rounded-pill px-3 py-1">DRAFT</span></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-info border-0 me-1 action-btn" title="Xem" data-bs-toggle="modal" data-bs-target="#previewModal2">
-                    <i class="bi bi-eye"></i>
-                  </button>
-                  <a href="edit-post.html" class="btn btn-sm btn-outline-primary border-0 me-1 action-btn" title="Chỉnh sửa">
-                    <i class="bi bi-pencil-square"></i>
-                  </a>
-                  <button class="btn btn-sm btn-outline-danger border-0 action-btn" title="Xóa" onclick="return confirm('Bạn có chắc chắn muốn xóa bản nháp này?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
+            <tbody id="posts-table-body">
+              <!-- Render bằng JS -->
             </tbody>
           </table>
+        </div>
+        
+        <div class="mt-4">
+          <nav>
+            <ul class="pagination justify-content-center" id="posts-pagination">
+              <!-- Phân trang sẽ render bằng JS -->
+            </ul>
+          </nav>
         </div>
       </section>
     </main>
@@ -192,6 +167,132 @@ export class AuthInterceptor implements HttpInterceptor {
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../../assets/js/main.js"></script>
+  
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const basePosts = [
+        {
+          id: 1, title: 'Thiết kế Blog đa ngôn ngữ', category: 'Backend',
+          lang: 'VI', status: 'PUBLISHED', statusClass: 'bg-success',
+          modalTarget: '#previewModal1'
+        },
+        {
+          id: 2, title: 'Angular Interceptor', category: 'Frontend',
+          lang: 'EN', status: 'DRAFT', statusClass: 'bg-secondary',
+          modalTarget: '#previewModal2'
+        }
+      ];
+
+      // Tạo 25 posts giả
+      let postsMockData = [];
+      const categoriesList = ['Backend', 'Frontend', 'Database', 'DevOps', 'AI', 'NodeJS', 'Angular'];
+      const langList = ['VI', 'EN'];
+      const statusList = [{ label: 'PUBLISHED', class: 'bg-success' }, { label: 'DRAFT', class: 'bg-secondary' }];
+
+      for (let i = 0; i < 25; i++) {
+        let post = { ...basePosts[i % 2] };
+        post.id = i + 1;
+        post.title = `${post.title} (Phần ${i + 1})`;
+        post.category = categoriesList[i % categoriesList.length];
+        post.lang = langList[i % langList.length];
+        post.status = statusList[i % statusList.length].label;
+        post.statusClass = statusList[i % statusList.length].class;
+        postsMockData.push(post);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 8;
+
+      function renderPosts() {
+        const tbody = document.getElementById("posts-table-body");
+        let htmlString = "";
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentPosts = postsMockData.slice(startIndex, endIndex);
+
+        currentPosts.forEach(post => {
+          htmlString += `
+            <tr>
+              <td class="fw-medium">${post.title}</td>
+              <td class="text-nowrap">${post.category}</td>
+              <td class="text-nowrap text-center"><span class="badge bg-secondary-subtle text-secondary-emphasis border">${post.lang}</span></td>
+              <td class="text-nowrap text-center"><span class="badge ${post.statusClass} rounded-pill px-3 py-1">${post.status}</span></td>
+              <td class="text-nowrap text-center">
+                <button class="btn btn-sm btn-outline-info border-0 me-1 action-btn" title="Xem" data-bs-toggle="modal" data-bs-target="${post.modalTarget}">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <a href="edit-post.html" class="btn btn-sm btn-outline-primary border-0 me-1 action-btn" title="Chỉnh sửa">
+                  <i class="bi bi-pencil-square"></i>
+                </a>
+                <button class="btn btn-sm btn-outline-danger border-0 action-btn" title="Xóa" onclick="return confirm('Bạn có chắc chắn muốn xóa bài viết này?');">
+                  <i class="bi bi-trash3-fill"></i>
+                </button>
+              </td>
+            </tr>
+          `;
+        });
+        
+        tbody.innerHTML = htmlString;
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("posts-pagination");
+        const totalPages = Math.ceil(postsMockData.length / itemsPerPage);
+        
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+        
+        // Previous
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        
+        // Numbered Pages
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        
+        // Next
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        
+        paginationWrapper.innerHTML = paginationHtml;
+        
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) {
+              return;
+            }
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              renderPosts();
+            }
+          });
+        });
+      }
+
+      renderPosts();
+    });
+  </script>
 </body>
 
 </html>

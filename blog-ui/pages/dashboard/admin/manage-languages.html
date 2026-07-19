@@ -66,57 +66,19 @@
                 <th class="col-w-actions text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td class="fw-bold text-uppercase text-nowrap">vi</td>
-                <td class="text-nowrap"><img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px; border-radius: 2px;" class="me-2">Tiếng Việt</td>
-                <td class="text-nowrap text-center"><span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1"><i
-                      class="bi bi-star-fill me-1"></i> Default</span></td>
-                <td class="text-nowrap text-center"><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
-                    data-bs-target="#editLanguageModal">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa ngôn ngữ này?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-bold text-uppercase text-nowrap">en</td>
-                <td class="text-nowrap"><img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px; border-radius: 2px;" class="me-2">English</td>
-                <td class="text-nowrap text-center"><span class="text-muted">-</span></td>
-                <td class="text-nowrap text-center"><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
-                    data-bs-target="#editLanguageModal">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa ngôn ngữ này?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-bold text-uppercase text-nowrap">ja</td>
-                <td class="text-nowrap"><img src="https://flagcdn.com/w20/jp.png" alt="JP" style="width: 20px; border-radius: 2px;" class="me-2">Japanese</td>
-                <td class="text-nowrap text-center"><span class="text-muted">-</span></td>
-                <td class="text-nowrap text-center"><span class="badge bg-secondary rounded-pill px-3 py-2">INACTIVE</span></td>
-                <td class="text-nowrap text-center">
-                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal"
-                    data-bs-target="#editLanguageModal">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa"
-                    onclick="return confirm('Bạn có chắc chắn muốn xóa ngôn ngữ này?');">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                </td>
-              </tr>
+            <tbody id="languages-table-body">
+              <!-- Render by JS -->
             </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4">
+          <nav>
+            <ul class="pagination justify-content-center" id="languages-pagination">
+              <!-- Pagination rendered by JS -->
+            </ul>
+          </nav>
+        </div>
           </table>
         </div>
       </section>
@@ -287,6 +249,117 @@
           }, 350);
         });
       }
+
+      // 3. Mock Data & Render Danh sách ngôn ngữ
+      const baseLanguages = [
+        { code: 'vi', name: 'Tiếng Việt', flag: 'vn', isDefault: true, status: 'ACTIVE' },
+        { code: 'en', name: 'English', flag: 'gb', isDefault: false, status: 'ACTIVE' },
+        { code: 'ja', name: 'Japanese', flag: 'jp', isDefault: false, status: 'INACTIVE' },
+        { code: 'kr', name: 'Korean', flag: 'kr', isDefault: false, status: 'INACTIVE' },
+        { code: 'fr', name: 'French', flag: 'fr', isDefault: false, status: 'ACTIVE' }
+      ];
+
+      let languagesMockData = [];
+      for (let i = 0; i < 20; i++) {
+        let lang = { ...baseLanguages[i % baseLanguages.length] };
+        lang.id = i + 1;
+        if (i >= 5) {
+            lang.code = `${lang.code}${i}`;
+            lang.name = `${lang.name} ${i}`;
+            lang.isDefault = false;
+        }
+        languagesMockData.push(lang);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 6;
+
+      window.renderLanguages = function() {
+        const tbody = document.getElementById("languages-table-body");
+        if (!tbody) return;
+        
+        let htmlString = "";
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentLangs = languagesMockData.slice(startIndex, endIndex);
+
+        currentLangs.forEach(lang => {
+          let defaultBadge = lang.isDefault 
+            ? '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-star-fill me-1"></i> Default</span>'
+            : '<span class="text-muted">-</span>';
+            
+          let statusBadge = lang.status === 'ACTIVE' 
+            ? '<span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span>'
+            : '<span class="badge bg-secondary rounded-pill px-3 py-2">INACTIVE</span>';
+
+          htmlString += `
+              <tr>
+                <td class="fw-bold text-uppercase text-nowrap">${lang.code}</td>
+                <td class="text-nowrap"><img src="https://flagcdn.com/w20/${lang.flag}.png" alt="${lang.flag}" style="width: 20px; border-radius: 2px;" class="me-2">${lang.name}</td>
+                <td class="text-nowrap text-center">${defaultBadge}</td>
+                <td class="text-nowrap text-center">${statusBadge}</td>
+                <td class="text-nowrap text-center">
+                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal" data-bs-target="#editLanguageModal">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa" onclick="if(confirm('Xóa ngôn ngữ này?')) alert('Đã xóa');">
+                    <i class="bi bi-trash3-fill"></i>
+                  </button>
+                </td>
+              </tr>
+          `;
+        });
+        
+        tbody.innerHTML = htmlString;
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("languages-pagination");
+        if (!paginationWrapper) return;
+        
+        const totalPages = Math.ceil(languagesMockData.length / itemsPerPage);
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        paginationWrapper.innerHTML = paginationHtml;
+        
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) return;
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              renderLanguages();
+            }
+          });
+        });
+      }
+
+      renderLanguages();
 
     });
   </script>
