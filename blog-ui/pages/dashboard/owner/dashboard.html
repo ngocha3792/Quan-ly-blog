@@ -134,10 +134,10 @@
             <thead>
               <tr>
                 <th>Bài viết</th>
-                <th>Trạng thái</th>
-                <th>View</th>
-                <th>Like</th>
-                <th>Thao tác</th>
+                <th class="col-w-md text-nowrap text-center">Trạng thái</th>
+                <th class="col-w-sm text-nowrap text-center">View</th>
+                <th class="col-w-sm text-nowrap text-center">Like</th>
+                <th class="col-w-actions text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody id="featuredPostsBody">
@@ -210,10 +210,14 @@
       // 2. CHỨC NĂNG RENDER BÀI VIẾT VÀ LỌC THEO TIÊU CHÍ
       // Tạo Mock Data
       const postsData = [
-        { title: "Angular Guard theo role", status: "PUBLISHED", statusClass: "bg-success", views: 1200, likes: 345 },
-        { title: "Tối ưu hóa Query trong MySQL", status: "PUBLISHED", statusClass: "bg-success", views: 3422, likes: 980 },
-        { title: "Express Validator cơ bản", status: "DRAFT", statusClass: "bg-secondary", views: 0, likes: 0 },
-        { title: "CSS Variables và Dark Mode", status: "PUBLISHED", statusClass: "bg-success", views: 850, likes: 412 }
+        { id: 1, title: "Angular Guard theo role", status: "PUBLISHED", statusClass: "bg-success", views: 1200, likes: 345, 
+          content: "<p>Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng <strong>CanActivate</strong> để bảo vệ các routes trong Angular. Điều này rất quan trọng để đảm bảo rằng chỉ những người dùng có vai trò (role) thích hợp mới có thể truy cập vào các trang như Admin Dashboard hay Moderator Panel.</p><p>Hãy tạo một guard đơn giản:</p><pre class='bg-light p-3 rounded my-3 border text-dark'><code>ng generate guard auth</code></pre>" },
+        { id: 2, title: "Tối ưu hóa Query trong MySQL", status: "PUBLISHED", statusClass: "bg-success", views: 3422, likes: 980,
+          content: "<p>Tối ưu hóa truy vấn Database là kỹ năng bắt buộc của Backend Developer.</p><p><strong>1. Sử dụng Index:</strong> Hãy đánh index cho các cột thường xuyên được tìm kiếm bằng <code>WHERE</code> hoặc dùng để <code>JOIN</code>.</p><p><strong>2. Tránh SELECT *:</strong> Chỉ lấy những cột bạn thực sự cần để giảm thiểu băng thông và RAM.</p>" },
+        { id: 3, title: "Express Validator cơ bản", status: "DRAFT", statusClass: "bg-secondary", views: 0, likes: 0,
+          content: "<p>Validation là lớp khiên đầu tiên bảo vệ API của bạn khỏi các dữ liệu rác hoặc mã độc.</p><p>Với Express Validator, bạn có thể dễ dàng kiểm tra các trường như email, password ngay tại middleware.</p><pre class='bg-light p-3 rounded my-3 border text-dark'><code>body('email').isEmail().withMessage('Email không hợp lệ')</code></pre>" },
+        { id: 4, title: "CSS Variables và Dark Mode", status: "PUBLISHED", statusClass: "bg-success", views: 850, likes: 412,
+          content: "<p>Làm Dark Mode chưa bao giờ dễ dàng đến thế nhờ CSS Variables (Custom Properties).</p><p>Bạn chỉ cần định nghĩa các biến màu ở <code>:root</code> và thay đổi chúng khi body có class <code>.dark-mode</code>.</p>" }
       ];
 
       const tbody = document.getElementById('featuredPostsBody');
@@ -226,10 +230,13 @@
           const row = `
             <tr>
               <td class="fw-medium">${post.title}</td>
-              <td><span class="badge ${post.statusClass} rounded-pill px-3 py-1">${post.status}</span></td>
-              <td>${post.views.toLocaleString()}</td>
-              <td><span class="text-danger"><i class="bi bi-heart-fill me-1"></i>${post.likes.toLocaleString()}</span></td>
-              <td>
+              <td class="text-nowrap text-center"><span class="badge ${post.statusClass} rounded-pill px-3 py-1">${post.status}</span></td>
+              <td class="text-nowrap text-center">${post.views.toLocaleString()}</td>
+              <td class="text-nowrap text-center"><span class="text-danger"><i class="bi bi-heart-fill me-1"></i>${post.likes.toLocaleString()}</span></td>
+              <td class="text-nowrap text-center">
+                <button class="btn btn-sm btn-outline-info border-0 me-1" title="Xem" data-bs-toggle="modal" data-bs-target="#previewModal${post.id}">
+                  <i class="bi bi-eye"></i>
+                </button>
                 <a href="edit-post.html" class="btn btn-sm btn-outline-primary border-0 me-1" title="Sửa">
                   <i class="bi bi-pencil-square"></i>
                 </a>
@@ -240,6 +247,35 @@
             </tr>
           `;
           tbody.innerHTML += row;
+          
+          // Generate Modal if not exists
+          if (!document.getElementById(`previewModal${post.id}`)) {
+            const modalHtml = `
+              <div class="modal fade" id="previewModal${post.id}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title fw-bold">Xem trước: ${post.title}</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <div class="mb-3">
+                        <span class="badge ${post.statusClass} me-2">${post.status}</span>
+                      </div>
+                      <h2 class="mb-4 fw-bold">${post.title}</h2>
+                      <div class="blog-content text-dark" style="line-height: 1.8;">
+                        ${post.content}
+                      </div>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+          }
         });
       }
 

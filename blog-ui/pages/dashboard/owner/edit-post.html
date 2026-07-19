@@ -77,22 +77,32 @@
             
             <form id="postForm">
               <div class="row g-3">
-                <div class="col-md-8">
-                  <label class="form-label">Tiêu đề bài viết <span class="text-danger">*</span></label>
-                  <input type="text" id="postTitle" class="form-control" placeholder="Nhập tiêu đề..." required>
-                </div>
-                
-                <div class="col-md-4">
-                  <label class="form-label">Ngôn ngữ</label>
-                  <div class="dropdown">
-                    <button id="langDropdownBtn" class="form-select text-start d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                      <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> <span>VI</span>
-                    </button>
-                    <ul class="dropdown-menu w-100" id="langOptions">
-                      <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-lang="VI" data-flag="vn.png"><img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> VI</a></li>
-                      <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-lang="EN" data-flag="gb.png"><img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px;"> EN</a></li>
-                    </ul>
+                <div class="col-12 d-flex justify-content-between align-items-center mb-1">
+                  <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="editLang" id="editLangVi" value="VI" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary" for="editLangVi">
+                      <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 16px; margin-right: 4px;"> Tiếng Việt 
+                      <span class="badge bg-primary ms-1" id="badgeVi">Gốc</span>
+                    </label>
+
+                    <input type="radio" class="btn-check" name="editLang" id="editLangEn" value="EN" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="editLangEn">
+                      <img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 16px; margin-right: 4px;"> Tiếng Anh 
+                      <span class="badge bg-secondary ms-1" id="badgeEn">Dịch</span>
+                    </label>
                   </div>
+                  <div>
+                    <label class="form-label me-2 mb-0 small text-muted">Ngôn ngữ gốc:</label>
+                    <select class="form-select form-select-sm d-inline-block w-auto" id="originalLangSelect">
+                      <option value="VI">Tiếng Việt</option>
+                      <option value="EN">Tiếng Anh</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Tiêu đề bài viết (<span id="titleLangLabel">VI</span>) <span class="text-danger">*</span></label>
+                  <input type="text" id="postTitle" class="form-control" placeholder="Nhập tiêu đề..." required>
                 </div>
 
                 <div class="col-md-6">
@@ -180,36 +190,98 @@
       // 2. MOCK DATA: GIẢ LẬP GỌI API LẤY DỮ LIỆU CŨ CỦA BÀI VIẾT
       // -------------------------------------------------------------
       const existingPostData = {
-        title: "Thiết kế Blog đa ngôn ngữ",
-        language: "VI",
+        originalLanguage: "VI",
+        translations: {
+          VI: {
+            title: "Thiết kế Blog đa ngôn ngữ",
+            content: `
+              <h2>1. Vấn đề đặt ra</h2>
+              <p>Khi xây dựng một hệ thống bài viết hỗ trợ nhiều ngôn ngữ, chúng ta cần cân nhắc cấu trúc Database sao cho tối ưu nhất.</p>
+            `
+          },
+          EN: {
+            title: "Designing a Multi-language Blog",
+            content: `
+              <h2>1. The Problem</h2>
+              <p>When building a multi-language blog, we need to consider the Database structure.</p>
+            `
+          }
+        },
         categories: ["Backend", "Database"],
         hashtags: "#mysql #i18n #backend",
         thumbnailName: "blog-banner-vn.jpg",
-        videoName: null, // Giả sử bài này chưa có video
-        content: `
-          <h2>1. Vấn đề đặt ra</h2>
-          <p>Khi xây dựng một hệ thống bài viết hỗ trợ nhiều ngôn ngữ, chúng ta cần cân nhắc cấu trúc Database sao cho tối ưu nhất.</p>
-          <ul>
-            <li>Cách 1: Thêm cột cho từng ngôn ngữ (title_vi, title_en).</li>
-            <li>Cách 2: Tạo bảng riêng cho Translation.</li>
-          </ul>
-        `
+        videoName: null
       };
 
-      // 3. ĐỔ DỮ LIỆU CŨ VÀO FORM
-      let currentLang = existingPostData.language;
+      // 3. LOGIC MULTI-LANGUAGE
+      const postLangData = {
+        VI: { ...existingPostData.translations.VI },
+        EN: { ...existingPostData.translations.EN }
+      };
+      let currentEditLang = 'VI';
+      
+      const titleInput = document.getElementById('postTitle');
+      const titleLangLabel = document.getElementById('titleLangLabel');
+      const originalLangSelect = document.getElementById('originalLangSelect');
+      const badgeVi = document.getElementById('badgeVi');
+      const badgeEn = document.getElementById('badgeEn');
+      const langRadios = document.querySelectorAll('input[name="editLang"]');
 
-      // - Tiêu đề & Hashtags
-      document.getElementById('postTitle').value = existingPostData.title;
-      document.getElementById('postHashtags').value = existingPostData.hashtags;
-
-      // - Nút Dropdown Ngôn ngữ
-      const langDropdownBtn = document.getElementById('langDropdownBtn');
-      if (currentLang === 'EN') {
-        langDropdownBtn.innerHTML = `<img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px;"> <span>EN</span>`;
+      // Khởi tạo gốc
+      originalLangSelect.value = existingPostData.originalLanguage;
+      if (existingPostData.originalLanguage === 'VI') {
+        badgeVi.className = 'badge bg-primary ms-1';
+        badgeVi.innerText = 'Gốc';
+        badgeEn.className = 'badge bg-secondary ms-1';
+        badgeEn.innerText = 'Dịch';
       } else {
-        langDropdownBtn.innerHTML = `<img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 20px;"> <span>VI</span>`;
+        badgeEn.className = 'badge bg-primary ms-1';
+        badgeEn.innerText = 'Gốc';
+        badgeVi.className = 'badge bg-secondary ms-1';
+        badgeVi.innerText = 'Dịch';
       }
+
+      // Cập nhật nhãn Ngôn ngữ gốc / Bản dịch
+      originalLangSelect.addEventListener('change', function() {
+        if (this.value === 'VI') {
+          badgeVi.className = 'badge bg-primary ms-1';
+          badgeVi.innerText = 'Gốc';
+          badgeEn.className = 'badge bg-secondary ms-1';
+          badgeEn.innerText = 'Dịch';
+        } else {
+          badgeEn.className = 'badge bg-primary ms-1';
+          badgeEn.innerText = 'Gốc';
+          badgeVi.className = 'badge bg-secondary ms-1';
+          badgeVi.innerText = 'Dịch';
+        }
+      });
+
+      // Xử lý khi chuyển đổi tab ngôn ngữ
+      langRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+          const selectedLang = this.value;
+          if (selectedLang !== currentEditLang) {
+            // Lưu dữ liệu tab hiện tại
+            postLangData[currentEditLang].title = titleInput.value;
+            postLangData[currentEditLang].content = quill.root.innerHTML;
+
+            // Đổi state
+            currentEditLang = selectedLang;
+            titleLangLabel.innerText = currentEditLang;
+            
+            // Load dữ liệu tab mới
+            titleInput.value = postLangData[currentEditLang].title;
+            quill.setContents([]); 
+            if(postLangData[currentEditLang].content) {
+              quill.clipboard.dangerouslyPasteHTML(postLangData[currentEditLang].content);
+            }
+          }
+        });
+      });
+
+      // 4. ĐỔ DỮ LIỆU CŨ VÀO FORM
+      titleInput.value = postLangData[currentEditLang].title;
+      document.getElementById('postHashtags').value = existingPostData.hashtags;
 
       // - Categories (Select multiple)
       const categorySelect = document.getElementById('postCategories');
@@ -228,25 +300,12 @@
       }
 
       // - Đổ HTML cũ vào Quill Editor
-      // Sử dụng dangerouslyPasteHTML để giữ nguyên định dạng HTML cũ
-      quill.clipboard.dangerouslyPasteHTML(existingPostData.content);
+      quill.clipboard.dangerouslyPasteHTML(postLangData[currentEditLang].content);
 
 
       // -------------------------------------------------------------
-      // 4. LOGIC XỬ LÝ SỰ KIỆN GIAO DIỆN & CẬP NHẬT
+      // 5. LOGIC XỬ LÝ LƯU (CẬP NHẬT)
       // -------------------------------------------------------------
-
-      // Xử lý đổi ngôn ngữ
-      const langItems = document.querySelectorAll('#langOptions .dropdown-item');
-      langItems.forEach(item => {
-        item.addEventListener('click', function(e) {
-          e.preventDefault();
-          const lang = this.getAttribute('data-lang');
-          const flag = this.getAttribute('data-flag');
-          currentLang = lang;
-          langDropdownBtn.innerHTML = `<img src="https://flagcdn.com/w20/${flag}" alt="${lang}" style="width: 20px;"> <span>${lang}</span>`;
-        });
-      });
 
       // Toast Notification
       const toastEl = document.getElementById('liveToast');
@@ -261,7 +320,6 @@
 
       // Xử lý Lưu (Cập nhật)
       document.getElementById('btnPublish').addEventListener('click', function() {
-        const title = document.getElementById('postTitle').value.trim();
         const hashtags = document.getElementById('postHashtags').value.trim();
         const selectedCategories = Array.from(categorySelect.selectedOptions).map(opt => opt.value);
         
@@ -271,28 +329,31 @@
         const finalThumbnail = thumbInput.files.length > 0 ? thumbInput.files[0].name : existingPostData.thumbnailName;
         const finalVideo = videoInput.files.length > 0 ? videoInput.files[0].name : existingPostData.videoName;
 
-        const contentHtml = quill.root.innerHTML;
-        const contentText = quill.getText().trim();
+        // Lưu nội dung tab hiện tại
+        postLangData[currentEditLang].title = titleInput.value;
+        postLangData[currentEditLang].content = quill.root.innerHTML;
 
-        if (!title) {
-          showToast('Vui lòng nhập tiêu đề bài viết!', 'danger');
-          document.getElementById('postTitle').focus();
+        const originalLang = originalLangSelect.value;
+        const mainTitle = postLangData[originalLang].title.trim();
+        const mainContent = postLangData[originalLang].content.trim();
+
+        // Validate bản gốc
+        if (!mainTitle) {
+          showToast('Vui lòng nhập tiêu đề bài gốc!', 'danger');
           return;
         }
-        if (contentText.length === 0) {
-          showToast('Vui lòng nhập nội dung bài viết!', 'danger');
-          quill.focus();
+        if (mainContent === '<p><br></p>' || mainContent === '') {
+          showToast('Vui lòng nhập nội dung bài gốc!', 'danger');
           return;
         }
 
         const updatedData = {
-          title: title,
-          language: currentLang,
+          originalLanguage: originalLang,
+          translations: postLangData,
           categories: selectedCategories,
           hashtags: hashtags,
           thumbnailName: finalThumbnail,
-          videoName: finalVideo,
-          content: contentHtml
+          videoName: finalVideo
         };
 
         console.log("🚀 Dữ liệu CẬP NHẬT chuẩn bị gửi đi:", updatedData);
