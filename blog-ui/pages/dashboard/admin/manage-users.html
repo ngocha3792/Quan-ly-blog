@@ -55,22 +55,22 @@
           </button>
         </div>
 
-        <div class="table-card">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+        <div class="card table-card border-0 shadow-sm">
+          <table class="table align-middle mb-0 table-hover">
+            <thead>
               <tr>
                 <th>User</th>
-                <th>Role</th>
-                <th>Trạng thái</th>
-                <th>Thao tác</th>
+                <th class="col-w-lg text-nowrap">Role</th>
+                <th class="col-w-md text-nowrap text-center">Trạng thái</th>
+                <th class="col-w-lg text-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>son@example.com</td>
-                <td><span class="text-secondary fw-semibold">NORMAL_USER</span></td>
-                <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
-                <td>
+                <td class="text-nowrap">son@example.com</td>
+                <td class="text-nowrap"><span class="text-secondary fw-semibold">NORMAL_USER</span></td>
+                <td class="text-nowrap text-center"><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
+                <td class="text-nowrap text-center">
                   <button class="btn btn-sm btn-outline-primary border-0" title="Cấp quyền Blog Owner"
                     onclick="return confirm('Bạn có chắc chắn muốn nâng cấp user này lên Blog Owner?');">
                     <i class="bi bi-arrow-up-circle-fill"></i> Cấp quyền
@@ -78,10 +78,10 @@
                 </td>
               </tr>
               <tr>
-                <td>owner@example.com</td>
-                <td><span class="text-primary fw-semibold">BLOG_OWNER</span></td>
-                <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
-                <td>
+                <td class="text-nowrap">owner@example.com</td>
+                <td class="text-nowrap"><span class="text-primary fw-semibold">BLOG_OWNER</span></td>
+                <td class="text-nowrap text-center"><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
+                <td class="text-nowrap text-center">
                   <button class="btn btn-sm btn-outline-warning border-0 text-dark" title="Tước quyền Blog Owner"
                     onclick="return confirm('Bạn có chắc chắn muốn giáng cấp user này về Normal User?');">
                     <i class="bi bi-arrow-down-circle-fill"></i> Tước quyền
@@ -89,10 +89,10 @@
                 </td>
               </tr>
               <tr>
-                <td>mod@example.com</td>
-                <td><span class="text-danger fw-semibold">CONTENT_MODERATOR</span></td>
-                <td><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
-                <td>
+                <td class="text-nowrap">mod@example.com</td>
+                <td class="text-nowrap"><span class="text-danger fw-semibold">CONTENT_MODERATOR</span></td>
+                <td class="text-nowrap text-center"><span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span></td>
+                <td class="text-nowrap text-center">
                   <button class="btn btn-sm btn-outline-danger border-0" title="Khóa tài khoản"
                     onclick="return confirm('Bạn có chắc chắn muốn khóa tài khoản Moderator này?');">
                     <i class="bi bi-lock-fill"></i> Khóa user
