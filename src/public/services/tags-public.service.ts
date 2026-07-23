@@ -1,0 +1,37 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@app/core/core/prisma/prisma.service';
+
+@Injectable()
+export class TagsPublicService {
+    constructor(private readonly prisma: PrismaService) {}
+
+    async getTopTags(limit: number = 10) {
+        // Gom nhóm theo tagId trong bảng PostTag và đếm số lượng
+        const topTagIds = await this.prisma.postTag.groupBy({
+            by: ['tagId'],
+            _count: { tagId: true },
+            orderBy: { _count: { tagId: 'desc' } },
+            take: limit,
+        });
+
+        if (topTagIds.length === 0) return [];
+
+        const tagIds = topTagIds.map(t => t.tagId);
+
+        // Lấy chi tiết thông tin của các Tag này
+        const tags = await this.prisma.tag.findMany({
+            where: { id: { in: tagIds }, deletedAt: null }
+        });
+
+        // Map kết quả đếm với thông tin Tag, giữ nguyên thứ tự hot nhất
+        return topTagIds.map(t => {
+            const tag = tags.find(tag => tag.id === t.tagId);
+            if (!tag) return null;
+            return {
+                id: tag.id,
+                name: tag.name,
+                postCount: t._count.tagId
+            };
+        }).filter(item => item !== null);
+    }
+}

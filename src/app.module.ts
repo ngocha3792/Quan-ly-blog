@@ -1,0 +1,50 @@
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { RouterModule } from '@nestjs/core';
+
+import { AdminApiModule } from './admin/admin-api.module';
+import { BlogownerApiModule } from './blogowner/blogowner-api.module';
+import { ModeratorApiModule } from './moderator/moderator-api.module';
+import { PublicApiModule } from './public/public-api.module';
+import { UserApiModule } from './user/user-api.module';
+
+import { LoggerMiddleware } from '@app/core/common/middlewares/logger.middleware';
+import { MaintenanceMiddleware } from '@app/core/common/middlewares/maintenance.middleware';
+import configs from '@app/core/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CleanupModule } from '@app/core/modules/cleanup/cleanup.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+      load: configs,
+    }),
+    AdminApiModule,
+    BlogownerApiModule,
+    ModeratorApiModule,
+    PublicApiModule,
+    UserApiModule,
+    
+    ScheduleModule.forRoot(),
+    CleanupModule,
+    
+    // Cấu hình prefix cho từng phân hệ để tránh xung đột API URL
+    RouterModule.register([
+      { path: 'admin', module: AdminApiModule },
+      { path: 'blogowner', module: BlogownerApiModule },
+      { path: 'moderator', module: ModeratorApiModule },
+      { path: 'public', module: PublicApiModule },
+      { path: 'user', module: UserApiModule },
+    ]),
+  ],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Áp dụng Logger và Maintenance middleware cho toàn bộ các route
+    consumer
+      .apply(LoggerMiddleware, MaintenanceMiddleware)
+      .forRoutes('*');
+  }
+}
