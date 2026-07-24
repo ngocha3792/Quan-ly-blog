@@ -1,5 +1,5 @@
 import { Category } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Exclude, Type } from 'class-transformer';
 import { LanguageEntity } from '../../languages/entities/language.entity';
 
 export class CategoryEntity implements Category {
@@ -8,6 +8,8 @@ export class CategoryEntity implements Category {
     languageId: number;
     createdAt: Date;
     updatedAt: Date;
+
+    @Exclude()
     deletedAt: Date | null;
 
     @Type(() => LanguageEntity)

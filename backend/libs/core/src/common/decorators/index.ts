@@ -1,6 +1,7 @@
 // --- Nhóm Parameter Decorators (Trích xuất dữ liệu) ---
 export * from './current-user.decorator';
 export * from './pagination.decorator';
+export * from './lang-code.decorator';
 
 // --- Nhóm Metadata Decorators (Đánh dấu API) ---
 export * from './public.decorator';

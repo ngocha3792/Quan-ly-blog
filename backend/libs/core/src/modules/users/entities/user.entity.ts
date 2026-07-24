@@ -13,11 +13,20 @@ export class UserEntity implements User {
     status: UserStatus;
     bio: string | null;
     avatarUrl: string | null;
+
+    @Exclude() // 🛡️ Thông tin lock chỉ dành cho admin
     lockedAt: Date | null;
+
+    @Exclude()
     lockedById: number | null;
+
+    @Exclude()
     lockReason: string | null;
+
     createdAt: Date;
     updatedAt: Date;
+
+    @Exclude()
     deletedAt: Date | null;
 
     constructor(partial: Partial<UserEntity>) {

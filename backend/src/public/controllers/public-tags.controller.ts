@@ -1,5 +1,5 @@
-import { Controller, Get, Query, UseInterceptors, ClassSerializerInterceptor, Headers } from '@nestjs/common';
-import { Public, GetTagsDto, Pagination } from '@app/core';
+import { Controller, Get, Query, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
+import { Public, GetTagsDto, Pagination, LangCode } from '@app/core';
 import { TagsPublicService } from '../services/tags-public.service';
 import type { PaginationParams } from '@app/core';
 
@@ -12,10 +12,8 @@ export class PublicTagsController {
     @Get('top')
     async getTopTags(
         @Query('limit') limit: number = 10,
-        @Headers('accept-language') acceptLanguage?: string,
-        @Query('lang') lang?: string,
+        @LangCode() langCode: string | null,
     ) {
-        const langCode = lang || (acceptLanguage ? acceptLanguage.split(',')[0].split('-')[0].trim() : null);
         return this.tagsPublicService.getTopTags(Number(limit), langCode);
     }
 
