@@ -9,7 +9,7 @@ import type { PaginationParams } from '@app/core';
 
 import { JwtAuthGuard, RolesGuard } from '@app/core';
 
-@Controller('admin/users')
+@Controller('/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class AdminUsersController {

@@ -38,7 +38,7 @@ export class PostsService {
         return new PostEntity(post);
     }
 
-    async findAll(query: GetPostsDto, paginationParams: PaginationParams): Promise<PaginatedResult<PostEntity>> {
+    async findAll(query: GetPostsDto, paginationParams: PaginationParams, include?: Prisma.PostInclude): Promise<PaginatedResult<PostEntity>> {
         const { search, categoryId, languageId, authorId, parentPostId, status, tagId, tagName, bookmarkedByUserId } = query;
         const { skip, take, page } = paginationParams;
 
@@ -81,6 +81,7 @@ export class PostsService {
                 skip,
                 take,
                 orderBy: { createdAt: 'desc' },
+                include,
             }),
             this.prisma.post.count({ where }),
         ]);
@@ -97,9 +98,10 @@ export class PostsService {
         };
     }
 
-    async findOne(id: number) {
+    async findOne(id: number, include?: Prisma.PostInclude) {
         const post = await this.prisma.post.findFirst({
-            where: { id, deletedAt: null }
+            where: { id, deletedAt: null },
+            include,
         });
 
         if (!post) {

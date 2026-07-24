@@ -1,0 +1,51 @@
+﻿:root {
+    --primary: #0b74de;
+    --bg: #f5f7fb;
+    --card: #fff;
+    --text: #172033;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+a {
+    color: inherit;
+}
+
+.soft-card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .04);
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0b74de, #3ddc97);
+    color: white;
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+
+.form-control,
+.form-select {
+    border-radius: 10px;
+}
+
+.btn {
+    border-radius: 10px;
+}
+

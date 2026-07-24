@@ -31,7 +31,7 @@ export class CategoriesService {
         return new CategoryEntity(category);
     }
 
-    async findAll(query: GetCategoriesDto, paginationParams: PaginationParams): Promise<PaginatedResult<CategoryEntity>> {
+    async findAll(query: GetCategoriesDto, paginationParams: PaginationParams, include?: Prisma.CategoryInclude): Promise<PaginatedResult<CategoryEntity>> {
         const { search, languageId } = query;
         const { skip, take, page } = paginationParams;
 
@@ -53,6 +53,7 @@ export class CategoriesService {
                 skip,
                 take,
                 orderBy: { createdAt: 'desc' },
+                include,
             }),
             this.prisma.category.count({ where }),
         ]);
@@ -69,9 +70,10 @@ export class CategoriesService {
         };
     }
 
-    async findOne(id: number) {
+    async findOne(id: number, include?: Prisma.CategoryInclude) {
         const category = await this.prisma.category.findFirst({
-            where: { id, deletedAt: null }
+            where: { id, deletedAt: null },
+            include,
         });
 
         if (!category) {

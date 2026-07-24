@@ -28,18 +28,10 @@ import { PrismaModule } from '@app/core/core/prisma/prisma.module';
     ModeratorApiModule,
     PublicApiModule,
     UserApiModule,
-    
+
     ScheduleModule.forRoot(),
     CleanupModule,
-    
-    // Cấu hình prefix cho từng phân hệ để tránh xung đột API URL
-    RouterModule.register([
-      { path: 'admin', module: AdminApiModule },
-      { path: 'blogowner', module: BlogownerApiModule },
-      { path: 'moderator', module: ModeratorApiModule },
-      { path: 'public', module: PublicApiModule },
-      { path: 'user', module: UserApiModule },
-    ]),
+
   ],
 })
 export class AppModule implements NestModule {

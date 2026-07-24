@@ -10,13 +10,13 @@ import { ConfigService } from '@nestjs/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
-  
+
   // Lấy Global Prefix từ cấu hình (env: API_PREFIX)
   const apiPrefix = configService.get<string>('app.apiPrefix') || 'api/v1';
   app.setGlobalPrefix(apiPrefix);
 
   // Cấu hình CORS để Frontend (hoặc Mobile) có thể gọi API
-  const frontendUrl = configService.get<string>('app.frontendUrl') || 'http://localhost:3000';
+  const frontendUrl = configService.get<string>('app.frontendUrl') || 'http://localhost:4200';
   app.enableCors({
     origin: frontendUrl,
     credentials: true,

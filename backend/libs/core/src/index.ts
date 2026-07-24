@@ -19,9 +19,13 @@ export { default as configs } from './config';
 
 export * from './modules/categories/categories.module';
 export * from './modules/categories/categories.service';
+export * from './modules/categories/dto';
+export * from './modules/categories/entities';
 
 export * from './modules/tags/tags.module';
 export * from './modules/tags/tags.service';
+export * from './modules/tags/dto';
+export * from './modules/tags/entities/tag.entity';
 
 export * from './modules/languages/languages.module';
 export * from './modules/languages/languages.service';
@@ -48,3 +52,8 @@ export * from './modules/auths/auths.module';
 export * from './modules/auths/auths.service';
 export * from './modules/auths/dto';
 export * from './modules/auths/entities';
+
+export * from './modules/posts/posts.module';
+export * from './modules/posts/posts.service';
+export * from './modules/posts/dto';
+export * from './modules/posts/entities';

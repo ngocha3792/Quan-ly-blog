@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moderator Dashboard | DevBlog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/css/global.css">
+  <link rel="stylesheet" href="../../../assets/css/components.css">
+  <link rel="stylesheet" href="../../../assets/css/dashboard.css">
+  <link rel="stylesheet" href="../../../assets/css/dark-mode.css">
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="dashboard-body">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <h4 class="text-white fw-bold mb-4"><i class="bi bi-braces-asterisk me-2"></i>DevBlog</h4>
+      <a class="active" href="dashboard.html"><i class="bi bi-speedometer2"></i>Dashboard</a>
+      <a class="" href="manage-blogs.html"><i class="bi bi-journal-text"></i>Quản lý blogs</a>
+      <a class="" href="manage-comments.html"><i class="bi bi-chat-left-text"></i>Quản lý comments</a>
+      <a class="" href="manage-categories.html"><i class="bi bi-folder"></i>Quản lý categories</a>
+      <hr class="border-secondary">
+      <a href="../../public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+      <a href="../../public/auth.html" class="text-danger" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+        <i class="bi bi-box-arrow-right"></i>Đăng xuất
+      </a>
+    </aside>
+    
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div><strong>Moderator Dashboard</strong>
+          <div class="small text-muted">Quản lý nội dung</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary" data-theme-toggle title="Đổi giao diện">
+            <i class="bi bi-moon-stars"></i>
+          </button>
+          <span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
+        </div>
+      </header>
+      
+      <section class="dashboard-content">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="card stat-card border-0 shadow-sm">
+              <div class="card-body">
+                <div class="text-muted small">Blogs chờ xử lý</div>
+                <h3 class="fw-bold mb-0 text-primary">6</h3>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card stat-card border-0 shadow-sm">
+              <div class="card-body">
+                <div class="text-muted small">Comments bị report</div>
+                <h3 class="fw-bold mb-0 text-warning">14</h3>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card stat-card border-0 shadow-sm">
+              <div class="card-body">
+                <div class="text-muted small">Categories</div>
+                <h3 class="fw-bold mb-0">8</h3>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card stat-card border-0 shadow-sm">
+              <div class="card-body">
+                <div class="text-muted small">Đã xóa hôm nay</div>
+                <h3 class="fw-bold mb-0 text-danger">3</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-header bg-white fw-bold border-bottom-0 pt-3 pb-0">
+                Lượng báo cáo vi phạm (7 ngày qua)
+              </div>
+              <div class="card-body">
+                <canvas id="reportsChart" height="100"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-header bg-white fw-bold border-bottom-0 pt-3 pb-0">
+                Thao tác nhanh
+              </div>
+              <div class="card-body">
+                <div class="d-grid gap-2">
+                  <a href="manage-blogs.html" class="btn btn-primary text-start">
+                    <i class="bi bi-journal-check me-2"></i>Duyệt Blogs (6)
+                  </a>
+                  <a href="manage-comments.html" class="btn btn-primary text-start">
+                    <i class="bi bi-chat-right-dots me-2"></i>Xử lý Comments (14)
+                  </a>
+                  <a href="manage-categories.html" class="btn btn-outline-secondary text-start">
+                    <i class="bi bi-folder-plus me-2"></i>Thêm Category
+                  </a>
+                  <a href="#" class="btn btn-outline-danger text-start">
+                    <i class="bi bi-trash3 me-2"></i>Xem lịch sử xóa
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-header bg-white fw-bold border-bottom-0 pt-3 pb-0">
+                Tỷ lệ xử lý vi phạm
+              </div>
+              <div class="card-body">
+                <canvas id="moderationPieChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-8">
+            </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../../assets/js/main.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // 1. Biểu đồ Cột (Bar Chart) - Lượng báo cáo
+      const ctxBar = document.getElementById('reportsChart').getContext('2d');
+      new Chart(ctxBar, {
+        type: 'bar', 
+        data: {
+          labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+          datasets: [
+            {
+              label: 'Blog bị báo cáo',
+              data: [2, 5, 1, 3, 4, 0, 6],
+              backgroundColor: '#0d6efd', 
+            },
+            {
+              label: 'Comment bị báo cáo',
+              data: [5, 8, 4, 10, 6, 12, 14],
+              backgroundColor: '#ffc107', 
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true, stacked: true },
+            x: { stacked: true } // Xếp chồng cột để dễ so sánh tổng thể
+          }
+        }
+      });
+
+      // 2. Biểu đồ Tròn (Pie Chart) - Tỷ lệ xử lý
+      const ctxPie = document.getElementById('moderationPieChart').getContext('2d');
+      new Chart(ctxPie, {
+        type: 'pie',
+        data: {
+          labels: ['Spam', 'Ngôn từ kích động', 'Sai chủ đề'],
+          datasets: [{
+            data: [45, 25, 30],
+            backgroundColor: ['#dc3545', '#ffc107', '#6c757d'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

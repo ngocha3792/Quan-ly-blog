@@ -11,6 +11,6 @@ import { JWTUtil, BcryptUtil } from '@app/core/common/utils';
   ],
   controllers: [],
   providers: [AuthsService, JWTUtil, BcryptUtil],
-  exports: [AuthsService],
+  exports: [AuthsService, JWTUtil],
 })
 export class AuthsModule { }
