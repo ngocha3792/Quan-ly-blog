@@ -60,14 +60,6 @@ enum ReportReason {
   OTHER
 }
 
-enum ModerationAction {
-  SUBMIT
-  APPROVE
-  REJECT
-  HIDE
-  RESTORE
-}
-
 // ======================================================
 // MODELS
 // ======================================================
@@ -159,11 +151,36 @@ model Language {
   @@map("languages")
 }
 
+model CategoryGroup {
+  id        Int       @id @default(autoincrement())
+  code      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  categories Category[]
+
+  @@map("category_groups")
+}
+
 model Category {
-  id         Int      @id @default(autoincrement())
-  name       String
+  id Int @id @default(autoincrement())
+
+  categoryGroupId Int           @map("category_group_id")
+  categoryGroup   CategoryGroup @relation(
+    fields: [categoryGroupId],
+    references: [id],
+    onDelete: Restrict
+  )
+
+  name String
+
   languageId Int      @map("language_id")
-  language   Language @relation(fields: [languageId], references: [id], onDelete: Restrict)
+  language   Language @relation(
+    fields: [languageId],
+    references: [id],
+    onDelete: Restrict
+  )
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -171,7 +188,13 @@ model Category {
 
   posts Post[]
 
+  // Không được trùng tên category trong cùng ngôn ngữ
   @@unique([name, languageId])
+
+  // Một CategoryGroup chỉ có một category cho mỗi ngôn ngữ
+  @@unique([categoryGroupId, languageId])
+
+  @@index([categoryGroupId])
   @@index([languageId])
   @@map("categories")
 }
@@ -235,6 +258,7 @@ model Post {
   postLikes     PostLike[]
   postBookmarks PostBookmark[]
   reports       Report[]
+  @@unique([parentPostId, languageId])
 
   @@index([authorId])
   @@index([categoryId])
