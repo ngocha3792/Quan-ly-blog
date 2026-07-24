@@ -167,20 +167,12 @@ model Category {
   id Int @id @default(autoincrement())
 
   categoryGroupId Int           @map("category_group_id")
-  categoryGroup   CategoryGroup @relation(
-    fields: [categoryGroupId],
-    references: [id],
-    onDelete: Restrict
-  )
+  categoryGroup   CategoryGroup @relation(fields: [categoryGroupId], references: [id], onDelete: Restrict)
 
   name String
 
   languageId Int      @map("language_id")
-  language   Language @relation(
-    fields: [languageId],
-    references: [id],
-    onDelete: Restrict
-  )
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Restrict)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

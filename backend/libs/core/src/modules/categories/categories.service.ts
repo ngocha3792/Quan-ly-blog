@@ -11,7 +11,7 @@ export class CategoriesService {
     constructor(private readonly prisma: PrismaService) { }
 
     async create(createCategoryDto: CreateCategoryDto) {
-        const { name, languageId } = createCategoryDto;
+        const { name, languageId, categoryGroupId } = createCategoryDto;
 
         const existingCategory = await this.prisma.category.findFirst({
             where: { name, languageId, deletedAt: null }
@@ -25,6 +25,7 @@ export class CategoriesService {
             data: {
                 name,
                 languageId,
+                categoryGroupId,
             }
         });
 
@@ -104,9 +105,15 @@ export class CategoriesService {
             }
         }
 
+        const { categoryGroupId, ...restData } = updateCategoryDto;
+        const data: any = { ...restData };
+        if (categoryGroupId !== undefined) {
+            data.categoryGroupId = categoryGroupId;
+        }
+
         const updatedCategory = await this.prisma.category.update({
             where: { id },
-            data: updateCategoryDto,
+            data,
         });
 
         return new CategoryEntity(updatedCategory);

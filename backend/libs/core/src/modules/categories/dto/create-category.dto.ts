@@ -9,6 +9,11 @@ export class CreateCategoryDto {
     @IsProfanityFree()
     name: string;
 
+    @IsNumber({}, { message: 'Mã nhóm danh mục phải là một số' })
+    @Type(() => Number)
+    @IsNotEmpty({ message: 'Mã nhóm danh mục không được để trống' })
+    categoryGroupId: number;
+
     @IsNumber({}, { message: 'Mã ngôn ngữ phải là một số' })
     @Type(() => Number)
     @IsNotEmpty({ message: 'Mã ngôn ngữ không được để trống' })

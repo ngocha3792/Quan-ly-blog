@@ -19,6 +19,7 @@ export { default as configs } from './config';
 
 export * from './modules/categories/categories.module';
 export * from './modules/categories/categories.service';
+export * from './modules/categories/category-groups.service';
 export * from './modules/categories/dto';
 export * from './modules/categories/entities';
 

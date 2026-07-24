@@ -31,24 +31,40 @@ async function main() {
     });
 
     // ==============================================================
-    // 2. DANH MỤC (CATEGORIES)
+    // 2. NHÓM DANH MỤC (CATEGORY GROUPS)
+    // ==============================================================
+    console.log('⏳ Đang tạo Category Groups...');
+    const groupTech = await prisma.categoryGroup.upsert({
+        where: { code: 'technology' },
+        update: {},
+        create: { code: 'technology' },
+    });
+
+    const groupLife = await prisma.categoryGroup.upsert({
+        where: { code: 'lifestyle' },
+        update: {},
+        create: { code: 'lifestyle' },
+    });
+
+    // ==============================================================
+    // 3. DANH MỤC (CATEGORIES)
     // ==============================================================
     console.log('⏳ Đang tạo Categories...');
     const catTechVi = await prisma.category.upsert({
         // Sử dụng unique composite [name, languageId]
         where: { name_languageId: { name: 'Công nghệ', languageId: langVi.id } },
         update: {},
-        create: { name: 'Công nghệ', languageId: langVi.id },
+        create: { name: 'Công nghệ', languageId: langVi.id, categoryGroupId: groupTech.id },
     });
 
     const catLifeVi = await prisma.category.upsert({
         where: { name_languageId: { name: 'Đời sống', languageId: langVi.id } },
         update: {},
-        create: { name: 'Đời sống', languageId: langVi.id },
+        create: { name: 'Đời sống', languageId: langVi.id, categoryGroupId: groupLife.id },
     });
 
     // ==============================================================
-    // 3. THẺ (TAGS)
+    // 4. THẺ (TAGS)
     // ==============================================================
     console.log('⏳ Đang tạo Tags...');
     const tagsToCreate = ['NestJS', 'Prisma', 'Backend', 'Database'];
@@ -61,7 +77,7 @@ async function main() {
     }
 
     // ==============================================================
-    // 4. NGƯỜI DÙNG (USERS)
+    // 5. NGƯỜI DÙNG (USERS)
     // ==============================================================
     console.log('⏳ Đang tạo Users...');
 
@@ -122,7 +138,7 @@ async function main() {
     });
 
     // ==============================================================
-    // 5. BÀI VIẾT (POST) DÀNH CHO BLOG OWNER
+    // 6. BÀI VIẾT (POST) DÀNH CHO BLOG OWNER
     // ==============================================================
     console.log('⏳ Đang tạo Bài viết mẫu...');
 
@@ -163,7 +179,7 @@ async function main() {
     });
 
     // ==============================================================
-    // 6. BÁO CÁO (REPORT) MẪU
+    // 7. BÁO CÁO (REPORT) MẪU
     // ==============================================================
     console.log('⏳ Đang tạo Báo cáo mẫu...');
     await prisma.report.create({

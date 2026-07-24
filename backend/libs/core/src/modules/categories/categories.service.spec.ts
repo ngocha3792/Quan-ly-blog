@@ -38,7 +38,7 @@ describe('CategoriesService', () => {
     });
 
     describe('create', () => {
-        const createDto: any = { name: 'Technology', languageId: 1 };
+        const createDto: any = { name: 'Technology', languageId: 1, categoryGroupId: 1 };
 
         it('should throw CategoryAlreadyExistsException if category exists', async () => {
             mockPrismaService.category.findFirst.mockResolvedValueOnce({ id: 1, name: 'Technology' });
@@ -51,9 +51,12 @@ describe('CategoriesService', () => {
             
             const result = await service.create(createDto);
             
-            expect(prisma.category.create).toHaveBeenCalledWith({ data: createDto });
+            expect(prisma.category.create).toHaveBeenCalledWith({
+                data: { name: 'Technology', languageId: 1, categoryGroupId: 1 },
+            });
             expect(result.id).toBe(1);
             expect(result.name).toBe('Technology');
+            expect(result.categoryGroupId).toBe(1);
         });
     });
 
@@ -68,7 +71,8 @@ describe('CategoriesService', () => {
                 where: { deletedAt: null },
                 skip: 0,
                 take: 10,
-                orderBy: { createdAt: 'desc' }
+                orderBy: { createdAt: 'desc' },
+                include: undefined,
             });
             expect(result.items.length).toBe(1);
         });
@@ -88,7 +92,8 @@ describe('CategoriesService', () => {
                 },
                 skip: 0,
                 take: 10,
-                orderBy: { createdAt: 'desc' }
+                orderBy: { createdAt: 'desc' },
+                include: undefined,
             });
             expect(result.meta.totalItems).toBe(1);
         });
@@ -115,7 +120,7 @@ describe('CategoriesService', () => {
 
         it('should throw CategoryAlreadyExistsException if updating to existing name/languageId', async () => {
             mockPrismaService.category.findFirst
-                .mockResolvedValueOnce({ id: 1, name: 'Old', languageId: 1 }) // findOne
+                .mockResolvedValueOnce({ id: 1, name: 'Old', languageId: 1, categoryGroupId: 1 }) // findOne
                 .mockResolvedValueOnce({ id: 2 }); // existingCategory check
                 
             await expect(service.update(1, { name: 'New' } as any)).rejects.toThrow(CategoryAlreadyExistsException);
@@ -123,31 +128,43 @@ describe('CategoriesService', () => {
 
         it('should update successfully with name/languageId change', async () => {
             mockPrismaService.category.findFirst
-                .mockResolvedValueOnce({ id: 1, name: 'Old', languageId: 1 }) // findOne
+                .mockResolvedValueOnce({ id: 1, name: 'Old', languageId: 1, categoryGroupId: 1 }) // findOne
                 .mockResolvedValueOnce(null); // existingCategory check
                 
-            mockPrismaService.category.update.mockResolvedValueOnce({ id: 1, name: 'New' });
+            mockPrismaService.category.update.mockResolvedValueOnce({ id: 1, name: 'New', categoryGroupId: 1 });
             
             const result = await service.update(1, { name: 'New' } as any);
             
             expect(prisma.category.update).toHaveBeenCalledWith({
                 where: { id: 1 },
-                data: { name: 'New' }
+                data: { name: 'New' },
             });
             expect(result.name).toBe('New');
         });
 
-        it('should update successfully without name/languageId change', async () => {
-            mockPrismaService.category.findFirst.mockResolvedValueOnce({ id: 1, name: 'Old', languageId: 1 });
-            mockPrismaService.category.update.mockResolvedValueOnce({ id: 1, description: 'Desc' });
-            
-            const updateDto: any = { description: 'Desc' };
-            const result = await service.update(1, updateDto);
-            
+        it('should update categoryGroupId', async () => {
+            mockPrismaService.category.findFirst
+                .mockResolvedValueOnce({ id: 1, name: 'Tech', languageId: 1, categoryGroupId: 1 });
+
+            mockPrismaService.category.update.mockResolvedValueOnce({ id: 1, name: 'Tech', categoryGroupId: 2 });
+
+            const result = await service.update(1, { categoryGroupId: 2 } as any);
+
             expect(prisma.category.update).toHaveBeenCalledWith({
                 where: { id: 1 },
-                data: updateDto
+                data: { categoryGroupId: 2 },
             });
+            expect(result.categoryGroupId).toBe(2);
+        });
+
+        it('should update successfully without name/languageId change', async () => {
+            mockPrismaService.category.findFirst.mockResolvedValueOnce({ id: 1, name: 'Old', languageId: 1, categoryGroupId: 1 });
+            mockPrismaService.category.update.mockResolvedValueOnce({ id: 1 });
+            
+            const updateDto: any = {};
+            const result = await service.update(1, updateDto);
+            
+            expect(prisma.category.update).toHaveBeenCalled();
             expect(result.id).toBe(1);
         });
     });
@@ -171,4 +188,25 @@ describe('CategoriesService', () => {
             expect(result.id).toBe(1);
         });
     });
+
+    describe('restore', () => {
+        it('should throw CategoryNotFoundException if category not found', async () => {
+            mockPrismaService.category.findFirst.mockResolvedValueOnce(null);
+            await expect(service.restore(999)).rejects.toThrow(CategoryNotFoundException);
+        });
+
+        it('should restore a soft-deleted category', async () => {
+            mockPrismaService.category.findFirst.mockResolvedValueOnce({ id: 1, deletedAt: new Date() });
+            mockPrismaService.category.update.mockResolvedValueOnce({ id: 1, deletedAt: null });
+
+            const result = await service.restore(1);
+
+            expect(prisma.category.update).toHaveBeenCalledWith({
+                where: { id: 1 },
+                data: { deletedAt: null },
+            });
+            expect(result.id).toBe(1);
+        });
+    });
 });
+
