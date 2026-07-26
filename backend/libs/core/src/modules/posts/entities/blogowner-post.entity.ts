@@ -3,6 +3,7 @@ import { Exclude, Expose, Type } from 'class-transformer';
 
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { LanguageEntity } from '../../languages/entities/language.entity';
+import { MediaEntity } from '../../media/entities/media.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 
 type PostAuthorSummary = Pick<User, 'id' | 'username' | 'bio' | 'avatarUrl'>;
@@ -24,6 +25,7 @@ type PostTagWithTag = {
  * Khác với PostEntity public:
  * - Cho phép xem reviewedAt.
  * - Cho phép xem rejectionReason.
+ * - Trả danh sách media của bài viết.
  * - Vẫn ẩn reviewedById và deletedAt.
  */
 export class BlogownerPostEntity implements Post {
@@ -56,6 +58,12 @@ export class BlogownerPostEntity implements Post {
 
   @Type(() => LanguageEntity)
   language?: LanguageEntity;
+
+  /**
+   * Danh sách ảnh/video thuộc bài viết.
+   */
+  @Type(() => MediaEntity)
+  media?: MediaEntity[];
 
   /**
    * Quan hệ Prisma:
@@ -121,5 +129,11 @@ export class BlogownerPostEntity implements Post {
 
   constructor(partial: Partial<BlogownerPostEntity>) {
     Object.assign(this, partial);
+
+    if (partial.media) {
+      this.media = partial.media.map((item) =>
+        item instanceof MediaEntity ? item : new MediaEntity(item),
+      );
+    }
   }
 }

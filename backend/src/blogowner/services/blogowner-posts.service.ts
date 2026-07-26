@@ -58,6 +58,24 @@ const BLOGOWNER_POST_INCLUDE = {
       tag: true,
     },
   },
+
+  media: {
+  where: {
+    deletedAt: null,
+  },
+  select: {
+    id: true,
+    postId: true,
+    mediaType: true,
+    mediaUrl: true,
+    publicId: true,
+    createdAt: true,
+    deletedAt: true,
+  },
+  orderBy: {
+    createdAt: 'asc',
+  },
+},
 } satisfies Prisma.PostInclude;
 
 @Injectable()
