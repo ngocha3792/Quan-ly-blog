@@ -83,7 +83,6 @@ model User {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  // Relations
   usersLocked               User[]               @relation("UserLockings")
   sessions                  UserSession[]
   passwordResetTokens       PasswordResetToken[]
@@ -178,14 +177,10 @@ model Category {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  posts Post[]
+  postCategories PostCategory[]
 
-  // Không được trùng tên category trong cùng ngôn ngữ
   @@unique([name, languageId])
-
-  // Một CategoryGroup chỉ có một category cho mỗi ngôn ngữ
   @@unique([categoryGroupId, languageId])
-
   @@index([categoryGroupId])
   @@index([languageId])
   @@map("categories")
@@ -220,6 +215,7 @@ model Post {
   content      String     @db.Text
   status       PostStatus @default(DRAFT)
   viewCount    Int        @default(0) @map("view_count")
+  publishedAt  DateTime?  @map("published_at")
 
   parentPostId    Int?   @map("parent_post_id")
   parentPost      Post?  @relation("TranslatedPosts", fields: [parentPostId], references: [id])
@@ -227,10 +223,6 @@ model Post {
 
   authorId Int  @map("author_id")
   author   User @relation("UserPosts", fields: [authorId], references: [id], onDelete: Cascade)
-
-  categoryId Int      @map("category_id")
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-
 
   languageId Int      @map("language_id")
   language   Language @relation(fields: [languageId], references: [id], onDelete: Restrict)
@@ -244,23 +236,68 @@ model Post {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  media         Media[]
-  comments      Comment[]
-  postTags      PostTag[]
-  postLikes     PostLike[]
-  postBookmarks PostBookmark[]
-  reports       Report[]
-  @@unique([parentPostId, languageId])
+  postCategories PostCategory[]
+  media          Media[]
+  comments       Comment[]
+  postTags       PostTag[]
+  postLikes      PostLike[]
+  postBookmarks  PostBookmark[]
+  dailyMetrics   PostDailyMetric[]
+  viewLogs       PostViewLog[]
+  reports        Report[]
 
+  @@unique([parentPostId, languageId])
   @@index([authorId])
-  @@index([categoryId])
   @@index([languageId])
   @@index([parentPostId])
   @@index([status])
   @@index([createdAt])
+  @@index([publishedAt])
   @@index([status, languageId])
+  @@index([status, publishedAt])
   @@index([authorId, status])
   @@map("posts")
+}
+
+model PostCategory {
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  categoryId Int      @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([postId, categoryId])
+  @@index([categoryId])
+  @@map("post_categories")
+}
+
+model PostDailyMetric {
+  id Int @id @default(autoincrement())
+
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  metricDate DateTime @map("metric_date") @db.Date
+  viewCount  Int      @default(0) @map("view_count")
+  likeCount  Int      @default(0) @map("like_count")
+
+  @@unique([postId, metricDate])
+  @@index([metricDate])
+  @@map("post_daily_metrics")
+}
+
+model PostViewLog {
+  id Int @id @default(autoincrement())
+
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  viewerKey String   @map("viewer_key") @db.VarChar(128)
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  @@index([postId, viewerKey, viewedAt])
+  @@index([viewedAt])
+  @@map("post_view_logs")
 }
 
 model Media {
@@ -306,9 +343,9 @@ model Comment {
 }
 
 model Tag {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
   deletedAt DateTime? @map("deleted_at")
 
   postTags PostTag[]
@@ -319,8 +356,9 @@ model Tag {
 model PostTag {
   postId Int  @map("post_id")
   post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tagId  Int  @map("tag_id")
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  tagId Int @map("tag_id")
+  tag   Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([postId, tagId])
   @@index([tagId])
@@ -330,6 +368,7 @@ model PostTag {
 model PostLike {
   postId Int  @map("post_id")
   post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
   userId Int  @map("user_id")
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -343,6 +382,7 @@ model PostLike {
 model PostBookmark {
   postId Int  @map("post_id")
   post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
   userId Int  @map("user_id")
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -354,8 +394,9 @@ model PostBookmark {
 }
 
 model UserFollow {
-  followerId  Int  @map("follower_id")
-  follower    User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId Int  @map("follower_id")
+  follower   User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+
   followingId Int  @map("following_id")
   following   User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
 

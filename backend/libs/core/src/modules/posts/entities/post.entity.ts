@@ -1,60 +1,113 @@
-import { Post, PostStatus } from '@prisma/client';
-import { Exclude, Expose, Type } from 'class-transformer';
+import {
+  Post,
+  PostStatus,
+  type User,
+} from '@prisma/client';
+import {
+  Exclude,
+  Expose,
+  Type,
+} from 'class-transformer';
+
 import { UserEntity } from '../../users/entities/user.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { LanguageEntity } from '../../languages/entities/language.entity';
 
+type PostAuthorSummary = Pick<
+  User,
+  'id' | 'username' | 'bio' | 'avatarUrl'
+>;
+
+type PostCategoryWithCategory = {
+  category: CategoryEntity;
+};
+
 export class PostEntity implements Post {
-    id: number;
-    title: string;
-    thumbnailUrl: string | null;
-    content: string;
-    status: PostStatus;
-    viewCount: number;
-    parentPostId: number | null;
-    authorId: number;
-    categoryId: number;
-    languageId: number;
+  id!: number;
+  title!: string;
+  thumbnailUrl!: string | null;
+  content!: string;
+  status!: PostStatus;
+  viewCount!: number;
+  publishedAt!: Date | null;
 
-    @Exclude() // 🛡️ Thông tin review chỉ dành cho admin
-    reviewedById: number | null;
+  parentPostId!: number | null;
+  authorId!: number;
+  languageId!: number;
 
-    @Exclude()
-    reviewedAt: Date | null;
+  @Exclude()
+  reviewedById!: number | null;
 
-    @Exclude()
-    rejectionReason: string | null;
+  @Exclude()
+  reviewedAt!: Date | null;
 
-    createdAt: Date;
-    updatedAt: Date;
+  @Exclude()
+  rejectionReason!: string | null;
 
-    @Exclude()
-    deletedAt: Date | null;
+  createdAt!: Date;
+  updatedAt!: Date;
 
-    @Type(() => UserEntity)
-    author?: UserEntity;
+  @Exclude()
+  deletedAt!: Date | null;
 
-    @Type(() => CategoryEntity)
-    category?: CategoryEntity;
+  @Type(() => UserEntity)
+  author?: PostAuthorSummary;
 
-    @Type(() => LanguageEntity)
-    language?: LanguageEntity;
+  @Type(() => LanguageEntity)
+  language?: LanguageEntity;
 
-    // Prisma relations raw data
-    @Exclude()
-    postTags?: any[];
+  /*
+   * Dữ liệu quan hệ thô từ Prisma:
+   * Post -> PostCategory -> Category
+   */
+  @Exclude()
+  postCategories?: PostCategoryWithCategory[];
 
-    // Flatten tags for cleaner API response
-    @Expose()
-    get tags(): { id: number; name: string }[] | undefined {
-        if (!this.postTags) return undefined;
-        return this.postTags.map(pt => ({
-            id: pt.tag?.id,
-            name: pt.tag?.name
-        }));
+  /*
+   * Trả ra API dưới dạng:
+   * categories: [...]
+   */
+  @Expose()
+  @Type(() => CategoryEntity)
+  get categories(): CategoryEntity[] | undefined {
+    if (!this.postCategories) {
+      return undefined;
     }
 
-    constructor(partial: Partial<PostEntity>) {
-        Object.assign(this, partial);
+    return this.postCategories.map(
+      (postCategory) =>
+        new CategoryEntity(postCategory.category),
+    );
+  }
+
+  @Exclude()
+  postTags?: Array<{
+    tag?: {
+      id: number;
+      name: string;
+    };
+  }>;
+
+  @Expose()
+  get tags():
+    | Array<{
+        id: number;
+        name: string;
+      }>
+    | undefined {
+    if (!this.postTags) {
+      return undefined;
     }
+
+    return this.postTags
+      .filter((postTag) => postTag.tag)
+      .map((postTag) => ({
+        id: postTag.tag!.id,
+        name: postTag.tag!.name,
+      }));
+  }
+
+  constructor(partial: Partial<PostEntity>) {
+    Object.assign(this, partial);
+  }
 }

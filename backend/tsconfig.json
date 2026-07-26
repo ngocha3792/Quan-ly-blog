@@ -13,7 +13,18 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    "paths": {
+  "@app/core": [
+    "./libs/core/src"
+  ],
+  "@app/core/*": [
+    "./libs/core/src/*"
+  ],
+  "src/*": [
+    "./src/*"
+  ]
+},
+
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
@@ -21,16 +32,6 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "paths": {
-      "@app/core": [
-        "libs/core/src"
-      ],
-      "@app/core/*": [
-        "libs/core/src/*"
-      ],
-      "src/*": [
-        "src/*"
-      ]
-    }
+
   }
 }

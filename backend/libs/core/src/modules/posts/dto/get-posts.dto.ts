@@ -1,51 +1,60 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 import { PostStatus } from '@prisma/client';
 import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
 
 export class GetPostsDto {
-    @IsOptional()
-    @IsString()
-    @IsProfanityFree()
-    search?: string;
+  @IsOptional()
+  @IsString()
+  @IsProfanityFree()
+  search?: string;
 
-    @IsOptional()
-    @Type(() => Number)
-    categoryId?: number;
+  // Lọc các bài có chứa danh mục này.
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  categoryId?: number;
 
-    @IsOptional()
-    @Type(() => Number)
-    languageId?: number;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  languageId?: number;
 
-    @IsOptional()
-    @Type(() => Number)
-    authorId?: number;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  authorId?: number;
 
-    @IsOptional()
-    @Type(() => Number)
-    parentPostId?: number;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  parentPostId?: number;
 
-    @IsOptional()
-    @IsEnum(PostStatus)
-    status?: PostStatus;
+  @IsOptional()
+  @IsEnum(PostStatus)
+  status?: PostStatus;
 
-    @IsOptional()
-    @Type(() => Number)
-    tagId?: number;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tagId?: number;
 
-    @IsOptional()
-    @IsString()
-    tagName?: string;
+  @IsOptional()
+  @IsString()
+  tagName?: string;
 
-    @IsOptional()
-    @Type(() => Number)
-    bookmarkedByUserId?: number;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  bookmarkedByUserId?: number;
 
-    @IsOptional()
-    @Type(() => Number)
-    page?: number;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  page?: number;
 
-    @IsOptional()
-    @Type(() => Number)
-    limit?: number;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  limit?: number;
 }
