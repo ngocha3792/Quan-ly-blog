@@ -6,21 +6,21 @@ import { UserRole, UserStatus } from '@prisma/client';
 // 1. Vứt bỏ 'email' và 'username' khỏi CreateUserDto
 // 2. Dùng PartialType để biến 'password' thành trường không bắt buộc (Optional)
 export class UpdateUserDto extends PartialType(
-    OmitType(CreateUserDto, ['email', 'username'] as const),
+  OmitType(CreateUserDto, ['email', 'username'] as const),
 ) {
-    @IsOptional()
-    @IsString()
-    bio?: string;
+  @IsOptional()
+  @IsString()
+  bio?: string;
 
-    @IsOptional()
-    @IsUrl({}, { message: 'Avatar phải là một đường dẫn URL hợp lệ' })
-    avatarUrl?: string;
+  @IsOptional()
+  @IsUrl({}, { message: 'Avatar phải là một đường dẫn URL hợp lệ' })
+  avatarUrl?: string;
 
-    @IsOptional()
-    @IsEnum(UserRole, { message: 'Role không hợp lệ' })
-    role?: UserRole;
+  @IsOptional()
+  @IsEnum(UserRole, { message: 'Role không hợp lệ' })
+  role?: UserRole;
 
-    @IsOptional()
-    @IsEnum(UserStatus, { message: 'Trạng thái không hợp lệ' })
-    status?: UserStatus;
+  @IsOptional()
+  @IsEnum(UserStatus, { message: 'Trạng thái không hợp lệ' })
+  status?: UserStatus;
 }

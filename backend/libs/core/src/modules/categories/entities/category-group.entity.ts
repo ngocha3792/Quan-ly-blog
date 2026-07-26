@@ -3,18 +3,18 @@ import { Exclude, Type } from 'class-transformer';
 import { CategoryEntity } from './category.entity';
 
 export class CategoryGroupEntity implements CategoryGroup {
-    id: number;
-    code: string;
-    createdAt: Date;
-    updatedAt: Date;
+  id: number;
+  code: string;
+  createdAt: Date;
+  updatedAt: Date;
 
-    @Exclude()
-    deletedAt: Date | null;
+  @Exclude()
+  deletedAt: Date | null;
 
-    @Type(() => CategoryEntity)
-    categories?: CategoryEntity[];
+  @Type(() => CategoryEntity)
+  categories?: CategoryEntity[];
 
-    constructor(partial: Partial<CategoryGroupEntity>) {
-        Object.assign(this, partial);
-    }
+  constructor(partial: Partial<CategoryGroupEntity>) {
+    Object.assign(this, partial);
+  }
 }

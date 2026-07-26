@@ -1,5 +1,9 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { v2 as cloudinary, UploadApiErrorResponse, UploadApiResponse } from 'cloudinary';
+import {
+  v2 as cloudinary,
+  UploadApiErrorResponse,
+  UploadApiResponse,
+} from 'cloudinary';
 import { CLOUDINARY } from './cloudinary.provider';
 import * as streamifier from 'streamifier';
 
@@ -7,7 +11,10 @@ import * as streamifier from 'streamifier';
 export class CloudinaryService {
   constructor(@Inject(CLOUDINARY) private cloudinaryProvider) {}
 
-  uploadFile(file: Express.Multer.File, folder: string = 'nestjs_blog'): Promise<UploadApiResponse | UploadApiErrorResponse> {
+  uploadFile(
+    file: Express.Multer.File,
+    folder: string = 'nestjs_blog',
+  ): Promise<UploadApiResponse | UploadApiErrorResponse> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {

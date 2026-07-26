@@ -31,14 +31,11 @@ import { PrismaModule } from '@app/core/core/prisma/prisma.module';
 
     ScheduleModule.forRoot(),
     CleanupModule,
-
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Áp dụng Logger và Maintenance middleware cho toàn bộ các route
-    consumer
-      .apply(LoggerMiddleware, MaintenanceMiddleware)
-      .forRoutes('*');
+    consumer.apply(LoggerMiddleware, MaintenanceMiddleware).forRoutes('*');
   }
 }

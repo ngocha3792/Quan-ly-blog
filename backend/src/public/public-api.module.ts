@@ -1,6 +1,14 @@
 import { Module } from '@nestjs/common';
 
-import { UsersModule, PrismaModule, PostsModule, CategoriesModule, AuthsModule, TagsModule, LanguagesModule } from '@app/core';
+import {
+  UsersModule,
+  PrismaModule,
+  PostsModule,
+  CategoriesModule,
+  AuthsModule,
+  TagsModule,
+  LanguagesModule,
+} from '@app/core';
 import { PublicUsersController } from './controllers/public-users.controller';
 import { PublicPostsController } from './controllers/public-posts.controller';
 import { PublicTagsController } from './controllers/public-tags.controller';
@@ -22,17 +30,17 @@ import { UsersPublicService } from './services/users-public.service';
     LanguagesModule,
   ],
   controllers: [
-    PublicUsersController, 
-    PublicPostsController, 
-    PublicTagsController, 
+    PublicUsersController,
+    PublicPostsController,
+    PublicTagsController,
     PublicCategoriesController,
-    PublicAuthorsController
+    PublicAuthorsController,
   ],
   providers: [
-    PostsPublicService, 
-    TagsPublicService, 
+    PostsPublicService,
+    TagsPublicService,
     CategoriesPublicService,
-    UsersPublicService
+    UsersPublicService,
   ],
 })
 export class PublicApiModule {}

@@ -5,12 +5,7 @@ import { UserProfileController } from './controllers/user-profile.controller';
 import { UserAuthController } from './controllers/user-auth.controller';
 
 @Module({
-  imports: [
-
-    PrismaModule,
-    UsersModule,
-    AuthsModule,
-  ],
+  imports: [PrismaModule, UsersModule, AuthsModule],
   controllers: [UserProfileController, UserAuthController],
   providers: [],
 })

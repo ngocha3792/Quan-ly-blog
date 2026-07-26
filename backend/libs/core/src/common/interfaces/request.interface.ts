@@ -9,13 +9,12 @@ import { Request } from 'express';
 
 // Hình dáng của User sau khi được JwtAuthGuard giải mã
 export interface JwtPayload {
-    id: string;
-    role: string;
-    email: string;
+  id: string;
+  role: string;
+  email: string;
 }
 
 // Mở rộng Request mặc định của Express, nhét thêm cục user vào
 export interface AuthenticatedRequest extends Request {
-    user: JwtPayload;
+  user: JwtPayload;
 }
-

@@ -1,6 +1,6 @@
 export interface ResponseFormat<T> {
-    success: boolean;
-    statusCode: number;
-    data: T;
-    timestamp: string;
+  success: boolean;
+  statusCode: number;
+  data: T;
+  timestamp: string;
 }

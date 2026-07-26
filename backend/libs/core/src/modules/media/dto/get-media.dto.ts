@@ -3,19 +3,19 @@ import { Type } from 'class-transformer';
 import { MediaType } from '@prisma/client';
 
 export class GetMediaDto {
-    @IsOptional()
-    @Type(() => Number)
-    postId?: number;
+  @IsOptional()
+  @Type(() => Number)
+  postId?: number;
 
-    @IsOptional()
-    @IsEnum(MediaType)
-    mediaType?: MediaType;
+  @IsOptional()
+  @IsEnum(MediaType)
+  mediaType?: MediaType;
 
-    @IsOptional()
-    @Type(() => Number)
-    page?: number;
+  @IsOptional()
+  @Type(() => Number)
+  page?: number;
 
-    @IsOptional()
-    @Type(() => Number)
-    limit?: number;
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number;
 }

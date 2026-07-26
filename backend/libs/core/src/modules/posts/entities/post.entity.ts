@@ -1,22 +1,11 @@
-import {
-  Post,
-  PostStatus,
-  type User,
-} from '@prisma/client';
-import {
-  Exclude,
-  Expose,
-  Type,
-} from 'class-transformer';
+import { Post, PostStatus, type User } from '@prisma/client';
+import { Exclude, Expose, Type } from 'class-transformer';
 
 import { UserEntity } from '../../users/entities/user.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { LanguageEntity } from '../../languages/entities/language.entity';
 
-type PostAuthorSummary = Pick<
-  User,
-  'id' | 'username' | 'bio' | 'avatarUrl'
->;
+type PostAuthorSummary = Pick<User, 'id' | 'username' | 'bio' | 'avatarUrl'>;
 
 type PostCategoryWithCategory = {
   category: CategoryEntity;
@@ -75,8 +64,7 @@ export class PostEntity implements Post {
     }
 
     return this.postCategories.map(
-      (postCategory) =>
-        new CategoryEntity(postCategory.category),
+      (postCategory) => new CategoryEntity(postCategory.category),
     );
   }
 

@@ -4,138 +4,144 @@ import { CreateCommentDto, UpdateCommentDto, GetCommentsDto } from './dto';
 import { CommentEntity } from './entities/comment.entity';
 import { PaginationParams, PaginatedResult } from '@app/core/common/interfaces';
 import { Prisma } from '@prisma/client';
-import { CommentNotFoundException, NotCommentOwnerException } from '@app/core/common/exceptions';
+import {
+  CommentNotFoundException,
+  NotCommentOwnerException,
+} from '@app/core/common/exceptions';
 
 @Injectable()
 export class CommentsService {
-    constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    async create(userId: number, createCommentDto: CreateCommentDto) {
-        let { parentId } = createCommentDto;
+  async create(userId: number, createCommentDto: CreateCommentDto) {
+    let { parentId } = createCommentDto;
 
-        if (parentId) {
-            const parentComment = await this.prisma.comment.findFirst({
-                where: { id: parentId, deletedAt: null }
-            });
+    if (parentId) {
+      const parentComment = await this.prisma.comment.findFirst({
+        where: { id: parentId, deletedAt: null },
+      });
 
-            if (!parentComment) {
-                throw new CommentNotFoundException(parentId.toString());
-            }
+      if (!parentComment) {
+        throw new CommentNotFoundException(parentId.toString());
+      }
 
-            // Ép phẳng cây bình luận (chỉ cho phép tối đa 2 cấp)
-            // Nếu bình luận cha đã có parentId (nghĩa là nó là cấp 2),
-            // ta lấy parentId của nó gán cho bình luận mới.
-            if (parentComment.parentId !== null) {
-                parentId = parentComment.parentId;
-            }
-        }
-
-        const comment = await this.prisma.comment.create({
-            data: {
-                ...createCommentDto,
-                parentId,
-                userId,
-            }
-        });
-
-        return new CommentEntity(comment);
+      // Ép phẳng cây bình luận (chỉ cho phép tối đa 2 cấp)
+      // Nếu bình luận cha đã có parentId (nghĩa là nó là cấp 2),
+      // ta lấy parentId của nó gán cho bình luận mới.
+      if (parentComment.parentId !== null) {
+        parentId = parentComment.parentId;
+      }
     }
 
-    async findAll(query: GetCommentsDto, paginationParams: PaginationParams): Promise<PaginatedResult<CommentEntity>> {
-        const { postId, parentId, userId } = query;
-        const { skip, take, page } = paginationParams;
+    const comment = await this.prisma.comment.create({
+      data: {
+        ...createCommentDto,
+        parentId,
+        userId,
+      },
+    });
 
-        const where: Prisma.CommentWhereInput = {
-            deletedAt: null,
-        };
+    return new CommentEntity(comment);
+  }
 
-        if (postId) where.postId = postId;
+  async findAll(
+    query: GetCommentsDto,
+    paginationParams: PaginationParams,
+  ): Promise<PaginatedResult<CommentEntity>> {
+    const { postId, parentId, userId } = query;
+    const { skip, take, page } = paginationParams;
 
-        // Hỗ trợ truyền parentId để lấy bình luận cấp 1 (root) hoặc các reply
-        if (parentId !== undefined) {
-            where.parentId = parentId;
-        }
+    const where: Prisma.CommentWhereInput = {
+      deletedAt: null,
+    };
 
-        if (userId) where.userId = userId;
+    if (postId) where.postId = postId;
 
-        const [comments, totalItems] = await Promise.all([
-            this.prisma.comment.findMany({
-                where,
-                skip,
-                take,
-                orderBy: { createdAt: 'desc' },
-            }),
-            this.prisma.comment.count({ where }),
-        ]);
-
-        return {
-            items: comments.map(comment => new CommentEntity(comment)),
-            meta: {
-                totalItems,
-                itemCount: comments.length,
-                itemsPerPage: take,
-                totalPages: Math.ceil(totalItems / take),
-                currentPage: page,
-            }
-        };
+    // Hỗ trợ truyền parentId để lấy bình luận cấp 1 (root) hoặc các reply
+    if (parentId !== undefined) {
+      where.parentId = parentId;
     }
 
-    async findOne(id: number) {
-        const comment = await this.prisma.comment.findFirst({
-            where: { id, deletedAt: null }
-        });
+    if (userId) where.userId = userId;
 
-        if (!comment) {
-            throw new CommentNotFoundException(id.toString());
-        }
+    const [comments, totalItems] = await Promise.all([
+      this.prisma.comment.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.comment.count({ where }),
+    ]);
 
-        return new CommentEntity(comment);
+    return {
+      items: comments.map((comment) => new CommentEntity(comment)),
+      meta: {
+        totalItems,
+        itemCount: comments.length,
+        itemsPerPage: take,
+        totalPages: Math.ceil(totalItems / take),
+        currentPage: page,
+      },
+    };
+  }
+
+  async findOne(id: number) {
+    const comment = await this.prisma.comment.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!comment) {
+      throw new CommentNotFoundException(id.toString());
     }
 
-    async update(id: number, userId: number, updateCommentDto: UpdateCommentDto) {
-        const comment = await this.findOne(id);
+    return new CommentEntity(comment);
+  }
 
-        if (comment.userId !== userId) {
-            throw new NotCommentOwnerException();
-        }
+  async update(id: number, userId: number, updateCommentDto: UpdateCommentDto) {
+    const comment = await this.findOne(id);
 
-        const updatedComment = await this.prisma.comment.update({
-            where: { id },
-            data: updateCommentDto
-        });
-
-        return new CommentEntity(updatedComment);
+    if (comment.userId !== userId) {
+      throw new NotCommentOwnerException();
     }
 
-    async remove(id: number, userId: number) {
-        const comment = await this.findOne(id);
+    const updatedComment = await this.prisma.comment.update({
+      where: { id },
+      data: updateCommentDto,
+    });
 
-        // TODO: Admin cũng nên được quyền xóa. Tạm thời chỉ chủ bình luận mới xóa được.
-        if (comment.userId !== userId) {
-            throw new NotCommentOwnerException();
-        }
+    return new CommentEntity(updatedComment);
+  }
 
-        const deletedComment = await this.prisma.comment.update({
-            where: { id },
-            data: { deletedAt: new Date() }
-        });
+  async remove(id: number, userId: number) {
+    const comment = await this.findOne(id);
 
-        return new CommentEntity(deletedComment);
+    // TODO: Admin cũng nên được quyền xóa. Tạm thời chỉ chủ bình luận mới xóa được.
+    if (comment.userId !== userId) {
+      throw new NotCommentOwnerException();
     }
 
-    async restore(id: number) {
-        const comment = await this.prisma.comment.findFirst({
-            where: { id }
-        });
-        if (!comment) {
-            throw new CommentNotFoundException(id.toString());
-        }
+    const deletedComment = await this.prisma.comment.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
-        const restoredComment = await this.prisma.comment.update({
-            where: { id },
-            data: { deletedAt: null }
-        });
+    return new CommentEntity(deletedComment);
+  }
 
-        return new CommentEntity(restoredComment);
+  async restore(id: number) {
+    const comment = await this.prisma.comment.findFirst({
+      where: { id },
+    });
+    if (!comment) {
+      throw new CommentNotFoundException(id.toString());
     }
+
+    const restoredComment = await this.prisma.comment.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+
+    return new CommentEntity(restoredComment);
+  }
 }

@@ -3,13 +3,15 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export const LangCode = createParamDecorator(
-    (data: unknown, ctx: ExecutionContext): string | null => {
-        const request = ctx.switchToHttp().getRequest();
-        const lang = request.query.lang as string | undefined;
-        const acceptLanguage = request.headers['accept-language'] as string | undefined;
+  (data: unknown, ctx: ExecutionContext): string | null => {
+    const request = ctx.switchToHttp().getRequest();
+    const lang = request.query.lang as string | undefined;
+    const acceptLanguage = request.headers['accept-language'] as
+      string | undefined;
 
-        if (lang) return lang;
-        if (acceptLanguage) return acceptLanguage.split(',')[0].split('-')[0].trim();
-        return null;
-    },
+    if (lang) return lang;
+    if (acceptLanguage)
+      return acceptLanguage.split(',')[0].split('-')[0].trim();
+    return null;
+  },
 );

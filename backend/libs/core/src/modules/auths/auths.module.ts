@@ -5,12 +5,9 @@ import { UsersModule } from '../users/users.module';
 import { JWTUtil, BcryptUtil } from '@app/core/common/utils';
 
 @Module({
-  imports: [
-    UsersModule,
-    JwtModule.register({}),
-  ],
+  imports: [UsersModule, JwtModule.register({})],
   controllers: [],
   providers: [AuthsService, JWTUtil, BcryptUtil],
   exports: [AuthsService, JWTUtil],
 })
-export class AuthsModule { }
+export class AuthsModule {}

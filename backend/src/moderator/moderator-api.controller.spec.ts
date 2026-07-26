@@ -11,7 +11,9 @@ describe('ModeratorApiController', () => {
       providers: [ModeratorApiService],
     }).compile();
 
-    moderatorApiController = app.get<ModeratorApiController>(ModeratorApiController);
+    moderatorApiController = app.get<ModeratorApiController>(
+      ModeratorApiController,
+    );
   });
 
   describe('root', () => {

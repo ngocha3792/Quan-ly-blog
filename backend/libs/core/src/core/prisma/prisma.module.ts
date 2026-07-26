@@ -5,7 +5,7 @@ import { PrismaService } from './prisma.service';
 // Sau đó mọi Module khác (Auth, Users, Posts...) đều có thể xài PrismaService mà không cần import lại PrismaModule.
 @Global()
 @Module({
-    providers: [PrismaService],
-    exports: [PrismaService],
+  providers: [PrismaService],
+  exports: [PrismaService],
 })
 export class PrismaModule {}

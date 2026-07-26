@@ -19,7 +19,7 @@ export class CreatePostDto {
   @IsNotEmpty({ message: 'Tiêu đề không được để trống' })
   @MaxLength(255, { message: 'Tiêu đề không được vượt quá 255 ký tự' })
   @IsProfanityFree()
-  title: string;
+  title!: string;
 
   @IsOptional()
   @IsString()
@@ -29,7 +29,7 @@ export class CreatePostDto {
   @IsString()
   @IsNotEmpty({ message: 'Nội dung không được để trống' })
   @IsProfanityFree()
-  content: string;
+  content!: string;
 
   @IsOptional()
   @IsEnum(PostStatus, { message: 'Trạng thái bài viết không hợp lệ' })
@@ -45,11 +45,11 @@ export class CreatePostDto {
   @ArrayUnique({ message: 'Danh sách danh mục không được chứa mã trùng nhau' })
   @IsInt({ each: true, message: 'Mỗi mã danh mục phải là số nguyên' })
   @Type(() => Number)
-  categoryIds: number[];
+  categoryIds!: number[];
 
   @IsInt({ message: 'Mã ngôn ngữ phải là số nguyên' })
   @Type(() => Number)
-  languageId: number;
+  languageId!: number;
 
   @IsOptional()
   @IsArray({ message: 'Danh sách thẻ phải là một mảng' })

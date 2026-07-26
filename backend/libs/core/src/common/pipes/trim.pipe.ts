@@ -3,30 +3,30 @@ import { PipeTransform, Injectable, ArgumentMetadata } from '@nestjs/common';
 
 @Injectable()
 export class TrimPipe implements PipeTransform {
-    transform(values: any, metadata: ArgumentMetadata) {
-        // Chỉ xử lý dữ liệu từ Body (POST, PUT, PATCH), bỏ qua Query hoặc Params
-        if (metadata.type !== 'body') {
-            return values;
-        }
-        return this.cleanObject(values);
+  transform(values: any, metadata: ArgumentMetadata) {
+    // Chỉ xử lý dữ liệu từ Body (POST, PUT, PATCH), bỏ qua Query hoặc Params
+    if (metadata.type !== 'body') {
+      return values;
+    }
+    return this.cleanObject(values);
+  }
+
+  // Hàm đệ quy để duyệt qua toàn bộ object và cắt khoảng trắng của các chuỗi
+  private cleanObject(values: any): any {
+    if (typeof values === 'string') {
+      return values.trim();
     }
 
-    // Hàm đệ quy để duyệt qua toàn bộ object và cắt khoảng trắng của các chuỗi
-    private cleanObject(values: any): any {
-        if (typeof values === 'string') {
-            return values.trim();
-        }
-
-        // Nếu không phải object hoặc là null thì giữ nguyên (số, boolean...)
-        if (typeof values !== 'object' || values === null) {
-            return values;
-        }
-
-        // Nếu là mảng hoặc object, đệ quy để dọn dẹp từng phần tử bên trong
-        Object.keys(values).forEach((key) => {
-            values[key] = this.cleanObject(values[key]);
-        });
-
-        return values;
+    // Nếu không phải object hoặc là null thì giữ nguyên (số, boolean...)
+    if (typeof values !== 'object' || values === null) {
+      return values;
     }
+
+    // Nếu là mảng hoặc object, đệ quy để dọn dẹp từng phần tử bên trong
+    Object.keys(values).forEach((key) => {
+      values[key] = this.cleanObject(values[key]);
+    });
+
+    return values;
+  }
 }

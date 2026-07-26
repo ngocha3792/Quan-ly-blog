@@ -6,26 +6,37 @@ import { BlogOwnerRequestStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class AdminRequestsService {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly blogOwnerRequestsService: BlogOwnerRequestsService
-    ) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly blogOwnerRequestsService: BlogOwnerRequestsService,
+  ) {}
 
-    async updateRequestStatus(id: number, reviewerId: number, updateDto: UpdateBlogOwnerRequestDto) {
-        // Find the request first to check its current status
-        const request = await this.blogOwnerRequestsService.findOne(id);
-        
-        // Update the request using the core service
-        const updatedRequest = await this.blogOwnerRequestsService.update(id, reviewerId, updateDto);
+  async updateRequestStatus(
+    id: number,
+    reviewerId: number,
+    updateDto: UpdateBlogOwnerRequestDto,
+  ) {
+    // Find the request first to check its current status
+    const request = await this.blogOwnerRequestsService.findOne(id);
 
-        // Cập nhật Role của User thành BLOG_OWNER nếu yêu cầu được duyệt
-        if (updateDto.status === BlogOwnerRequestStatus.APPROVED && request.status !== BlogOwnerRequestStatus.APPROVED) {
-            await this.prisma.user.update({
-                where: { id: request.userId },
-                data: { role: UserRole.BLOG_OWNER }
-            });
-        }
+    // Update the request using the core service
+    const updatedRequest = await this.blogOwnerRequestsService.update(
+      id,
+      reviewerId,
+      updateDto,
+    );
 
-        return updatedRequest;
+    // Cập nhật Role của User thành BLOG_OWNER nếu yêu cầu được duyệt
+    if (
+      updateDto.status === BlogOwnerRequestStatus.APPROVED &&
+      request.status !== BlogOwnerRequestStatus.APPROVED
+    ) {
+      await this.prisma.user.update({
+        where: { id: request.userId },
+        data: { role: UserRole.BLOG_OWNER },
+      });
     }
+
+    return updatedRequest;
+  }
 }

@@ -16,7 +16,8 @@ async function bootstrap() {
   app.setGlobalPrefix(apiPrefix);
 
   // Cấu hình CORS để Frontend (hoặc Mobile) có thể gọi API
-  const frontendUrl = configService.get<string>('app.frontendUrl') || 'http://localhost:4200';
+  const frontendUrl =
+    configService.get<string>('app.frontendUrl') || 'http://localhost:4200';
   app.enableCors({
     origin: frontendUrl,
     credentials: true,
@@ -28,18 +29,24 @@ async function bootstrap() {
   // Thêm Global Filters (xử lý ngoại lệ chuẩn)
   app.useGlobalFilters(
     new HttpExceptionFilter(),
-    new PrismaClientExceptionFilter()
+    new PrismaClientExceptionFilter(),
   );
 
   // Thêm Global Pipes (dọn dẹp dữ liệu đầu vào và validate)
   app.useGlobalPipes(
     new TrimPipe(),
-    new ValidationPipe({ transform: true })
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
   );
 
   // Khởi động ở cổng APP_PORT từ file cấu hình (env: APP_PORT)
   const port = configService.get<number>('app.port') || 8080;
   await app.listen(port);
-  console.log(`🚀 Ứng dụng Monolith đã chạy trên: http://localhost:${port}/${apiPrefix}`);
+  console.log(
+    `🚀 Ứng dụng Monolith đã chạy trên: http://localhost:${port}/${apiPrefix}`,
+  );
 }
 bootstrap();

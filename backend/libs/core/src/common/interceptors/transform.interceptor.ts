@@ -10,31 +10,37 @@ Frontend sẽ rất vất vả vì lúc thì nhận object, lúc thì nhận m�
 */
 
 import {
-    Injectable,
-    NestInterceptor,
-    ExecutionContext,
-    CallHandler,
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
 } from '@nestjs/common';
 import { ResponseFormat } from '../interfaces';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 @Injectable()
-export class TransformInterceptor<T> implements NestInterceptor<T, ResponseFormat<T>> {
-    intercept(context: ExecutionContext, next: CallHandler): Observable<ResponseFormat<T>> {
-        const ctx = context.switchToHttp();
-        const response = ctx.getResponse();
+export class TransformInterceptor<T> implements NestInterceptor<
+  T,
+  ResponseFormat<T>
+> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<ResponseFormat<T>> {
+    const ctx = context.switchToHttp();
+    const response = ctx.getResponse();
 
-        // next.handle() chính là hàm chạy Controller của bạn.
-        // Lệnh .pipe(map(...)) của RxJS sẽ lấy kết quả Controller trả về (gọi là `data`)
-        // và biến đổi nó trước khi gửi về cho người dùng (Frontend).
-        return next.handle().pipe(
-            map((data) => ({
-                success: true,
-                statusCode: response.statusCode, // Lấy mã status (200, 201...)
-                data: data || null, // Nếu controller không trả về gì, gán là null
-                timestamp: new Date().toISOString(),
-            })),
-        );
-    }
+    // next.handle() chính là hàm chạy Controller của bạn.
+    // Lệnh .pipe(map(...)) của RxJS sẽ lấy kết quả Controller trả về (gọi là `data`)
+    // và biến đổi nó trước khi gửi về cho người dùng (Frontend).
+    return next.handle().pipe(
+      map((data) => ({
+        success: true,
+        statusCode: response.statusCode, // Lấy mã status (200, 201...)
+        data: data || null, // Nếu controller không trả về gì, gán là null
+        timestamp: new Date().toISOString(),
+      })),
+    );
+  }
 }

@@ -6,27 +6,29 @@ import type { PaginationParams } from '@app/core';
 
 @Injectable()
 export class TagsPublicService {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly tagsService: TagsService,
-        private readonly languagesService: LanguagesService,
-    ) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tagsService: TagsService,
+    private readonly languagesService: LanguagesService,
+  ) {}
 
-    async findAll(query: GetTagsDto, paginationParams: PaginationParams) {
-        return this.tagsService.findAll(query, paginationParams);
+  async findAll(query: GetTagsDto, paginationParams: PaginationParams) {
+    return this.tagsService.findAll(query, paginationParams);
+  }
+
+  async getTopTags(limit: number = 10, langCode: string | null = null) {
+    let languageCondition = Prisma.empty;
+
+    if (langCode) {
+      const languageId = await this.languagesService.getIdByCode(langCode);
+      if (languageId) {
+        languageCondition = Prisma.sql`AND p.language_id = ${languageId}`;
+      }
     }
-
-    async getTopTags(limit: number = 10, langCode: string | null = null) {
-        let languageCondition = Prisma.empty;
-
-        if (langCode) {
-            const languageId = await this.languagesService.getIdByCode(langCode);
-            if (languageId) {
-                languageCondition = Prisma.sql`AND p.language_id = ${languageId}`;
-            }
-        }
-        //Công thức tính điểm của tags TagScore = Σ HotScore của các bài thuộc tag / Tổng số bài của tag
-        const topTagsRaw = await this.prisma.$queryRaw<{ tagId: number, postCount: number, tagScore: number }[]>`
+    //Công thức tính điểm của tags TagScore = Σ HotScore của các bài thuộc tag / Tổng số bài của tag
+    const topTagsRaw = await this.prisma.$queryRaw<
+      { tagId: number; postCount: number; tagScore: number }[]
+    >`
             SELECT pt.tag_id as "tagId",
                    COUNT(p.id)::int as "postCount",
                    AVG(
@@ -47,25 +49,27 @@ export class TagsPublicService {
             LIMIT ${limit}
         `;
 
-        if (!topTagsRaw.length) return [];
+    if (!topTagsRaw.length) return [];
 
-        const tagIds = topTagsRaw.map(t => t.tagId);
+    const tagIds = topTagsRaw.map((t) => t.tagId);
 
-        // Lấy chi tiết thông tin của các Tag này
-        const tags = await this.prisma.tag.findMany({
-            where: { id: { in: tagIds }, deletedAt: null }
-        });
+    // Lấy chi tiết thông tin của các Tag này
+    const tags = await this.prisma.tag.findMany({
+      where: { id: { in: tagIds }, deletedAt: null },
+    });
 
-        // Map kết quả đếm với thông tin Tag, giữ nguyên thứ tự hot nhất
-        return topTagsRaw.map(t => {
-            const tag = tags.find(tag => tag.id === t.tagId);
-            if (!tag) return null;
-            return {
-                id: tag.id,
-                name: tag.name,
-                postCount: t.postCount,
-                tagScore: t.tagScore
-            };
-        }).filter(item => item !== null);
-    }
+    // Map kết quả đếm với thông tin Tag, giữ nguyên thứ tự hot nhất
+    return topTagsRaw
+      .map((t) => {
+        const tag = tags.find((tag) => tag.id === t.tagId);
+        if (!tag) return null;
+        return {
+          id: tag.id,
+          name: tag.name,
+          postCount: t.postCount,
+          tagScore: t.tagScore,
+        };
+      })
+      .filter((item) => item !== null);
+  }
 }

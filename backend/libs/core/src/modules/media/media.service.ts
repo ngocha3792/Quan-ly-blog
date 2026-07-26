@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { MediaType } from '@prisma/client';
@@ -13,9 +17,15 @@ export class MediaService {
   /**
    * Upload một file và lưu vào database cho bài viết cụ thể
    */
-  async uploadMedia(postId: number, file: Express.Multer.File, mediaType: MediaType) {
+  async uploadMedia(
+    postId: number,
+    file: Express.Multer.File,
+    mediaType: MediaType,
+  ) {
     // 1. Kiểm tra xem Post có tồn tại không
-    const postExists = await this.prisma.post.findUnique({ where: { id: postId } });
+    const postExists = await this.prisma.post.findUnique({
+      where: { id: postId },
+    });
     if (!postExists) {
       throw new NotFoundException('Post không tồn tại');
     }
@@ -44,7 +54,9 @@ export class MediaService {
    * Xóa một file khỏi Cloudinary và xóa record khỏi Database
    */
   async deleteMedia(mediaId: number) {
-    const media = await this.prisma.media.findUnique({ where: { id: mediaId } });
+    const media = await this.prisma.media.findUnique({
+      where: { id: mediaId },
+    });
     if (!media) {
       throw new NotFoundException('Media không tồn tại');
     }

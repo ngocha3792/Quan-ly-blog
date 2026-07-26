@@ -2,11 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { CreateLanguageDto } from './dto/create-language.dto';
 import { UpdateLanguageDto } from './dto/update-language.dto';
-import { LanguageAlreadyExistsException, LanguageNotFoundException } from '@app/core/common/exceptions';
+import {
+  LanguageAlreadyExistsException,
+  LanguageNotFoundException,
+} from '@app/core/common/exceptions';
 
 @Injectable()
 export class LanguagesService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Chuyển language code (vd: 'vi', 'en') thành language ID.
@@ -15,7 +18,7 @@ export class LanguagesService {
   async getIdByCode(langCode: string | null): Promise<number | undefined> {
     if (!langCode) return undefined;
     const language = await this.prisma.language.findUnique({
-      where: { code: langCode }
+      where: { code: langCode },
     });
     return language?.id;
   }
@@ -94,4 +97,3 @@ export class LanguagesService {
     });
   }
 }
-

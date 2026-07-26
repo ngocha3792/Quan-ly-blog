@@ -4,23 +4,23 @@ import { LanguageEntity } from '../../languages/entities/language.entity';
 import { CategoryGroupEntity } from './category-group.entity';
 
 export class CategoryEntity implements Category {
-    id: number;
-    name: string;
-    categoryGroupId: number;
-    languageId: number;
-    createdAt: Date;
-    updatedAt: Date;
+  id: number;
+  name: string;
+  categoryGroupId: number;
+  languageId: number;
+  createdAt: Date;
+  updatedAt: Date;
 
-    @Exclude()
-    deletedAt: Date | null;
+  @Exclude()
+  deletedAt: Date | null;
 
-    @Type(() => LanguageEntity)
-    language?: LanguageEntity;
+  @Type(() => LanguageEntity)
+  language?: LanguageEntity;
 
-    @Type(() => CategoryGroupEntity)
-    categoryGroup?: CategoryGroupEntity;
+  @Type(() => CategoryGroupEntity)
+  categoryGroup?: CategoryGroupEntity;
 
-    constructor(partial: Partial<CategoryEntity>) {
-        Object.assign(this, partial);
-    }
+  constructor(partial: Partial<CategoryEntity>) {
+    Object.assign(this, partial);
+  }
 }

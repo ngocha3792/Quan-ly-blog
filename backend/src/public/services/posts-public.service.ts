@@ -53,8 +53,7 @@ export class PostsPublicService {
     query.status = PostStatus.PUBLISH;
 
     if (!query.languageId && langCode) {
-      const languageId =
-        await this.languagesService.getIdByCode(langCode);
+      const languageId = await this.languagesService.getIdByCode(langCode);
 
       if (languageId) {
         query.languageId = languageId;
@@ -69,42 +68,37 @@ export class PostsPublicService {
   }
 
   async findOne(id: number, langCode: string | null) {
-    let post = await this.postsService.findOne(
-      id,
-      PUBLIC_POST_INCLUDE,
-    );
+    let post = await this.postsService.findOne(id, PUBLIC_POST_INCLUDE);
 
     if (post.status !== PostStatus.PUBLISH) {
       throw new PostNotFoundException(id.toString());
     }
 
     if (langCode) {
-      const languageId =
-        await this.languagesService.getIdByCode(langCode);
+      const languageId = await this.languagesService.getIdByCode(langCode);
 
       if (languageId && post.languageId !== languageId) {
         const parentId = post.parentPostId ?? post.id;
 
-        const translatedPost =
-          await this.prisma.post.findFirst({
-            where: {
-              OR: [
-                {
-                  id: parentId,
-                  languageId,
-                  status: PostStatus.PUBLISH,
-                  deletedAt: null,
-                },
-                {
-                  parentPostId: parentId,
-                  languageId,
-                  status: PostStatus.PUBLISH,
-                  deletedAt: null,
-                },
-              ],
-            },
-            include: PUBLIC_POST_INCLUDE,
-          });
+        const translatedPost = await this.prisma.post.findFirst({
+          where: {
+            OR: [
+              {
+                id: parentId,
+                languageId,
+                status: PostStatus.PUBLISH,
+                deletedAt: null,
+              },
+              {
+                parentPostId: parentId,
+                languageId,
+                status: PostStatus.PUBLISH,
+                deletedAt: null,
+              },
+            ],
+          },
+          include: PUBLIC_POST_INCLUDE,
+        });
 
         if (translatedPost) {
           post = new PostEntity(translatedPost);
@@ -115,15 +109,11 @@ export class PostsPublicService {
     return post;
   }
 
-  async getTopPosts(
-    limit: number,
-    langCode: string | null,
-  ) {
+  async getTopPosts(limit: number, langCode: string | null) {
     let languageCondition = Prisma.empty;
 
     if (langCode) {
-      const languageId =
-        await this.languagesService.getIdByCode(langCode);
+      const languageId = await this.languagesService.getIdByCode(langCode);
 
       if (languageId) {
         languageCondition = Prisma.sql`
@@ -132,9 +122,7 @@ export class PostsPublicService {
       }
     }
 
-    const topPostsIdsRaw = await this.prisma.$queryRaw<
-      { id: number }[]
-    >`
+    const topPostsIdsRaw = await this.prisma.$queryRaw<{ id: number }[]>`
       SELECT p.id
       FROM posts p
       WHERE p.status = 'PUBLISH'
@@ -186,9 +174,7 @@ export class PostsPublicService {
       return [];
     }
 
-    const topPostIds = topPostsIdsRaw.map(
-      (record) => record.id,
-    );
+    const topPostIds = topPostsIdsRaw.map((record) => record.id);
 
     const posts = await this.prisma.post.findMany({
       where: {
@@ -200,18 +186,9 @@ export class PostsPublicService {
     });
 
     const sortedPosts = topPostIds
-      .map((postId) =>
-        posts.find((post) => post.id === postId),
-      )
-      .filter(
-        (
-          post,
-        ): post is NonNullable<typeof post> =>
-          post !== undefined,
-      );
+      .map((postId) => posts.find((post) => post.id === postId))
+      .filter((post): post is NonNullable<typeof post> => post !== undefined);
 
-    return sortedPosts.map(
-      (post) => new PostEntity(post),
-    );
+    return sortedPosts.map((post) => new PostEntity(post));
   }
 }

@@ -1,10 +1,15 @@
 import { Module } from '@nestjs/common';
-import { BlogownerApiController } from './blogowner-api.controller';
-import { BlogownerApiService } from './blogowner-api.service';
+
+import { AuthsModule, PostsModule } from '@app/core';
+
+import { BlogownerPostsController } from './controllers/blogowner-posts.controller';
+import { BlogownerPostsService } from './services/blogowner-posts.service';
 
 @Module({
-  imports: [],
-  controllers: [BlogownerApiController],
-  providers: [BlogownerApiService],
+  imports: [AuthsModule, PostsModule],
+
+  controllers: [BlogownerPostsController],
+
+  providers: [BlogownerPostsService],
 })
 export class BlogownerApiModule {}

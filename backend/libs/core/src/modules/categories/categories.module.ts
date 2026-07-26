@@ -6,5 +6,4 @@ import { CategoryGroupsService } from './category-groups.service';
   providers: [CategoriesService, CategoryGroupsService],
   exports: [CategoriesService, CategoryGroupsService],
 })
-export class CategoriesModule { }
-
+export class CategoriesModule {}

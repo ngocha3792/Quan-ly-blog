@@ -2,10 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { CreatePostDto, GetPostsDto, UpdatePostDto } from './dto';
 import { PostEntity } from './entities';
-import {
-  PaginationParams,
-  PaginatedResult,
-} from '@app/core/common/interfaces';
+import { PaginationParams, PaginatedResult } from '@app/core/common/interfaces';
 import {
   PostNotFoundException,
   TagLimitExceptions,
@@ -17,12 +14,7 @@ export class PostsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(authorId: number, createPostDto: CreatePostDto) {
-    const {
-      categoryIds,
-      tagIds,
-      tagNames,
-      ...postData
-    } = createPostDto;
+    const { categoryIds, tagIds, tagNames, ...postData } = createPostDto;
 
     const finalCategoryIds = await this.validateCategories(
       categoryIds,
@@ -200,17 +192,9 @@ export class PostsService {
   async update(id: number, updatePostDto: UpdatePostDto) {
     const existingPost = await this.findOne(id);
 
-    const {
-      categoryIds,
-      tagIds,
-      tagNames,
-      ...postData
-    } = updatePostDto;
+    const { categoryIds, tagIds, tagNames, ...postData } = updatePostDto;
 
-    if (
-      postData.languageId !== undefined &&
-      categoryIds === undefined
-    ) {
+    if (postData.languageId !== undefined && categoryIds === undefined) {
       throw new BadRequestException(
         'Khi đổi ngôn ngữ bài viết, bạn phải gửi lại categoryIds phù hợp với ngôn ngữ mới.',
       );
@@ -221,8 +205,7 @@ export class PostsService {
     };
 
     if (categoryIds !== undefined) {
-      const languageId =
-        postData.languageId ?? existingPost.languageId;
+      const languageId = postData.languageId ?? existingPost.languageId;
 
       const finalCategoryIds = await this.validateCategories(
         categoryIds,
@@ -238,10 +221,7 @@ export class PostsService {
     }
 
     if (tagIds !== undefined || tagNames !== undefined) {
-      const finalTagIds = await this.resolveTags(
-        tagIds,
-        tagNames,
-      );
+      const finalTagIds = await this.resolveTags(tagIds, tagNames);
 
       if (finalTagIds.length > 5) {
         throw new TagLimitExceptions(5);
@@ -312,9 +292,7 @@ export class PostsService {
     const uniqueCategoryIds = Array.from(new Set(categoryIds));
 
     if (uniqueCategoryIds.length === 0) {
-      throw new BadRequestException(
-        'Bài viết phải có ít nhất một danh mục.',
-      );
+      throw new BadRequestException('Bài viết phải có ít nhất một danh mục.');
     }
 
     const categories = await this.prisma.category.findMany({
@@ -348,9 +326,7 @@ export class PostsService {
     if (tagNames && tagNames.length > 0) {
       const normalizedNames = Array.from(
         new Set(
-          tagNames
-            .map((name) => name.trim())
-            .filter((name) => name.length > 0),
+          tagNames.map((name) => name.trim()).filter((name) => name.length > 0),
         ),
       );
 
@@ -363,9 +339,7 @@ export class PostsService {
           },
         });
 
-        const existingTagNames = new Set(
-          existingTags.map((tag) => tag.name),
-        );
+        const existingTagNames = new Set(existingTags.map((tag) => tag.name));
 
         const newTagNames = normalizedNames.filter(
           (name) => !existingTagNames.has(name),
