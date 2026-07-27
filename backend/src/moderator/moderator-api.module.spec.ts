@@ -8,8 +8,12 @@ import {
 } from '@app/core';
 
 import { ModeratorPostsController } from './controllers/moderator-posts.controller';
+import { ModeratorReportsController } from './controllers/moderator-reports.controller';
+
 import { ModeratorApiModule } from './moderator-api.module';
+
 import { ModeratorPostsService } from './services/moderator-posts.service';
+import { ModeratorReportsService } from './services/moderator-reports.service';
 
 describe('ModeratorApiModule', () => {
   let testingModule: TestingModule | undefined;
@@ -18,6 +22,22 @@ describe('ModeratorApiModule', () => {
     post: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      updateMany: jest.fn(),
+    },
+
+    comment: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      updateMany: jest.fn(),
+    },
+
+    report: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
       count: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -34,10 +54,6 @@ describe('ModeratorApiModule', () => {
 
     const moduleBuilder = Test.createTestingModule({
       imports: [
-        /**
-         * PrismaService và các thành phần xác thực
-         * sử dụng ConfigService.
-         */
         ConfigModule.forRoot({
           isGlobal: true,
         }),
@@ -47,17 +63,9 @@ describe('ModeratorApiModule', () => {
     });
 
     testingModule = await moduleBuilder
-      /**
-       * Không dùng PrismaService thật trong unit test module.
-       * Tránh kết nối database và tránh phụ thuộc cấu hình DB.
-       */
       .overrideProvider(PrismaService)
       .useValue(mockPrismaService)
 
-      /**
-       * Module test chỉ kiểm tra việc đăng ký
-       * controller và service, không kiểm tra JWT.
-       */
       .overrideGuard(JwtAuthGuard)
       .useValue({
         canActivate: jest.fn().mockReturnValue(true),
@@ -92,6 +100,24 @@ describe('ModeratorApiModule', () => {
     const service =
       testingModule!.get<ModeratorPostsService>(
         ModeratorPostsService,
+      );
+
+    expect(service).toBeDefined();
+  });
+
+  it('should resolve ModeratorReportsController', () => {
+    const controller =
+      testingModule!.get<ModeratorReportsController>(
+        ModeratorReportsController,
+      );
+
+    expect(controller).toBeDefined();
+  });
+
+  it('should resolve ModeratorReportsService', () => {
+    const service =
+      testingModule!.get<ModeratorReportsService>(
+        ModeratorReportsService,
       );
 
     expect(service).toBeDefined();
