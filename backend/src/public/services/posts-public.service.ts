@@ -3,13 +3,12 @@ import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import {
   GetPostsDto,
   LanguagesService,
-  PostEntity,
   PostNotFoundException,
   PostsService,
 } from '@app/core';
 import { PostStatus, Prisma } from '@prisma/client';
 import type { PaginationParams } from '@app/core';
-
+import { PublicPostEntity } from '../entities';
 const PUBLIC_POST_INCLUDE = {
   author: {
     select: {
@@ -60,15 +59,22 @@ export class PostsPublicService {
       }
     }
 
-    return this.postsService.findAll(
-      query,
-      paginationParams,
-      PUBLIC_POST_INCLUDE,
-    );
+    const result = await this.postsService.findAll(
+  query,
+  paginationParams,
+  PUBLIC_POST_INCLUDE,
+);
+
+return {
+  ...result,
+  items: result.items.map(
+    (post) => new PublicPostEntity(post),
+  ),
+};
   }
 
   async findOne(id: number, langCode: string | null) {
-    let post = await this.postsService.findOne(id, PUBLIC_POST_INCLUDE);
+    let post = new PublicPostEntity(await this.postsService.findOne(id,PUBLIC_POST_INCLUDE,),);
 
     if (post.status !== PostStatus.PUBLISH) {
       throw new PostNotFoundException(id.toString());
@@ -101,7 +107,7 @@ export class PostsPublicService {
         });
 
         if (translatedPost) {
-          post = new PostEntity(translatedPost);
+          post = new PublicPostEntity(translatedPost);
         }
       }
     }
@@ -189,6 +195,7 @@ export class PostsPublicService {
       .map((postId) => posts.find((post) => post.id === postId))
       .filter((post): post is NonNullable<typeof post> => post !== undefined);
 
-    return sortedPosts.map((post) => new PostEntity(post));
+    return sortedPosts.map(
+  (post) => new PublicPostEntity(post),);
   }
 }
