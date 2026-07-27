@@ -9,3 +9,4 @@ export * from './roles.decorator';
 
 // --- Nhóm Validation Decorators (Kiểm tra dữ liệu cho DTO) ---
 export * from './is-profanity-free.decorator';
+export * from './forbidden-words';

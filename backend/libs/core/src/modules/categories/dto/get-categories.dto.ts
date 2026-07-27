@@ -1,11 +1,11 @@
 import { IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
+// import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
 
 export class GetCategoriesDto {
   @IsOptional()
   @IsString()
-  @IsProfanityFree()
+  // @IsProfanityFree()
   search?: string;
 
   @IsOptional()
