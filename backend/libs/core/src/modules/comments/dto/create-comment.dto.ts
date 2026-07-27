@@ -12,7 +12,7 @@ export class CreateCommentDto {
   @IsNumber({}, { message: 'Mã bài viết phải là một số' })
   @Type(() => Number)
   @IsNotEmpty({ message: 'Mã bài viết không được để trống' })
-  postId: number;
+  postId!: number;
 
   @IsOptional()
   @IsNumber({}, { message: 'Mã bình luận cha phải là một số' })
@@ -25,5 +25,5 @@ export class CreateCommentDto {
     message: 'Nội dung bình luận quá dài (tối đa 1000 ký tự)',
   })
   @IsProfanityFree()
-  content: string;
+  content!: string;
 }
