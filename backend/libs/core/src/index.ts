@@ -34,6 +34,8 @@ export * from './modules/languages/entities';
 
 export * from './modules/comments/comments.module';
 export * from './modules/comments/comments.service';
+export * from './modules/comments/dto';
+export * from './modules/comments/entities';
 
 export * from './modules/media/media.module';
 export * from './modules/media/media.service';
