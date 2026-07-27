@@ -24,19 +24,15 @@ export class PostEntity implements Post {
   authorId!: number;
   languageId!: number;
 
-  @Exclude()
   reviewedById!: number | null;
 
-  @Exclude()
   reviewedAt!: Date | null;
 
-  @Exclude()
   rejectionReason!: string | null;
 
   createdAt!: Date;
   updatedAt!: Date;
 
-  @Exclude()
   deletedAt!: Date | null;
 
   @Type(() => UserEntity)
@@ -49,14 +45,12 @@ export class PostEntity implements Post {
    * Dữ liệu quan hệ thô từ Prisma:
    * Post -> PostCategory -> Category
    */
-  @Exclude()
   postCategories?: PostCategoryWithCategory[];
 
   /*
    * Trả ra API dưới dạng:
    * categories: [...]
    */
-  @Expose()
   @Type(() => CategoryEntity)
   get categories(): CategoryEntity[] | undefined {
     if (!this.postCategories) {
@@ -68,7 +62,6 @@ export class PostEntity implements Post {
     );
   }
 
-  @Exclude()
   postTags?: Array<{
     tag?: {
       id: number;
@@ -79,9 +72,9 @@ export class PostEntity implements Post {
   @Expose()
   get tags():
     | Array<{
-        id: number;
-        name: string;
-      }>
+      id: number;
+      name: string;
+    }>
     | undefined {
     if (!this.postTags) {
       return undefined;

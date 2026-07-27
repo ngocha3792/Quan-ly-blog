@@ -1,6 +1,6 @@
 import { OmitType } from '@nestjs/mapped-types';
 
-import { GetPostsDto } from '../get-posts.dto';
+import { GetPostsDto } from '@app/core';
 
 /**
  * Bộ lọc danh sách bài viết của Blog Owner.

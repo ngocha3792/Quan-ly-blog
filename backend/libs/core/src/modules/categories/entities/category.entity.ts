@@ -11,7 +11,6 @@ export class CategoryEntity implements Category {
   createdAt: Date;
   updatedAt: Date;
 
-  @Exclude()
   deletedAt: Date | null;
 
   @Type(() => LanguageEntity)

@@ -30,12 +30,14 @@ export * from './modules/tags/entities/tag.entity';
 
 export * from './modules/languages/languages.module';
 export * from './modules/languages/languages.service';
+export * from './modules/languages/entities';
 
 export * from './modules/comments/comments.module';
 export * from './modules/comments/comments.service';
 
 export * from './modules/media/media.module';
 export * from './modules/media/media.service';
+export * from './modules/media/entities';
 
 export * from './modules/cloudinary/cloudinary.module';
 export * from './modules/cloudinary/cloudinary.service';

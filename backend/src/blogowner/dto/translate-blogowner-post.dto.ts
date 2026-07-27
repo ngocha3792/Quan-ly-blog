@@ -8,7 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 
-import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
+import { IsProfanityFree } from '@app/core';
 
 /**
  * Dữ liệu tạo bản dịch từ một bài viết nguồn.

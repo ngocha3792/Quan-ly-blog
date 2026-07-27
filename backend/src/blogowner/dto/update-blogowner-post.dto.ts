@@ -1,6 +1,6 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
 
-import { CreatePostDto } from '../create-post.dto';
+import { CreatePostDto } from '@app/core';
 
 /**
  * Các trường Blog Owner được phép chỉnh sửa.

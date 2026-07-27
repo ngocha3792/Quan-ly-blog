@@ -6,18 +6,21 @@ import {
 import { PostStatus, Prisma } from '@prisma/client';
 
 import {
-  BlogownerPostEntity,
-  CreateBlogownerPostDto,
-  GetBlogownerPostsDto,
   NotPostOwnerException,
   PaginatedResult,
   PaginationParams,
-  PostNotFoundException,
   PostsService,
   PrismaService,
+} from '@app/core';
+
+import {
+  CreateBlogownerPostDto,
+  GetBlogownerPostsDto,
   TranslateBlogownerPostDto,
   UpdateBlogownerPostDto,
-} from '@app/core';
+} from '../dto';
+import { BlogownerPostEntity } from '../entities';
+import { BlogownerPostHelperService } from './blogowner-post-helper.service';
 
 /**
  * Các quan hệ được lấy khi trả bài viết cho Blog Owner.
@@ -83,6 +86,7 @@ export class BlogownerPostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly postsService: PostsService,
+    private readonly helper: BlogownerPostHelperService,
   ) {}
 
   /**
@@ -93,96 +97,21 @@ export class BlogownerPostsService {
     query: GetBlogownerPostsDto,
     pagination: PaginationParams,
   ): Promise<PaginatedResult<BlogownerPostEntity>> {
-    const {
-      search,
-      categoryId,
-      languageId,
-      parentPostId,
-      status,
-      tagId,
-      tagName,
-    } = query;
-
-    const { skip, take, page } = pagination;
-
-    const where: Prisma.PostWhereInput = {
-      authorId: ownerId,
-      deletedAt: null,
-    };
-
-    if (search) {
-      where.title = {
-        contains: search,
-        mode: 'insensitive',
-      };
-    }
-
-    if (categoryId !== undefined) {
-      where.postCategories = {
-        some: {
-          categoryId,
-        },
-      };
-    }
-
-    if (languageId !== undefined) {
-      where.languageId = languageId;
-    }
-
-    if (parentPostId !== undefined) {
-      where.parentPostId = parentPostId;
-    }
-
-    if (status !== undefined) {
-      where.status = status;
-    }
-
-    if (tagId !== undefined) {
-      where.postTags = {
-        some: {
-          tagId,
-        },
-      };
-    } else if (tagName) {
-      where.postTags = {
-        some: {
-          tag: {
-            name: {
-              equals: tagName,
-              mode: 'insensitive',
-            },
-            deletedAt: null,
-          },
-        },
-      };
-    }
-
-    const [posts, totalItems] = await this.prisma.$transaction([
-      this.prisma.post.findMany({
-        where,
-        include: BLOGOWNER_POST_INCLUDE,
-        orderBy: {
-          updatedAt: 'desc',
-        },
-        skip,
-        take,
-      }),
-
-      this.prisma.post.count({
-        where,
-      }),
-    ]);
+    const result = await this.postsService.findAll(
+      {
+        ...query,
+        authorId: ownerId,
+      },
+      pagination,
+      BLOGOWNER_POST_INCLUDE,
+      {
+        updatedAt: 'desc',
+      },
+    );
 
     return {
-      items: posts.map((post) => new BlogownerPostEntity(post)),
-
-      meta: {
-        totalItems,
-        itemCount: posts.length,
-        itemsPerPage: take,
-        totalPages: Math.ceil(totalItems / take),
-        currentPage: page,
-      },
+      ...result,
+      items: result.items.map((post) => new BlogownerPostEntity(post)),
     };
   }
 
@@ -197,7 +126,11 @@ export class BlogownerPostsService {
    * - rejectionReason.
    */
   async findOne(ownerId: number, postId: number): Promise<BlogownerPostEntity> {
-    const post = await this.findOwnedPost(ownerId, postId);
+    const post = await this.helper.findOwnedPost(
+      ownerId,
+      postId,
+      BLOGOWNER_POST_INCLUDE,
+    );
 
     return new BlogownerPostEntity(post);
   }
@@ -234,23 +167,15 @@ export class BlogownerPostsService {
     postId: number,
     dto: UpdateBlogownerPostDto,
   ): Promise<BlogownerPostEntity> {
-    const existingPost = await this.findOwnedPost(ownerId, postId);
+    const existingPost = await this.helper.findOwnedPost(
+      ownerId,
+      postId,
+      BLOGOWNER_POST_INCLUDE,
+    );
 
-    if (existingPost.status === PostStatus.PENDING_REVIEW) {
-      throw new BadRequestException(
-        'Bài viết đang chờ Moderator duyệt nên không thể chỉnh sửa.',
-      );
-    }
+    this.helper.assertEditable(existingPost.status);
 
-    let nextStatus: PostStatus = existingPost.status;
-
-    if (existingPost.status === PostStatus.REJECT) {
-      nextStatus = PostStatus.DRAFT;
-    }
-
-    if (existingPost.status === PostStatus.PUBLISH) {
-      nextStatus = PostStatus.PENDING_REVIEW;
-    }
+    const nextStatus = this.helper.getNextStatusOnEdit(existingPost.status);
 
     /*
      * PostsService xử lý:
@@ -272,21 +197,7 @@ export class BlogownerPostsService {
      *
      * publishedAt không bị thay đổi.
      */
-    if (
-      existingPost.status === PostStatus.REJECT ||
-      existingPost.status === PostStatus.PUBLISH
-    ) {
-      await this.prisma.post.update({
-        where: {
-          id: postId,
-        },
-        data: {
-          reviewedById: null,
-          reviewedAt: null,
-          rejectionReason: null,
-        },
-      });
-    }
+    await this.helper.resetReviewOnEdit(postId, existingPost.status);
 
     return this.findOne(ownerId, postId);
   }
@@ -302,7 +213,7 @@ export class BlogownerPostsService {
   ): Promise<{
     message: string;
   }> {
-    await this.findOwnedPost(ownerId, postId);
+    await this.helper.findOwnedPost(ownerId, postId);
 
     await this.postsService.remove(postId);
 
@@ -322,7 +233,7 @@ export class BlogownerPostsService {
     ownerId: number,
     postId: number,
   ): Promise<BlogownerPostEntity> {
-    const post = await this.findOwnedPost(ownerId, postId);
+    const post = await this.helper.findOwnedPost(ownerId, postId);
 
     if (post.status === PostStatus.PENDING_REVIEW) {
       throw new BadRequestException('Bài viết này đang chờ Moderator duyệt.');
@@ -370,7 +281,37 @@ export class BlogownerPostsService {
     sourcePostId: number,
     dto: TranslateBlogownerPostDto,
   ): Promise<BlogownerPostEntity> {
-    const sourcePost = await this.findOwnedPost(ownerId, sourcePostId);
+    /*
+     * Cần truy cập trực tiếp Prisma relations:
+     * - postCategories → category.categoryGroupId
+     * - postTags → tagId
+     *
+     * Nên query riêng thay vì dùng BlogownerPostEntity.
+     */
+    const sourcePost = await this.prisma.post.findFirst({
+      where: {
+        id: sourcePostId,
+        deletedAt: null,
+      },
+      include: {
+        postCategories: {
+          include: {
+            category: true,
+          },
+        },
+        postTags: true,
+      },
+    });
+
+    if (!sourcePost) {
+      throw new BadRequestException(
+        `Không tìm thấy bài viết nguồn có ID ${sourcePostId}.`,
+      );
+    }
+
+    if (sourcePost.authorId !== ownerId) {
+      throw new NotPostOwnerException();
+    }
 
     const targetLanguage = await this.prisma.language.findFirst({
       where: {
@@ -482,30 +423,5 @@ export class BlogownerPostsService {
 
     return this.findOne(ownerId, translatedPost.id);
   }
-
-  /**
-   * Tìm bài viết chưa bị xóa và kiểm tra quyền sở hữu.
-   *
-   * Không cho Blog Owner sửa/xóa bài của người khác.
-   */
-  private async findOwnedPost(ownerId: number, postId: number) {
-    const post = await this.prisma.post.findFirst({
-      where: {
-        id: postId,
-        deletedAt: null,
-      },
-
-      include: BLOGOWNER_POST_INCLUDE,
-    });
-
-    if (!post) {
-      throw new PostNotFoundException(postId.toString());
-    }
-
-    if (post.authorId !== ownerId) {
-      throw new NotPostOwnerException();
-    }
-
-    return post;
-  }
 }
+

@@ -14,6 +14,7 @@ import { BlogownerPostsController } from './controllers/blogowner-posts.controll
 import { BlogownerDashboardService } from './services/blogowner-dashboard.service';
 import { BlogownerMediaService } from './services/blogowner-media.service';
 import { BlogownerOptionsService } from './services/blogowner-options.service';
+import { BlogownerPostHelperService } from './services/blogowner-post-helper.service';
 import { BlogownerPostsService } from './services/blogowner-posts.service';
 
 @Module({
@@ -29,10 +30,11 @@ import { BlogownerPostsService } from './services/blogowner-posts.service';
     BlogownerMediaController,
   ],
   providers: [
+    BlogownerPostHelperService,
     BlogownerPostsService,
     BlogownerOptionsService,
     BlogownerDashboardService,
     BlogownerMediaService,
   ],
 })
-export class BlogownerApiModule {}
+export class BlogownerApiModule {}

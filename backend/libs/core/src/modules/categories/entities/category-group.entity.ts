@@ -8,7 +8,6 @@ export class CategoryGroupEntity implements CategoryGroup {
   createdAt: Date;
   updatedAt: Date;
 
-  @Exclude()
   deletedAt: Date | null;
 
   @Type(() => CategoryEntity)

@@ -17,17 +17,20 @@ import {
 import { UserRole } from '@prisma/client';
 
 import {
-  CreateBlogownerPostDto,
   CurrentUser,
-  GetBlogownerPostsDto,
   JwtAuthGuard,
   Pagination,
   Roles,
   RolesGuard,
-  TranslateBlogownerPostDto,
-  UpdateBlogownerPostDto,
 } from '@app/core';
 import type { JwtPayload, PaginationParams } from '@app/core';
+
+import {
+  CreateBlogownerPostDto,
+  GetBlogownerPostsDto,
+  TranslateBlogownerPostDto,
+  UpdateBlogownerPostDto,
+} from '../dto';
 
 import { BlogownerPostsService } from '../services/blogowner-posts.service';
 

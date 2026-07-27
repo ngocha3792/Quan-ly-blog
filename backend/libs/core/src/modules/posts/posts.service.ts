@@ -67,6 +67,11 @@ export class PostsService {
     query: GetPostsDto,
     paginationParams: PaginationParams,
     include?: Prisma.PostInclude,
+    orderBy:
+      | Prisma.PostOrderByWithRelationInput
+      | Prisma.PostOrderByWithRelationInput[] = {
+      createdAt: 'desc',
+    },
   ): Promise<PaginatedResult<PostEntity>> {
     const {
       search,
@@ -153,9 +158,7 @@ export class PostsService {
         where,
         skip,
         take,
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy,
         include,
       }),
       this.prisma.post.count({ where }),

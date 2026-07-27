@@ -9,7 +9,6 @@ export class LanguageEntity implements Language {
   createdAt: Date;
   updatedAt: Date;
 
-  @Exclude()
   deletedAt: Date | null;
 
   constructor(partial: Partial<LanguageEntity>) {

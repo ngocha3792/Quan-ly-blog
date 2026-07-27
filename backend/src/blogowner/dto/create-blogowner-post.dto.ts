@@ -1,6 +1,6 @@
 import { OmitType } from '@nestjs/mapped-types';
 
-import { CreatePostDto } from '../create-post.dto';
+import { CreatePostDto } from '@app/core';
 
 /**
  * Dữ liệu Blog Owner được phép gửi khi tạo bài.
