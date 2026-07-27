@@ -1,4 +1,15 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateCommentDto } from './create-comment.dto';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
-export class UpdateCommentDto extends PartialType(CreateCommentDto) {}
+import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
+
+export class UpdateCommentDto {
+  @IsString()
+  @IsNotEmpty({
+    message: 'Nội dung bình luận không được để trống',
+  })
+  @MaxLength(1000, {
+    message: 'Nội dung bình luận quá dài (tối đa 1000 ký tự)',
+  })
+  @IsProfanityFree()
+  content!: string;
+}
