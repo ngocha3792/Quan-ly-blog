@@ -46,6 +46,8 @@ export * from './modules/cloudinary/cloudinary.service';
 
 export * from './modules/reports/reports.module';
 export * from './modules/reports/reports.service';
+export * from './modules/reports/dto';
+export * from './modules/reports/entities';
 
 export * from './modules/security-logs/security-logs.module';
 export * from './modules/security-logs/security-logs.service';
