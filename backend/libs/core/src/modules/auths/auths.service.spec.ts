@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthsService } from './auths.service';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { BcryptUtil, JWTUtil } from '@app/core/common/utils';
 import {
   InvalidCredentialsException,
@@ -50,6 +51,10 @@ describe('AuthsService', () => {
     generateAccessToken: jest.fn(),
   };
 
+  const mockMailService = {
+    sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +63,7 @@ describe('AuthsService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: BcryptUtil, useValue: mockBcryptUtil },
         { provide: JWTUtil, useValue: mockJwtUtil },
+        { provide: MailService, useValue: mockMailService },
       ],
     }).compile();
 
@@ -258,7 +264,11 @@ describe('AuthsService', () => {
     });
 
     it('should create reset token and return message if user found', async () => {
-      mockUsersService.findByEmailorUsername.mockResolvedValueOnce({ id: 1 });
+      mockUsersService.findByEmailorUsername.mockResolvedValueOnce({
+        id: 1,
+        email: 'test@example.com',
+        username: 'tester',
+      });
       mockBcryptUtil.hashPassword.mockResolvedValueOnce('hash');
 
       const result = await service.forgotPassword({
@@ -266,10 +276,14 @@ describe('AuthsService', () => {
       });
 
       expect(prisma.passwordResetToken.create).toHaveBeenCalled();
+      expect(mockMailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+        'test@example.com',
+        expect.any(String),
+        'tester',
+      );
       expect(result.message).toEqual(
         'Nếu email hợp lệ, một liên kết khôi phục đã được gửi đi.',
       );
-      expect(result.token).toBeDefined();
     });
   });
 

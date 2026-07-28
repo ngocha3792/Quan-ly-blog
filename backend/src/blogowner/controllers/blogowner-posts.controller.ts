@@ -1,3 +1,5 @@
+/// <reference types="multer" />
+
 import {
   Body,
   ClassSerializerInterceptor,
@@ -11,9 +13,11 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UserRole } from '@prisma/client';
 
 import {
@@ -39,7 +43,7 @@ import { BlogownerPostsService } from '../services/blogowner-posts.service';
 @Roles(UserRole.BLOG_OWNER)
 @UseInterceptors(ClassSerializerInterceptor)
 export class BlogownerPostsController {
-  constructor(private readonly blogownerPostsService: BlogownerPostsService) {}
+  constructor(private readonly blogownerPostsService: BlogownerPostsService) { }
 
   /**
    * Lấy toàn bộ bài viết của Blog Owner đang đăng nhập.
@@ -83,8 +87,40 @@ export class BlogownerPostsController {
    * authorId = user đang đăng nhập
    */
   @Post()
-  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateBlogownerPostDto) {
-    return this.blogownerPostsService.create(Number(user.id), dto);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'thumbnail', maxCount: 1 },
+        { name: 'thumbnailFile', maxCount: 1 },
+        { name: 'media', maxCount: 10 },
+        { name: 'files', maxCount: 10 },
+        { name: 'file', maxCount: 10 },
+      ],
+      {
+        limits: {
+          fileSize: 10 * 1024 * 1024,
+        },
+      },
+    ),
+  )
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateBlogownerPostDto,
+    @UploadedFiles() files?: Record<string, Express.Multer.File[]>,
+  ) {
+    const thumbnailFile = files?.thumbnail?.[0] || files?.thumbnailFile?.[0];
+    const mediaFiles = [
+      ...(files?.media || []),
+      ...(files?.files || []),
+      ...(files?.file || []),
+    ].filter((f) => !thumbnailFile || f !== thumbnailFile);
+
+    return this.blogownerPostsService.create(
+      Number(user.id),
+      dto,
+      thumbnailFile,
+      mediaFiles.length > 0 ? mediaFiles : undefined,
+    );
   }
 
   /**
@@ -93,12 +129,42 @@ export class BlogownerPostsController {
    * PATCH /api/v1/blog-owner/posts/:id
    */
   @Patch(':id')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'thumbnail', maxCount: 1 },
+        { name: 'thumbnailFile', maxCount: 1 },
+        { name: 'media', maxCount: 10 },
+        { name: 'files', maxCount: 10 },
+        { name: 'file', maxCount: 10 },
+      ],
+      {
+        limits: {
+          fileSize: 10 * 1024 * 1024,
+        },
+      },
+    ),
+  )
   update(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) postId: number,
     @Body() dto: UpdateBlogownerPostDto,
+    @UploadedFiles() files?: Record<string, Express.Multer.File[]>,
   ) {
-    return this.blogownerPostsService.update(Number(user.id), postId, dto);
+    const thumbnailFile = files?.thumbnail?.[0] || files?.thumbnailFile?.[0];
+    const mediaFiles = [
+      ...(files?.media || []),
+      ...(files?.files || []),
+      ...(files?.file || []),
+    ].filter((f) => !thumbnailFile || f !== thumbnailFile);
+
+    return this.blogownerPostsService.update(
+      Number(user.id),
+      postId,
+      dto,
+      thumbnailFile,
+      mediaFiles.length > 0 ? mediaFiles : undefined,
+    );
   }
 
   /**
@@ -146,3 +212,4 @@ export class BlogownerPostsController {
     );
   }
 }
+

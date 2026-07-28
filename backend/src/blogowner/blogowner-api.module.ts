@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import {
   AuthsModule,
+  CloudinaryModule,
   MediaModule,
   PostsModule,
 } from '@app/core';
@@ -22,6 +23,7 @@ import { BlogownerPostsService } from './services/blogowner-posts.service';
     AuthsModule,
     PostsModule,
     MediaModule,
+    CloudinaryModule,
   ],
   controllers: [
     BlogownerPostsController,

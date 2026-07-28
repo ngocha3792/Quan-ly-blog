@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   ArrayUnique,
@@ -13,6 +13,23 @@ import {
 } from 'class-validator';
 import { PostStatus } from '@prisma/client';
 import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
+
+function transformArray(value: unknown): unknown {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item !== '');
+  }
+  if (value !== undefined && value !== null && !Array.isArray(value)) {
+    return [value];
+  }
+  return value;
+}
 
 export class CreatePostDto {
   @IsString()
@@ -44,6 +61,7 @@ export class CreatePostDto {
   @ArrayMinSize(1, { message: 'Bài viết phải có ít nhất một danh mục' })
   @ArrayUnique({ message: 'Danh sách danh mục không được chứa mã trùng nhau' })
   @IsInt({ each: true, message: 'Mỗi mã danh mục phải là số nguyên' })
+  @Transform(({ value }) => transformArray(value))
   @Type(() => Number)
   categoryIds!: number[];
 
@@ -55,6 +73,7 @@ export class CreatePostDto {
   @IsArray({ message: 'Danh sách thẻ phải là một mảng' })
   @ArrayUnique({ message: 'Danh sách thẻ không được chứa mã trùng nhau' })
   @IsInt({ each: true, message: 'Mỗi mã thẻ phải là số nguyên' })
+  @Transform(({ value }) => transformArray(value))
   @Type(() => Number)
   tagIds?: number[];
 
@@ -62,5 +81,7 @@ export class CreatePostDto {
   @IsArray({ message: 'Danh sách tên thẻ phải là một mảng' })
   @ArrayUnique({ message: 'Danh sách tên thẻ không được trùng nhau' })
   @IsString({ each: true, message: 'Tên thẻ phải là chuỗi' })
+  @Transform(({ value }) => transformArray(value))
   tagNames?: string[];
 }
+

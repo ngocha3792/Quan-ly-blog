@@ -66,3 +66,7 @@ export * from './modules/posts/posts.module';
 export * from './modules/posts/posts.service';
 export * from './modules/posts/dto';
 export * from './modules/posts/entities';
+
+export * from './modules/mail/mail.module';
+export * from './modules/mail/mail.service';
+

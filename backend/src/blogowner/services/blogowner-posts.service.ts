@@ -1,3 +1,5 @@
+/// <reference types="multer" />
+
 import {
   BadRequestException,
   ConflictException,
@@ -6,6 +8,8 @@ import {
 import { PostStatus, Prisma } from '@prisma/client';
 
 import {
+  CloudinaryService,
+  MediaService,
   NotPostOwnerException,
   PaginatedResult,
   PaginationParams,
@@ -87,6 +91,8 @@ export class BlogownerPostsService {
     private readonly prisma: PrismaService,
     private readonly postsService: PostsService,
     private readonly helper: BlogownerPostHelperService,
+    private readonly mediaService: MediaService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   /**
@@ -144,11 +150,43 @@ export class BlogownerPostsService {
   async create(
     ownerId: number,
     dto: CreateBlogownerPostDto,
+    thumbnailFile?: Express.Multer.File,
+    mediaFiles?: Express.Multer.File[],
   ): Promise<BlogownerPostEntity> {
     const createdPost = await this.postsService.create(ownerId, {
       ...dto,
       status: PostStatus.DRAFT,
     });
+
+    if (thumbnailFile) {
+      if (!thumbnailFile.mimetype.startsWith('image/')) {
+        throw new BadRequestException('Chỉ hỗ trợ tải lên file ảnh cho thumbnail');
+      }
+      try {
+        const uploadedResult = await this.cloudinary.uploadFile(
+          thumbnailFile,
+          `nestjs_blog/posts/${createdPost.id}/thumbnail`,
+        );
+        await this.prisma.post.update({
+          where: { id: createdPost.id },
+          data: {
+            thumbnailUrl: uploadedResult.secure_url,
+          },
+        });
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Lỗi không xác định';
+        throw new BadRequestException(
+          `Lỗi khi upload thumbnail: ${message}`,
+        );
+      }
+    }
+
+    if (mediaFiles && mediaFiles.length > 0) {
+      for (const file of mediaFiles) {
+        await this.mediaService.uploadMedia(createdPost.id, file);
+      }
+    }
 
     return this.findOne(ownerId, createdPost.id);
   }
@@ -166,6 +204,8 @@ export class BlogownerPostsService {
     ownerId: number,
     postId: number,
     dto: UpdateBlogownerPostDto,
+    thumbnailFile?: Express.Multer.File,
+    mediaFiles?: Express.Multer.File[],
   ): Promise<BlogownerPostEntity> {
     const existingPost = await this.helper.findOwnedPost(
       ownerId,
@@ -177,19 +217,39 @@ export class BlogownerPostsService {
 
     const nextStatus = this.helper.getNextStatusOnEdit(existingPost.status);
 
-    /*
-     * PostsService xử lý:
-     * - title;
-     * - thumbnailUrl;
-     * - content;
-     * - categoryIds;
-     * - tagIds;
-     * - tagNames.
-     */
+    const updateData = { ...dto };
+
+    if (thumbnailFile) {
+      if (!thumbnailFile.mimetype.startsWith('image/')) {
+        throw new BadRequestException('Chỉ hỗ trợ tải lên file ảnh cho thumbnail');
+      }
+      try {
+        await this.deleteOldThumbnail(existingPost.thumbnailUrl);
+
+        const uploadedResult = await this.cloudinary.uploadFile(
+          thumbnailFile,
+          `nestjs_blog/posts/${postId}/thumbnail`,
+        );
+        updateData.thumbnailUrl = uploadedResult.secure_url;
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Lỗi không xác định';
+        throw new BadRequestException(
+          `Lỗi khi upload thumbnail: ${message}`,
+        );
+      }
+    }
+
     await this.postsService.update(postId, {
-      ...dto,
+      ...updateData,
       status: nextStatus,
     });
+
+    if (mediaFiles && mediaFiles.length > 0) {
+      for (const file of mediaFiles) {
+        await this.mediaService.uploadMedia(postId, file);
+      }
+    }
 
     /*
      * Khi bài bị từ chối được sửa lại hoặc bài đã xuất bản
@@ -200,6 +260,21 @@ export class BlogownerPostsService {
     await this.helper.resetReviewOnEdit(postId, existingPost.status);
 
     return this.findOne(ownerId, postId);
+  }
+
+  private async deleteOldThumbnail(thumbnailUrl: string | null) {
+    if (!thumbnailUrl || !thumbnailUrl.includes('/upload/')) return;
+    try {
+      const parts = thumbnailUrl.split('/upload/');
+      if (parts.length > 1) {
+        let path = parts[1];
+        path = path.replace(/^v\d+\//, '');
+        const publicId = path.substring(0, path.lastIndexOf('.')) || path;
+        await this.cloudinary.deleteFile(publicId, 'image');
+      }
+    } catch {
+      // Bỏ qua lỗi khi xóa ảnh cũ
+    }
   }
 
   /**

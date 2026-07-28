@@ -7,6 +7,7 @@ import {
 } from '@app/core/common/exceptions';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { BcryptUtil, JWTUtil } from '@app/core/common/utils';
 import {
@@ -24,7 +25,8 @@ export class AuthsService {
     private readonly usersService: UsersService,
     private readonly bcryptUtil: BcryptUtil,
     private readonly jwtUtil: JWTUtil,
-  ) {}
+    private readonly mailService: MailService,
+  ) { }
 
   async register(registerDto: RegisterDto) {
     return this.usersService.create(registerDto);
@@ -214,9 +216,14 @@ export class AuthsService {
       },
     });
 
-    // Gửi email // sẽ làm sau
-    return {
+    // Gửi email chứa token khôi phục
+    await this.mailService.sendPasswordResetEmail(
+      user.email,
       token,
+      user.username,
+    );
+
+    return {
       message: 'Nếu email hợp lệ, một liên kết khôi phục đã được gửi đi.',
     };
   }
