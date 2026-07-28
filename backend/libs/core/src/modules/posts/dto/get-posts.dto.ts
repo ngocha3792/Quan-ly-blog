@@ -1,12 +1,12 @@
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 import { PostStatus } from '@prisma/client';
-// import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
+import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
 
 export class GetPostsDto {
   @IsOptional()
   @IsString()
-  // @IsProfanityFree()
+  @IsProfanityFree()
   search?: string;
 
   // Lọc các bài có chứa danh mục này.

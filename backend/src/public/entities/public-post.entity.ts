@@ -1,4 +1,9 @@
-import { Exclude, Expose, Type } from 'class-transformer';
+import { type Media } from '@prisma/client';
+import {
+  Exclude,
+  Expose,
+  Type,
+} from 'class-transformer';
 
 import {
   CategoryEntity,
@@ -16,6 +21,11 @@ type PublicPostTagRelation = {
   };
 };
 
+type PublicMediaSummary = Pick<
+  Media,
+  'id' | 'postId' | 'mediaType' | 'mediaUrl' | 'createdAt'
+>;
+
 /**
  * Entity dành riêng cho Public Post API.
  *
@@ -26,11 +36,15 @@ type PublicPostTagRelation = {
  * - Thời gian xóa mềm.
  * - Các quan hệ Prisma thô.
  *
- * Public vẫn được thấy:
- * - categories
- * - tags
- * - author
- * - language
+ * Public vẫn được thấy (kế thừa từ PostEntity):
+ * - author (tên tác giả, avatar...)
+ * - language (tên ngôn ngữ)
+ * - categories (tên danh mục)
+ * - tags (tên tag)
+ *
+ * PublicPostEntity bổ sung thêm:
+ * - likeCount (số lượt like)
+ * - media (danh sách ảnh/video, đã loại publicId)
  */
 export class PublicPostEntity extends PostEntity {
   /**
@@ -72,6 +86,28 @@ export class PublicPostEntity extends PostEntity {
   declare postTags?: PublicPostTagRelation[];
 
   /**
+   * Ẩn đối tượng đếm thô từ Prisma.
+   */
+  @Exclude()
+  declare _count?: {
+    postLikes?: number;
+  };
+
+  /**
+   * Số lượt like của bài viết.
+   */
+  @Expose()
+  get likeCount(): number {
+    return this._count?.postLikes ?? 0;
+  }
+
+  /**
+   * Danh sách media (ảnh/video) của bài viết.
+   * Không bao gồm publicId (nội bộ Cloudinary) và deletedAt.
+   */
+  media?: PublicMediaSummary[];
+
+  /**
    * Trả danh mục đã được làm phẳng.
    */
   @Expose()
@@ -95,5 +131,19 @@ export class PublicPostEntity extends PostEntity {
 
   constructor(partial: Partial<PublicPostEntity>) {
     super(partial);
+
+    Object.assign(this, partial);
+
+    if (partial.media) {
+      this.media = partial.media.map(
+        ({ id, postId, mediaType, mediaUrl, createdAt }) => ({
+          id,
+          postId,
+          mediaType,
+          mediaUrl,
+          createdAt,
+        }),
+      );
+    }
   }
 }

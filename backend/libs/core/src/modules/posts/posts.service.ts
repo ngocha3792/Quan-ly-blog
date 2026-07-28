@@ -192,6 +192,18 @@ export class PostsService {
     return new PostEntity(post);
   }
 
+  /**
+   * Tăng viewCount của bài viết thêm 1 (atomic increment).
+   */
+  async incrementViewCount(postId: number): Promise<void> {
+    await this.prisma.post.update({
+      where: { id: postId },
+      data: {
+        viewCount: { increment: 1 },
+      },
+    });
+  }
+
   async update(id: number, updatePostDto: UpdatePostDto) {
     const existingPost = await this.findOne(id);
 

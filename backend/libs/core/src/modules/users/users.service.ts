@@ -57,12 +57,13 @@ export class UsersService {
     });
   }
 
-  async findById(id: number) {
+  async findById(id: number, include?: Prisma.UserInclude) {
     return this.prisma.user.findFirst({
       where: {
         id,
         deletedAt: null,
       },
+      include,
     });
   }
 

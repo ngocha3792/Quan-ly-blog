@@ -9,6 +9,7 @@ import {
   PaginatedResult,
   PaginationParams,
   PostNotFoundException,
+  PostsService,
   PrismaService,
 } from '@app/core';
 
@@ -89,7 +90,10 @@ const MODERATOR_POST_INCLUDE = {
 
 @Injectable()
 export class ModeratorPostsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly postsService: PostsService,
+  ) {}
 
   /**
    * Danh sách bài Moderator được phép xem.
@@ -107,17 +111,6 @@ export class ModeratorPostsService {
     query: GetModeratorPostsDto,
     pagination: PaginationParams,
   ): Promise<PaginatedResult<ModeratorPostEntity>> {
-    const {
-      search,
-      categoryId,
-      languageId,
-      authorId,
-      tagId,
-      tagName,
-    } = query;
-
-    const { skip, take, page } = pagination;
-
     const status = query.status ?? PostStatus.PENDING_REVIEW;
 
     /*
@@ -128,65 +121,6 @@ export class ModeratorPostsService {
       throw new BadRequestException(
         'Moderator chỉ được xem bài PENDING_REVIEW, PUBLISH hoặc REJECT.',
       );
-    }
-
-    const where: Prisma.PostWhereInput = {
-      deletedAt: null,
-      status,
-    };
-
-    if (search) {
-      where.title = {
-        contains: search,
-        mode: 'insensitive',
-      };
-    }
-
-    if (categoryId !== undefined) {
-      where.postCategories = {
-        some: {
-          categoryId,
-        },
-      };
-    }
-
-    if (languageId !== undefined) {
-      where.languageId = languageId;
-    }
-
-    if (authorId !== undefined) {
-      where.authorId = authorId;
-    }
-
-    if (tagId !== undefined) {
-      where.postTags = {
-        some: {
-          tagId,
-        },
-      };
-    } else if (tagName) {
-      const tag = await this.prisma.tag.findFirst({
-        where: {
-          name: tagName,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (tag) {
-        where.postTags = {
-          some: {
-            tagId: tag.id,
-          },
-        };
-      } else {
-        /*
-         * Tag không tồn tại thì tạo điều kiện không thể khớp.
-         */
-        where.id = -1;
-      }
     }
 
     /*
@@ -205,32 +139,21 @@ export class ModeratorPostsService {
             reviewedAt: 'desc',
           };
 
-    const [posts, totalItems] = await Promise.all([
-      this.prisma.post.findMany({
-        where,
-        skip,
-        take,
-        orderBy,
-        include: MODERATOR_POST_INCLUDE,
-      }),
-
-      this.prisma.post.count({
-        where,
-      }),
-    ]);
+    const result = await this.postsService.findAll(
+      {
+        ...query,
+        status,
+      } as any,
+      pagination,
+      MODERATOR_POST_INCLUDE,
+      orderBy,
+    );
 
     return {
-      items: posts.map(
+      ...result,
+      items: result.items.map(
         (post) => new ModeratorPostEntity(post),
       ),
-
-      meta: {
-        totalItems,
-        itemCount: posts.length,
-        itemsPerPage: take,
-        totalPages: Math.ceil(totalItems / take),
-        currentPage: page,
-      },
     };
   }
 
@@ -240,18 +163,12 @@ export class ModeratorPostsService {
    * Moderator không được xem bài DRAFT.
    */
   async findOne(postId: number): Promise<ModeratorPostEntity> {
-    const post = await this.prisma.post.findFirst({
-      where: {
-        id: postId,
-        deletedAt: null,
-        status: {
-          in: MODERATOR_VISIBLE_STATUSES,
-        },
-      },
-      include: MODERATOR_POST_INCLUDE,
-    });
+    const post = await this.postsService.findOne(
+      postId,
+      MODERATOR_POST_INCLUDE,
+    );
 
-    if (!post) {
+    if (!MODERATOR_VISIBLE_STATUSES.includes(post.status)) {
       throw new PostNotFoundException(postId.toString());
     }
 

@@ -1,12 +1,8 @@
-import { Type } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { OmitType } from '@nestjs/mapped-types';
 import { PostStatus } from '@prisma/client';
+import { IsIn, IsOptional } from 'class-validator';
+
+import { GetPostsDto } from '@app/core';
 
 /**
  * Bộ lọc danh sách bài viết dành cho Moderator.
@@ -19,35 +15,11 @@ import { PostStatus } from '@prisma/client';
  * Không cho xem DRAFT vì đây là bài riêng của Blog Owner,
  * chưa gửi sang quy trình kiểm duyệt.
  */
-export class GetModeratorPostsDto {
-  @IsOptional()
-  @IsString()
-  search?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  categoryId?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  languageId?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  authorId?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  tagId?: number;
-
-  @IsOptional()
-  @IsString()
-  tagName?: string;
-
+export class GetModeratorPostsDto extends OmitType(GetPostsDto, [
+  'parentPostId',
+  'bookmarkedByUserId',
+  'status',
+] as const) {
   @IsOptional()
   @IsIn(
     [
@@ -61,16 +33,4 @@ export class GetModeratorPostsDto {
     },
   )
   status?: PostStatus;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  page?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  limit?: number;
 }

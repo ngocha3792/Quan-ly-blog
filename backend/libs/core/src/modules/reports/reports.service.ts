@@ -24,6 +24,12 @@ export class ReportsService {
   async findAll(
     query: GetReportsDto,
     paginationParams: PaginationParams,
+    include?: Prisma.ReportInclude,
+    orderBy:
+      | Prisma.ReportOrderByWithRelationInput
+      | Prisma.ReportOrderByWithRelationInput[] = {
+      createdAt: 'desc',
+    },
   ): Promise<PaginatedResult<ReportEntity>> {
     const { targetType, status, reason, reporterId, postId, commentId } = query;
     const { skip, take, page } = paginationParams;
@@ -42,7 +48,8 @@ export class ReportsService {
         where,
         skip,
         take,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
+        include,
       }),
       this.prisma.report.count({ where }),
     ]);
@@ -59,9 +66,10 @@ export class ReportsService {
     };
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, include?: Prisma.ReportInclude) {
     const report = await this.prisma.report.findUnique({
       where: { id },
+      include,
     });
 
     if (!report) {

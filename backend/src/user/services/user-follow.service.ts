@@ -5,6 +5,8 @@ import {
   ExistActionNotAllowedException,
   UserNotFoundException,
 } from '@app/core/common/exceptions';
+import type { PaginationParams } from '@app/core';
+import { UserProfileEntity } from '../entities';
 
 @Injectable()
 export class UserFollowService {
@@ -97,51 +99,73 @@ export class UserFollowService {
     });
   }
 
-  async getTopAuthors(limit: number = 10) {
-    // Gom nhóm theo followingId và đếm số lượng người follow
-    const topFollows = await this.prisma.userFollow.groupBy({
-      by: ['followingId'],
-      _count: {
-        followingId: true,
-      },
-      orderBy: {
-        _count: {
-          followingId: 'desc',
+  async getFollowers(userId: number, pagination?: PaginationParams) {
+    const { page = 1, skip = 0, take = 10 } = pagination || {};
+    const [total, follows] = await Promise.all([
+      this.prisma.userFollow.count({
+        where: {
+          followingId: userId,
+          follower: {
+            deletedAt: null,
+          },
         },
-      },
-      take: limit,
-    });
+      }),
+      this.prisma.userFollow.findMany({
+        where: {
+          followingId: userId,
+          follower: {
+            deletedAt: null,
+          },
+        },
+        include: {
+          follower: true,
+        },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
-    if (topFollows.length === 0) return [];
+    return {
+      total,
+      page,
+      take,
+      data: follows.map((f) => new UserProfileEntity(f.follower)),
+    };
+  }
 
-    // Lấy thông tin user của các tác giả này
-    const userIds = topFollows.map((f) => f.followingId);
-    const users = await this.prisma.user.findMany({
-      where: {
-        id: { in: userIds },
-        deletedAt: null, // Chỉ lấy những user chưa bị xoá
-      },
-      select: {
-        id: true,
-        username: true,
-        avatarUrl: true,
-        bio: true,
-      },
-    });
+  async getFollowing(userId: number, pagination?: PaginationParams) {
+    const { page = 1, skip = 0, take = 10 } = pagination || {};
+    const [total, follows] = await Promise.all([
+      this.prisma.userFollow.count({
+        where: {
+          followerId: userId,
+          following: {
+            deletedAt: null,
+          },
+        },
+      }),
+      this.prisma.userFollow.findMany({
+        where: {
+          followerId: userId,
+          following: {
+            deletedAt: null,
+          },
+        },
+        include: {
+          following: true,
+        },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
-    // Map kết quả đếm và thông tin user, giữ nguyên thứ tự của topFollows
-    return topFollows
-      .map((f) => {
-        const user = users.find((u) => u.id === f.followingId);
-        if (!user) return null;
-        return {
-          id: user.id,
-          username: user.username,
-          avatarUrl: user.avatarUrl,
-          bio: user.bio,
-          followerCount: f._count.followingId,
-        };
-      })
-      .filter((item) => item !== null);
+    return {
+      total,
+      page,
+      take,
+      data: follows.map((f) => new UserProfileEntity(f.following)),
+    };
   }
 }

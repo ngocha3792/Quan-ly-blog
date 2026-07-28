@@ -18,6 +18,12 @@ export class PublicAuthorsController {
   constructor(private readonly usersPublicService: UsersPublicService) {}
 
   @Public()
+  @Get('top')
+  async getTopAuthors(@Query('limit') limit?: number) {
+    return this.usersPublicService.getTopAuthors(limit ? Number(limit) : 10);
+  }
+
+  @Public()
   @Get(':id')
   async getAuthorInfo(
     @Param('id', ParseIntPipe) id: number,
@@ -33,3 +39,4 @@ export class PublicAuthorsController {
     );
   }
 }
+

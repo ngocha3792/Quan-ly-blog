@@ -7,6 +7,7 @@ import { PostStatus } from '@prisma/client';
 
 import {
   PostNotFoundException,
+  PostsService,
   PrismaService,
 } from '@app/core';
 
@@ -94,6 +95,7 @@ describe('ModeratorPostsService', () => {
       await Test.createTestingModule({
         providers: [
           ModeratorPostsService,
+          PostsService,
           {
             provide: PrismaService,
             useValue: mockPrismaService,

@@ -8,6 +8,42 @@ import {
   PostLikeEntity,
   PostBookmarkEntity,
 } from '@app/core/modules/posts/entities';
+import type { PaginationParams } from '@app/core';
+import { Prisma } from '@prisma/client';
+import { UserPostEntity } from '../entities';
+
+const POST_INCLUDE = {
+  author: {
+    select: {
+      id: true,
+      username: true,
+      bio: true,
+      avatarUrl: true,
+    },
+  },
+  postCategories: {
+    include: {
+      category: {
+        include: {
+          language: true,
+          categoryGroup: true,
+        },
+      },
+    },
+  },
+  language: true,
+  postTags: {
+    include: {
+      tag: true,
+    },
+  },
+  media: true,
+  _count: {
+    select: {
+      postLikes: true,
+    },
+  },
+} satisfies Prisma.PostInclude;
 
 @Injectable()
 export class PostInteractionService {
@@ -130,5 +166,73 @@ export class PostInteractionService {
     });
 
     return { success: true, message: 'Đã bỏ lưu bài viết thành công' };
+  }
+
+  async getBookmarkedPosts(userId: number, pagination?: PaginationParams) {
+    const { page = 1, skip = 0, take = 10 } = pagination || {};
+
+    const where: Prisma.PostBookmarkWhereInput = {
+      userId,
+      post: {
+        deletedAt: null,
+        status: 'PUBLISH',
+      },
+    };
+
+    const [total, bookmarks] = await Promise.all([
+      this.prisma.postBookmark.count({ where }),
+      this.prisma.postBookmark.findMany({
+        where,
+        include: {
+          post: {
+            include: POST_INCLUDE,
+          },
+        },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      total,
+      page,
+      take,
+      data: bookmarks.map((b) => new UserPostEntity(b.post)),
+    };
+  }
+
+  async getLikedPosts(userId: number, pagination?: PaginationParams) {
+    const { page = 1, skip = 0, take = 10 } = pagination || {};
+
+    const where: Prisma.PostLikeWhereInput = {
+      userId,
+      post: {
+        deletedAt: null,
+        status: 'PUBLISH',
+      },
+    };
+
+    const [total, likes] = await Promise.all([
+      this.prisma.postLike.count({ where }),
+      this.prisma.postLike.findMany({
+        where,
+        include: {
+          post: {
+            include: POST_INCLUDE,
+          },
+        },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      total,
+      page,
+      take,
+      data: likes.map((l) => new UserPostEntity(l.post)),
+    };
   }
 }

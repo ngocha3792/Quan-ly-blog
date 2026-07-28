@@ -1,14 +1,9 @@
-import {
-  Report,
-  ReportReason,
-  ReportStatus,
-  ReportTargetType,
-  PostStatus,
-} from '@prisma/client';
+import { PostStatus } from '@prisma/client';
 import {
   Exclude,
   Type,
 } from 'class-transformer';
+import { ReportEntity } from '@app/core';
 
 /**
  * Thông tin người dùng được phép trả trong màn hình Moderator.
@@ -114,29 +109,12 @@ class ModeratorReportedCommentEntity {
  * - post có thể null ở cấp report,
  *   nhưng comment.post chứa ngữ cảnh bài viết.
  */
-export class ModeratorReportEntity implements Report {
-  id!: number;
-  reporterId!: number;
-  targetType!: ReportTargetType;
-
-  postId!: number | null;
-  commentId!: number | null;
-
-  reason!: ReportReason;
-  description!: string | null;
-  status!: ReportStatus;
-
+export class ModeratorReportEntity extends ReportEntity {
   /**
    * Ẩn foreign key thô và trả reviewedBy dạng object.
    */
   @Exclude()
-  reviewedById!: number | null;
-
-  reviewedAt!: Date | null;
-  resolutionNote!: string | null;
-
-  createdAt!: Date;
-  updatedAt!: Date;
+  declare reviewedById: number | null;
 
   @Type(() => ModeratorReportUserEntity)
   reporter?: ModeratorReportUserEntity;
@@ -151,6 +129,7 @@ export class ModeratorReportEntity implements Report {
   comment?: ModeratorReportedCommentEntity | null;
 
   constructor(partial: Partial<ModeratorReportEntity>) {
+    super(partial);
     Object.assign(this, partial);
   }
 }

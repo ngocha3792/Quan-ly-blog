@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 
 import {
   AuthsModule,
+  PostsModule,
   PrismaModule,
+  ReportsModule,
 } from '@app/core';
 
 import { ModeratorPostsController } from './controllers/moderator-posts.controller';
@@ -15,6 +17,8 @@ import { ModeratorReportsService } from './services/moderator-reports.service';
   imports: [
     PrismaModule,
     AuthsModule,
+    PostsModule,
+    ReportsModule,
   ],
 
   controllers: [

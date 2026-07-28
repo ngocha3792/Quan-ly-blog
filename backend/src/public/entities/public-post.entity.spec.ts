@@ -1,5 +1,8 @@
 import { instanceToPlain } from 'class-transformer';
-import { PostStatus } from '@prisma/client';
+import {
+  MediaType,
+  PostStatus,
+} from '@prisma/client';
 
 import { PublicPostEntity } from './public-post.entity';
 
@@ -33,6 +36,24 @@ describe('PublicPostEntity', () => {
         '2026-07-28T00:00:00.000Z',
       ),
       deletedAt: null,
+
+      _count: {
+        postLikes: 42,
+      },
+
+      media: [
+        {
+          id: 10,
+          postId: 1,
+          mediaType: MediaType.IMAGE,
+          mediaUrl: 'https://example.com/img.png',
+          publicId: 'secret_cloudinary_id',
+          createdAt: new Date(
+            '2026-07-28T00:00:00.000Z',
+          ),
+          deletedAt: null,
+        },
+      ] as any,
 
       postCategories: [
         {
@@ -75,6 +96,7 @@ describe('PublicPostEntity', () => {
       'postCategories',
     );
     expect(result).not.toHaveProperty('postTags');
+    expect(result).not.toHaveProperty('_count');
 
     expect(result.categories).toHaveLength(1);
     expect(result.categories[0].name).toBe(
@@ -87,5 +109,20 @@ describe('PublicPostEntity', () => {
         name: 'NestJS',
       },
     ]);
+
+    // likeCount lấy từ _count.postLikes
+    expect(result.likeCount).toBe(42);
+
+    // media đã loại publicId và deletedAt
+    expect(result.media).toHaveLength(1);
+    expect(result.media[0].mediaUrl).toBe(
+      'https://example.com/img.png',
+    );
+    expect(result.media[0]).not.toHaveProperty(
+      'publicId',
+    );
+    expect(result.media[0]).not.toHaveProperty(
+      'deletedAt',
+    );
   });
 });

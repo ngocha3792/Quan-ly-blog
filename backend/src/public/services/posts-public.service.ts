@@ -34,6 +34,12 @@ const PUBLIC_POST_INCLUDE = {
       tag: true,
     },
   },
+  media: true,
+  _count: {
+    select: {
+      postLikes: true,
+    },
+  },
 } satisfies Prisma.PostInclude;
 
 @Injectable()
@@ -42,7 +48,7 @@ export class PostsPublicService {
     private readonly prisma: PrismaService,
     private readonly postsService: PostsService,
     private readonly languagesService: LanguagesService,
-  ) {}
+  ) { }
 
   async findAll(
     query: GetPostsDto,
@@ -60,57 +66,93 @@ export class PostsPublicService {
     }
 
     const result = await this.postsService.findAll(
-  query,
-  paginationParams,
-  PUBLIC_POST_INCLUDE,
-);
+      query,
+      paginationParams,
+      PUBLIC_POST_INCLUDE,
+    );
 
-return {
-  ...result,
-  items: result.items.map(
-    (post) => new PublicPostEntity(post),
-  ),
-};
+    return {
+      ...result,
+      items: result.items.map(
+        (post) => new PublicPostEntity(post),
+      ),
+    };
   }
 
-  async findOne(id: number, langCode: string | null) {
-    let post = new PublicPostEntity(await this.postsService.findOne(id,PUBLIC_POST_INCLUDE,),);
+  async findOne(
+    id: number,
+    langCode: string | null,
+    viewerIp: string | null,
+  ) {
+    let post = new PublicPostEntity(
+      await this.postsService.findOne(
+        id,
+        PUBLIC_POST_INCLUDE,
+      ),
+    );
 
     if (post.status !== PostStatus.PUBLISH) {
       throw new PostNotFoundException(id.toString());
     }
 
     if (langCode) {
-      const languageId = await this.languagesService.getIdByCode(langCode);
+      const languageId =
+        await this.languagesService.getIdByCode(
+          langCode,
+        );
 
-      if (languageId && post.languageId !== languageId) {
-        const parentId = post.parentPostId ?? post.id;
+      if (
+        languageId &&
+        post.languageId !== languageId
+      ) {
+        const parentId =
+          post.parentPostId ?? post.id;
 
-        const translatedPost = await this.prisma.post.findFirst({
-          where: {
-            OR: [
-              {
-                id: parentId,
-                languageId,
-                status: PostStatus.PUBLISH,
-                deletedAt: null,
-              },
-              {
-                parentPostId: parentId,
-                languageId,
-                status: PostStatus.PUBLISH,
-                deletedAt: null,
-              },
-            ],
-          },
-          include: PUBLIC_POST_INCLUDE,
-        });
+        const translatedPost =
+          await this.prisma.post.findFirst({
+            where: {
+              OR: [
+                {
+                  id: parentId,
+                  languageId,
+                  status: PostStatus.PUBLISH,
+                  deletedAt: null,
+                },
+                {
+                  parentPostId: parentId,
+                  languageId,
+                  status: PostStatus.PUBLISH,
+                  deletedAt: null,
+                },
+              ],
+            },
+            include: PUBLIC_POST_INCLUDE,
+          });
 
         if (translatedPost) {
           post = new PublicPostEntity(translatedPost);
         }
       }
     }
+
+    /**
+     * Fire-and-forget: ghi log lượt xem + tăng viewCount.
+     * Không block response trả về cho client.
+     */
+    const viewerKey = viewerIp || 'anonymous';
+
+    Promise.all([
+      this.postsService.incrementViewCount(post.id),
+
+      this.prisma.postViewLog.create({
+        data: {
+          postId: post.id,
+          viewerKey,
+        },
+      }),
+    ]).catch(() => {
+      /* Bỏ qua lỗi ghi log — không ảnh hưởng trải nghiệm đọc bài */
+    });
 
     return post;
   }
@@ -196,6 +238,6 @@ return {
       .filter((post): post is NonNullable<typeof post> => post !== undefined);
 
     return sortedPosts.map(
-  (post) => new PublicPostEntity(post),);
+      (post) => new PublicPostEntity(post),);
   }
 }

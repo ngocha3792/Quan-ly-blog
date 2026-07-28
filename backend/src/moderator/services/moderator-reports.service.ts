@@ -10,7 +10,7 @@ import {
   ReportTargetType,
 } from '@prisma/client';
 
-import { PrismaService } from '@app/core';
+import { PrismaService, ReportsService } from '@app/core';
 import type {
   PaginatedResult,
   PaginationParams,
@@ -114,7 +114,10 @@ const MODERATOR_REPORT_INCLUDE = {
 
 @Injectable()
 export class ModeratorReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportsService: ReportsService,
+  ) {}
 
   /**
    * Danh sách report.
@@ -127,41 +130,7 @@ export class ModeratorReportsService {
     query: GetModeratorReportsDto,
     pagination: PaginationParams,
   ): Promise<PaginatedResult<ModeratorReportEntity>> {
-    const {
-      targetType,
-      reason,
-      reporterId,
-      postId,
-      commentId,
-    } = query;
-
-    const { skip, take, page } = pagination;
-
     const status = query.status ?? ReportStatus.PENDING;
-
-    const where: Prisma.ReportWhereInput = {
-      status,
-    };
-
-    if (targetType !== undefined) {
-      where.targetType = targetType;
-    }
-
-    if (reason !== undefined) {
-      where.reason = reason;
-    }
-
-    if (reporterId !== undefined) {
-      where.reporterId = reporterId;
-    }
-
-    if (postId !== undefined) {
-      where.postId = postId;
-    }
-
-    if (commentId !== undefined) {
-      where.commentId = commentId;
-    }
 
     /**
      * Report PENDING:
@@ -179,32 +148,21 @@ export class ModeratorReportsService {
             reviewedAt: 'desc',
           };
 
-    const [reports, totalItems] = await Promise.all([
-      this.prisma.report.findMany({
-        where,
-        skip,
-        take,
-        orderBy,
-        include: MODERATOR_REPORT_INCLUDE,
-      }),
-
-      this.prisma.report.count({
-        where,
-      }),
-    ]);
+    const result = await this.reportsService.findAll(
+      {
+        ...query,
+        status,
+      },
+      pagination,
+      MODERATOR_REPORT_INCLUDE,
+      orderBy,
+    );
 
     return {
-      items: reports.map(
+      ...result,
+      items: result.items.map(
         (report) => new ModeratorReportEntity(report),
       ),
-
-      meta: {
-        totalItems,
-        itemCount: reports.length,
-        itemsPerPage: take,
-        totalPages: Math.ceil(totalItems / take),
-        currentPage: page,
-      },
     };
   }
 
@@ -219,18 +177,10 @@ export class ModeratorReportsService {
   async findOne(
     reportId: number,
   ): Promise<ModeratorReportEntity> {
-    const report = await this.prisma.report.findUnique({
-      where: {
-        id: reportId,
-      },
-      include: MODERATOR_REPORT_INCLUDE,
-    });
-
-    if (!report) {
-      throw new NotFoundException(
-        `Không tìm thấy báo cáo với ID: ${reportId}.`,
-      );
-    }
+    const report = await this.reportsService.findOne(
+      reportId,
+      MODERATOR_REPORT_INCLUDE,
+    );
 
     return new ModeratorReportEntity(report);
   }

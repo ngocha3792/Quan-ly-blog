@@ -1,43 +1,34 @@
+/// <reference types="multer" />
 import {
   Controller,
   Get,
   Body,
   Patch,
   Delete,
+  Post,
+  UploadedFile,
   UseInterceptors,
   ClassSerializerInterceptor,
   UseGuards,
 } from '@nestjs/common';
-
-import { OmitType } from '@nestjs/mapped-types';
-
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
-  UsersService,
-  UpdateUserDto,
-  UserEntity,
-  UserNotFoundException,
   JwtAuthGuard,
+  CurrentUser,
 } from '@app/core';
-import { CurrentUser } from '@app/core';
 import type { JwtPayload } from '@app/core';
-
-// DTO dành riêng cho API của User: Kế thừa mọi thứ nhưng cấm sửa 'role' và 'status'
-export class UpdateProfileDto extends OmitType(UpdateUserDto, [
-  'role',
-  'status',
-] as const) {}
+import { UpdateProfileDto } from '../dto';
+import { UserProfileService } from '../services/user-profile.service';
 
 @Controller('user/profile')
 @UseGuards(JwtAuthGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class UserProfileController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly userProfileService: UserProfileService) {}
 
   @Get()
   async getProfile(@CurrentUser() user: JwtPayload) {
-    const userData = await this.usersService.findById(Number(user.id));
-    if (!userData) throw new UserNotFoundException(user.id.toString());
-    return new UserEntity(userData);
+    return this.userProfileService.getProfile(Number(user.id));
   }
 
   @Patch()
@@ -45,11 +36,29 @@ export class UserProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
-    return this.usersService.update(Number(user.id), updateProfileDto);
+    return this.userProfileService.updateProfile(
+      Number(user.id),
+      updateProfileDto,
+    );
   }
 
   @Delete()
   async removeProfile(@CurrentUser() user: JwtPayload) {
-    return this.usersService.remove(Number(user.id));
+    return this.userProfileService.removeProfile(Number(user.id));
+  }
+
+  @Post('avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 5 * 1024 * 1024, // Giới hạn 5MB cho ảnh avatar
+      },
+    }),
+  )
+  async uploadAvatar(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userProfileService.uploadAvatar(Number(user.id), file);
   }
 }

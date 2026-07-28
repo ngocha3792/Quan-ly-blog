@@ -13,7 +13,7 @@ import {
   ReportTargetType,
 } from '@prisma/client';
 
-import { PrismaService } from '@app/core';
+import { PrismaService, ReportsService } from '@app/core';
 
 import { ModeratorReportsService } from './moderator-reports.service';
 
@@ -156,6 +156,7 @@ describe('ModeratorReportsService', () => {
       await Test.createTestingModule({
         providers: [
           ModeratorReportsService,
+          ReportsService,
           {
             provide: PrismaService,
             useValue: mockPrismaService,

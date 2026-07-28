@@ -20,6 +20,7 @@ import type { JwtPayload } from '@app/core';
 
 import { CreateUserReportDto } from '../dto';
 import { UserReportsService } from '../services/user-reports.service';
+import { UserReportEntity } from '../entities';
 
 @Controller('user')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,31 +35,33 @@ export class UserReportsController {
    * POST /api/v1/user/posts/:postId/reports
    */
   @Post('posts/:postId/reports')
-  reportPost(
+  async reportPost(
     @CurrentUser() user: JwtPayload,
     @Param('postId', ParseIntPipe) postId: number,
     @Body() dto: CreateUserReportDto,
   ) {
-    return this.userReportsService.reportPost(
+    const report = await this.userReportsService.reportPost(
       Number(user.id),
       postId,
       dto,
     );
+    return new UserReportEntity(report);
   }
 
   /**
    * POST /api/v1/user/comments/:commentId/reports
    */
   @Post('comments/:commentId/reports')
-  reportComment(
+  async reportComment(
     @CurrentUser() user: JwtPayload,
     @Param('commentId', ParseIntPipe) commentId: number,
     @Body() dto: CreateUserReportDto,
   ) {
-    return this.userReportsService.reportComment(
+    const report = await this.userReportsService.reportComment(
       Number(user.id),
       commentId,
       dto,
     );
+    return new UserReportEntity(report);
   }
-}
+}
