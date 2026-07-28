@@ -3,15 +3,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import {
   JwtAuthGuard,
+  PostsService,
   PrismaService,
+  ReportsService,
   RolesGuard,
 } from '@app/core';
 
+import { ModeratorCategoriesController } from './controllers/moderator-categories.controller';
 import { ModeratorPostsController } from './controllers/moderator-posts.controller';
 import { ModeratorReportsController } from './controllers/moderator-reports.controller';
 
 import { ModeratorApiModule } from './moderator-api.module';
 
+import { ModeratorCategoriesService } from './services/moderator-categories.service';
 import { ModeratorPostsService } from './services/moderator-posts.service';
 import { ModeratorReportsService } from './services/moderator-reports.service';
 
@@ -46,7 +50,42 @@ describe('ModeratorApiModule', () => {
       findFirst: jest.fn(),
     },
 
+    categoryGroup: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+
+    category: {
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
+      updateMany: jest.fn(),
+    },
+
+    language: {
+      findMany: jest.fn(),
+    },
+
+    postCategory: {
+      count: jest.fn(),
+    },
+
     $transaction: jest.fn(),
+  };
+
+  const mockPostsService = {
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockReportsService = {
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -65,6 +104,12 @@ describe('ModeratorApiModule', () => {
     testingModule = await moduleBuilder
       .overrideProvider(PrismaService)
       .useValue(mockPrismaService)
+
+      .overrideProvider(PostsService)
+      .useValue(mockPostsService)
+
+      .overrideProvider(ReportsService)
+      .useValue(mockReportsService)
 
       .overrideGuard(JwtAuthGuard)
       .useValue({
@@ -118,6 +163,24 @@ describe('ModeratorApiModule', () => {
     const service =
       testingModule!.get<ModeratorReportsService>(
         ModeratorReportsService,
+      );
+
+    expect(service).toBeDefined();
+  });
+
+  it('should resolve ModeratorCategoriesController', () => {
+    const controller =
+      testingModule!.get<ModeratorCategoriesController>(
+        ModeratorCategoriesController,
+      );
+
+    expect(controller).toBeDefined();
+  });
+
+  it('should resolve ModeratorCategoriesService', () => {
+    const service =
+      testingModule!.get<ModeratorCategoriesService>(
+        ModeratorCategoriesService,
       );
 
     expect(service).toBeDefined();
