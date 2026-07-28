@@ -13,6 +13,7 @@ Hệ thống tuân thủ nghiêm ngặt nguyên tắc **Data Masking & Privilege
 | **`UserProfileEntity`** | `UserEntity` (Core) | • **Ẩn**: `deletedAt`, `lockedById`, `lockedAt`, `lockReason`, `passwordHash`, quan hệ thô `following`.<br>• **Hiển thị**: Thông tin cá nhân cơ bản và danh sách người theo dõi mình (`followers` với các trường rút gọn `id`, `username`, `avatarUrl`, `bio`). |
 | **`UserPostEntity`** | `PublicPostEntity` | • **Ẩn**: `reviewedById`, `reviewedAt`, `rejectionReason`, `deletedAt`, `publicId` của media.<br>• **Hiển thị**: Bài viết đã lưu/thích với danh mục (`categories`) và thẻ (`tags`) đã được làm phẳng (flatten), tự động tính `likeCount`. |
 | **`UserReportEntity`** | `ReportEntity` (Core) | • **Ẩn**: `reviewedById`, `reviewedAt`, `deletedAt`, thông tin nội bộ của moderator.<br>• **Hiển thị**: Trạng thái báo cáo, lý do, kèm theo chi tiết bài viết (`post`) hoặc bình luận (`comment`) bị báo cáo. |
+| **`UserBlogOwnerRequestEntity`** | `BlogOwnerRequestEntity` (Core) | • **Ẩn**: `reviewedById` (ID của Admin/Moderator đã duyệt yêu cầu).<br>• **Hiển thị**: Trạng thái (`status`), lý do xin duyệt (`reason`), chủ đề (`topics`), ngày duyệt (`reviewedAt`) và lý do từ chối (`rejectionReason` nếu bị từ chối). |
 
 ---
 
@@ -69,13 +70,13 @@ curl -X GET "http://localhost:8080/api/v1/user/profile" \
 
 ---
 
-#### 2. Cập nhật thông tin cá nhân
+#### 2. Cập nhật thông tin cá nhân (bao gồm cả xử lý ảnh Avatar)
 - **Method:** `PATCH`
 - **Path:** `/api/v1/user/profile`
-- **Headers:** `Authorization: Bearer <TOKEN>`, `Content-Type: application/json`
-- **Quy tắc (UpdateProfileDto):** Kế thừa từ `UpdateUserDto` nhưng **CẤM** gửi các trường `role` và `status`.
+- **Headers:** `Authorization: Bearer <TOKEN>`, `Content-Type: application/json` hoặc `multipart/form-data`
+- **Quy tắc (UpdateProfileDto):** Kế thừa từ `UpdateUserDto` nhưng **CẤM** gửi các trường `role` và `status`. Hỗ trợ gửi kèm file ảnh (trường `file`) trong cùng request để vừa cập nhật thông tin cá nhân vừa xử lý tải ảnh Avatar lên Cloudinary (tự động xóa ảnh cũ nếu có).
 
-**Request Body mẫu:**
+**Request Body mẫu (application/json):**
 ```json
 {
   "username": "nguyenvanf_official",
@@ -84,12 +85,13 @@ curl -X GET "http://localhost:8080/api/v1/user/profile" \
 }
 ```
 
-**Ví dụ cURL:**
+**Ví dụ cURL (multipart/form-data kèm file avatar):**
 ```bash
 curl -X PATCH "http://localhost:8080/api/v1/user/profile" \
   -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "nguyenvanf_official", "bio": "Đam mê NestJS 🚀"}'
+  -F "username=nguyenvanf_official" \
+  -F "bio=Đam mê NestJS 🚀" \
+  -F "file=@/path/to/new_avatar.jpg"
 ```
 
 ---
@@ -487,6 +489,108 @@ curl -X POST "http://localhost:8080/api/v1/user/reports" \
 **Ví dụ cURL:**
 ```bash
 curl -X GET "http://localhost:8080/api/v1/user/reports?page=1&limit=10" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
+### ✍️ F. QUẢN LÝ YÊU CẦU TRỞ THÀNH TÁC GIẢ BLOG (`/api/v1/user/blog-owner-requests`)
+
+#### 1. Gửi yêu cầu xin trở thành tác giả (Blog Owner)
+- **Method:** `POST`
+- **Path:** `/api/v1/user/blog-owner-requests`
+- **Headers:** `Authorization: Bearer <TOKEN>`, `Content-Type: application/json`
+- **Quy tắc:** Chỉ áp dụng cho người dùng đang có vai trò `NORMAL`. Nếu người dùng đã là tác giả (`BLOG_OWNER`) hoặc đang có 1 yêu cầu ở trạng thái `PENDING`, hệ thống sẽ trả về lỗi `ExistActionNotAllowedException`.
+
+**Request Body mẫu:**
+```json
+{
+  "reason": "Tôi là kỹ sư phần mềm có 5 năm kinh nghiệm, muốn đăng các bài viết chia sẻ về kiến trúc Microservices với NestJS và Kafka.",
+  "topics": "NestJS, Microservices, TypeScript, DevOps"
+}
+```
+
+**Ví dụ cURL:**
+```bash
+curl -X POST "http://localhost:8080/api/v1/user/blog-owner-requests" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Muốn chia sẻ bài viết kỹ thuật", "topics": "NestJS, TypeScript"}'
+```
+
+**Response mẫu (201 Created - Trả về qua `UserBlogOwnerRequestEntity`):**
+```json
+{
+  "id": 3,
+  "userId": 15,
+  "reason": "Muốn chia sẻ bài viết kỹ thuật",
+  "topics": "NestJS, TypeScript",
+  "status": "PENDING",
+  "reviewedAt": null,
+  "rejectionReason": null,
+  "createdAt": "2026-07-28T14:00:00.000Z",
+  "updatedAt": "2026-07-28T14:00:00.000Z"
+}
+```
+*(Notice: Trường thông tin nhạy cảm `reviewedById` đã tự động được loại bỏ nhờ `UserBlogOwnerRequestEntity`).*
+
+---
+
+#### 2. Xem danh sách các yêu cầu của chính mình
+- **Method:** `GET`
+- **Path:** `/api/v1/user/blog-owner-requests?page=1&limit=10&status=PENDING`
+- **Query Params:** `page`, `take` (hoặc `limit`), `status` (`PENDING`, `APPROVED`, `REJECTED`).
+
+**Ví dụ cURL:**
+```bash
+curl -X GET "http://localhost:8080/api/v1/user/blog-owner-requests?page=1&limit=10" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**Response mẫu (200 OK):**
+```json
+{
+  "total": 1,
+  "page": 1,
+  "take": 10,
+  "data": [
+    {
+      "id": 3,
+      "userId": 15,
+      "reason": "Muốn chia sẻ bài viết kỹ thuật",
+      "topics": "NestJS, TypeScript",
+      "status": "PENDING",
+      "reviewedAt": null,
+      "rejectionReason": null,
+      "createdAt": "2026-07-28T14:00:00.000Z",
+      "updatedAt": "2026-07-28T14:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### 3. Xem chi tiết một yêu cầu
+- **Method:** `GET`
+- **Path:** `/api/v1/user/blog-owner-requests/:id`
+
+**Ví dụ cURL:**
+```bash
+curl -X GET "http://localhost:8080/api/v1/user/blog-owner-requests/3" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
+#### 4. Hủy / Xóa yêu cầu xin làm tác giả
+- **Method:** `DELETE`
+- **Path:** `/api/v1/user/blog-owner-requests/:id`
+- **Quy tắc:** Người dùng chỉ có thể hủy bỏ yêu cầu của chính mình và yêu cầu đó phải đang ở trạng thái chờ duyệt (`PENDING`). Nếu yêu cầu đã được duyệt hoặc bị từ chối, hệ thống sẽ trả về lỗi `ExistActionNotAllowedException`.
+
+**Ví dụ cURL:**
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/user/blog-owner-requests/3" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 

@@ -1,98 +1,114 @@
-import { PostStatus } from '@prisma/client';
+import { Exclude, Type } from 'class-transformer';
 import {
-  Exclude,
-  Type,
-} from 'class-transformer';
-import { ReportEntity } from '@app/core';
+  CommentEntity,
+  PostEntity,
+  ReportEntity,
+  UserEntity,
+} from '@app/core';
 
 /**
  * Thông tin người dùng được phép trả trong màn hình Moderator.
+ * Kế thừa UserEntity từ Core, loại bỏ các thông tin nhạy cảm/nội bộ.
  */
-class ModeratorReportUserEntity {
-  id!: number;
-  username!: string;
-  avatarUrl!: string | null;
+class ModeratorReportUserEntity extends UserEntity {
+  @Exclude()
+  declare email: string;
+
+  @Exclude()
+  declare deletedAt: Date | null;
+
+  @Exclude()
+  declare lockedById: number | null;
+
+  @Exclude()
+  declare lockedAt: Date | null;
+
+  @Exclude()
+  declare lockReason: string | null;
 
   constructor(partial: Partial<ModeratorReportUserEntity>) {
+    super(partial);
     Object.assign(this, partial);
   }
 }
+
+type ModeratorReportUserSummary = Pick<
+  UserEntity,
+  'id' | 'username' | 'avatarUrl'
+>;
 
 /**
  * Thông tin bài viết bị báo cáo.
  *
  * Moderator cần đọc nội dung thực tế để quyết định
- * report có đúng hay không.
+ * report có đúng hay không. Kế thừa PostEntity từ Core.
  */
-class ModeratorReportedPostEntity {
-  id!: number;
-  title!: string;
-  thumbnailUrl!: string | null;
-  content!: string;
-  status!: PostStatus;
-  authorId!: number;
-  publishedAt!: Date | null;
-  createdAt!: Date;
+class ModeratorReportedPostEntity extends PostEntity {
+  @Exclude()
+  declare deletedAt: Date | null;
+
+  @Exclude()
+  declare postCategories?: any;
+
+  @Exclude()
+  declare postTags?: any;
 
   @Type(() => ModeratorReportUserEntity)
-  author?: ModeratorReportUserEntity;
+  declare author?: any;
 
-  constructor(
-    partial: Partial<ModeratorReportedPostEntity>,
-  ) {
+  constructor(partial: Partial<ModeratorReportedPostEntity>) {
+    super(partial);
     Object.assign(this, partial);
   }
 }
 
 /**
  * Bình luận cha để Moderator hiểu ngữ cảnh
- * khi report nhắm vào một reply.
+ * khi report nhắm vào một reply. Kế thừa CommentEntity từ Core.
  */
-class ModeratorParentCommentEntity {
-  id!: number;
-  userId!: number;
-  content!: string;
-  createdAt!: Date;
+class ModeratorParentCommentEntity extends CommentEntity {
+  @Exclude()
+  declare deletedAt: Date | null;
+
+  @Exclude()
+  declare replies?: any[];
 
   @Type(() => ModeratorReportUserEntity)
-  user?: ModeratorReportUserEntity;
+  declare user?: any;
 
-  constructor(
-    partial: Partial<ModeratorParentCommentEntity>,
-  ) {
+  constructor(partial: Partial<ModeratorParentCommentEntity>) {
+    super(partial);
     Object.assign(this, partial);
   }
 }
 
 /**
- * Thông tin bình luận bị báo cáo.
+ * Thông tin bình luận bị báo cáo. Kế thừa CommentEntity từ Core.
  */
-class ModeratorReportedCommentEntity {
-  id!: number;
-  postId!: number;
-  userId!: number;
-  parentId!: number | null;
-  content!: string;
-  createdAt!: Date;
+class ModeratorReportedCommentEntity extends CommentEntity {
+  @Exclude()
+  declare deletedAt: Date | null;
+
+  @Exclude()
+  declare replies?: any[];
 
   @Type(() => ModeratorReportUserEntity)
-  user?: ModeratorReportUserEntity;
+  declare user?: any;
 
   /**
    * Bài viết chứa bình luận.
    */
   @Type(() => ModeratorReportedPostEntity)
-  post?: ModeratorReportedPostEntity;
+  post?: Partial<ModeratorReportedPostEntity>;
 
   /**
    * Có giá trị khi comment bị report là một reply.
    */
   @Type(() => ModeratorParentCommentEntity)
-  parent?: ModeratorParentCommentEntity | null;
+  parent?: Partial<ModeratorParentCommentEntity> | null;
 
-  constructor(
-    partial: Partial<ModeratorReportedCommentEntity>,
-  ) {
+  constructor(partial: Partial<ModeratorReportedCommentEntity>) {
+    super(partial);
     Object.assign(this, partial);
   }
 }
@@ -117,16 +133,16 @@ export class ModeratorReportEntity extends ReportEntity {
   declare reviewedById: number | null;
 
   @Type(() => ModeratorReportUserEntity)
-  reporter?: ModeratorReportUserEntity;
+  reporter?: ModeratorReportUserSummary;
 
   @Type(() => ModeratorReportUserEntity)
-  reviewedBy?: ModeratorReportUserEntity | null;
+  reviewedBy?: ModeratorReportUserSummary | null;
 
   @Type(() => ModeratorReportedPostEntity)
-  post?: ModeratorReportedPostEntity | null;
+  post?: Partial<ModeratorReportedPostEntity> | null;
 
   @Type(() => ModeratorReportedCommentEntity)
-  comment?: ModeratorReportedCommentEntity | null;
+  comment?: Partial<ModeratorReportedCommentEntity> | null;
 
   constructor(partial: Partial<ModeratorReportEntity>) {
     super(partial);

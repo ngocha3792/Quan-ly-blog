@@ -84,6 +84,47 @@ describe('UserProfileService', () => {
       expect(usersService.update).toHaveBeenCalledWith(1, { bio: 'new bio' });
       expect(result.bio).toBe('new bio');
     });
+
+    it('should upload avatar and update profile when file is provided', async () => {
+      const mockFile = {
+        buffer: Buffer.from('test'),
+        mimetype: 'image/png',
+        originalname: 'test.png',
+      } as Express.Multer.File;
+
+      usersService.findById.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
+      });
+      cloudinaryService.uploadFile.mockResolvedValueOnce({
+        secure_url: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+      });
+      usersService.update.mockResolvedValueOnce({
+        id: 1,
+        bio: 'updated bio',
+        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+      });
+
+      const result = await service.updateProfile(
+        1,
+        { bio: 'updated bio' } as any,
+        mockFile,
+      );
+
+      expect(usersService.findById).toHaveBeenCalledWith(1);
+      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith('old_avatar', 'image');
+      expect(cloudinaryService.uploadFile).toHaveBeenCalledWith(
+        mockFile,
+        'nestjs_blog/users/1/avatar',
+      );
+      expect(usersService.update).toHaveBeenCalledWith(1, {
+        bio: 'updated bio',
+        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+      });
+      expect(result.avatarUrl).toBe(
+        'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+      );
+    });
   });
 
   describe('removeProfile', () => {

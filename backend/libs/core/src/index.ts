@@ -54,6 +54,8 @@ export * from './modules/security-logs/security-logs.service';
 
 export * from './modules/blog-owner-requests/blog-owner-requests.module';
 export * from './modules/blog-owner-requests/blog-owner-requests.service';
+export * from './modules/blog-owner-requests/dto';
+export * from './modules/blog-owner-requests/entities';
 
 export * from './modules/auths/auths.module';
 export * from './modules/auths/auths.service';

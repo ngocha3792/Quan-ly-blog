@@ -32,13 +32,22 @@ export class UserProfileController {
   }
 
   @Patch()
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 5 * 1024 * 1024, // Giới hạn 5MB cho ảnh avatar
+      },
+    }),
+  )
   async updateProfile(
     @CurrentUser() user: JwtPayload,
     @Body() updateProfileDto: UpdateProfileDto,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.userProfileService.updateProfile(
       Number(user.id),
       updateProfileDto,
+      file,
     );
   }
 

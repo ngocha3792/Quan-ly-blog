@@ -56,8 +56,17 @@ describe('UserProfileController', () => {
       userProfileService.updateProfile.mockResolvedValueOnce({ id: 1, bio: 'test' });
       const dto = { bio: 'test' } as any;
       const result = await controller.updateProfile({ id: 1 } as any, dto);
-      expect(userProfileService.updateProfile).toHaveBeenCalledWith(1, dto);
+      expect(userProfileService.updateProfile).toHaveBeenCalledWith(1, dto, undefined);
       expect(result.bio).toBe('test');
+    });
+
+    it('should call service updateProfile with file if provided', async () => {
+      const mockFile = { originalname: 'test.png' } as any;
+      userProfileService.updateProfile.mockResolvedValueOnce({ id: 1, bio: 'test', avatarUrl: 'url' });
+      const dto = { bio: 'test' } as any;
+      const result = await controller.updateProfile({ id: 1 } as any, dto, mockFile);
+      expect(userProfileService.updateProfile).toHaveBeenCalledWith(1, dto, mockFile);
+      expect(result.avatarUrl).toBe('url');
     });
   });
 

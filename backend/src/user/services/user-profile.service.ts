@@ -34,9 +34,40 @@ export class UserProfileService {
 
   async updateProfile(
     userId: number,
-    updateProfileDto: UpdateProfileDto,
+    updateProfileDto: UpdateProfileDto = {},
+    file?: Express.Multer.File,
   ): Promise<UserProfileEntity> {
-    const updatedUser = await this.usersService.update(userId, updateProfileDto);
+    const dto = { ...updateProfileDto };
+
+    if (file) {
+      const user = await this.usersService.findById(userId);
+      if (!user) {
+        throw new UserNotFoundException(userId.toString());
+      }
+
+      if (!file.mimetype.startsWith('image/')) {
+        throw new BadRequestException('Chỉ hỗ trợ tải lên file ảnh');
+      }
+
+      try {
+        // Xóa ảnh cũ trên Cloudinary nếu có
+        await this.deleteOldAvatar(user.avatarUrl);
+
+        // Upload ảnh mới lên Cloudinary
+        const uploadedResult = await this.cloudinary.uploadFile(
+          file,
+          `nestjs_blog/users/${userId}/avatar`,
+        );
+
+        dto.avatarUrl = uploadedResult.secure_url;
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Lỗi không xác định';
+        throw new BadRequestException(`Lỗi khi upload avatar: ${message}`);
+      }
+    }
+
+    const updatedUser = await this.usersService.update(userId, dto);
     return new UserProfileEntity(updatedUser);
   }
 
@@ -49,39 +80,15 @@ export class UserProfileService {
     userId: number,
     file: Express.Multer.File,
   ): Promise<UserProfileEntity> {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UserNotFoundException(userId.toString());
-    }
-
     if (!file) {
+      const user = await this.usersService.findById(userId);
+      if (!user) {
+        throw new UserNotFoundException(userId.toString());
+      }
       throw new BadRequestException('Vui lòng chọn file ảnh cần tải lên');
     }
 
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('Chỉ hỗ trợ tải lên file ảnh');
-    }
-
-    try {
-      // Xóa ảnh cũ trên Cloudinary nếu có
-      await this.deleteOldAvatar(user.avatarUrl);
-
-      // Upload ảnh mới lên Cloudinary
-      const uploadedResult = await this.cloudinary.uploadFile(
-        file,
-        `nestjs_blog/users/${userId}/avatar`,
-      );
-
-      const updatedUser = await this.usersService.update(userId, {
-        avatarUrl: uploadedResult.secure_url,
-      });
-
-      return new UserProfileEntity(updatedUser);
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Lỗi không xác định';
-      throw new BadRequestException(`Lỗi khi upload avatar: ${message}`);
-    }
+    return this.updateProfile(userId, {}, file);
   }
 
   private async deleteOldAvatar(avatarUrl: string | null) {
