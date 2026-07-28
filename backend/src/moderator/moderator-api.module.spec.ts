@@ -18,7 +18,8 @@ import { ModeratorApiModule } from './moderator-api.module';
 import { ModeratorCategoriesService } from './services/moderator-categories.service';
 import { ModeratorPostsService } from './services/moderator-posts.service';
 import { ModeratorReportsService } from './services/moderator-reports.service';
-
+import { ModeratorDashboardController } from './controllers/moderator-dashboard.controller';
+import { ModeratorDashboardService } from './services/moderator-dashboard.service';
 describe('ModeratorApiModule', () => {
   let testingModule: TestingModule | undefined;
 
@@ -44,6 +45,7 @@ describe('ModeratorApiModule', () => {
       findUnique: jest.fn(),
       count: jest.fn(),
       updateMany: jest.fn(),
+      groupBy: jest.fn(),
     },
 
     tag: {
@@ -185,4 +187,21 @@ describe('ModeratorApiModule', () => {
 
     expect(service).toBeDefined();
   });
+  it('should resolve ModeratorDashboardController', () => {
+  const controller =
+    testingModule!.get<ModeratorDashboardController>(
+      ModeratorDashboardController,
+    );
+
+  expect(controller).toBeDefined();
+});
+
+it('should resolve ModeratorDashboardService', () => {
+  const service =
+    testingModule!.get<ModeratorDashboardService>(
+      ModeratorDashboardService,
+    );
+
+  expect(service).toBeDefined();
+});
 });

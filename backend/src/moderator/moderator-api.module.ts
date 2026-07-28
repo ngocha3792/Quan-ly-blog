@@ -8,10 +8,12 @@ import {
 } from '@app/core';
 
 import { ModeratorCategoriesController } from './controllers/moderator-categories.controller';
+import { ModeratorDashboardController } from './controllers/moderator-dashboard.controller';
 import { ModeratorPostsController } from './controllers/moderator-posts.controller';
 import { ModeratorReportsController } from './controllers/moderator-reports.controller';
 
 import { ModeratorCategoriesService } from './services/moderator-categories.service';
+import { ModeratorDashboardService } from './services/moderator-dashboard.service';
 import { ModeratorPostsService } from './services/moderator-posts.service';
 import { ModeratorReportsService } from './services/moderator-reports.service';
 
@@ -19,15 +21,7 @@ import { ModeratorReportsService } from './services/moderator-reports.service';
   imports: [
     PrismaModule,
     AuthsModule,
-
-    /**
-     * Cung cấp PostsService cho ModeratorPostsService.
-     */
     PostsModule,
-
-    /**
-     * Cung cấp ReportsService cho ModeratorReportsService.
-     */
     ReportsModule,
   ],
 
@@ -35,12 +29,14 @@ import { ModeratorReportsService } from './services/moderator-reports.service';
     ModeratorPostsController,
     ModeratorReportsController,
     ModeratorCategoriesController,
+    ModeratorDashboardController,
   ],
 
   providers: [
     ModeratorPostsService,
     ModeratorReportsService,
     ModeratorCategoriesService,
+    ModeratorDashboardService,
   ],
 })
 export class ModeratorApiModule {}
