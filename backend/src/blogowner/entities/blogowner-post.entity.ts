@@ -1,6 +1,6 @@
 import { Exclude, Type } from 'class-transformer';
 import { MediaEntity, PostEntity } from '@app/core';
-
+import { PostStatus } from '@prisma/client';
 /**
  * Entity trả dữ liệu riêng cho Blog Owner.
  *
@@ -9,25 +9,36 @@ import { MediaEntity, PostEntity } from '@app/core';
  * - ẨN reviewedById và deletedAt.
  * - Trả danh sách media của bài viết.
  */
-export class BlogownerPostEntity extends PostEntity {
+export type BlogownerTranslationSummary = {
+  id: number;
+  title: string;
+  thumbnailUrl: string | null;
+  status: PostStatus;
+  parentPostId: number | null;
+  languageId: number;
 
-  /**
-   * ẨN thông tin người duyệt (Blog Owner không được biết ai duyệt)
-   */
+  language: {
+    id: number;
+    code: string;
+    name: string;
+    flag: string | null;
+  };
+};
+export class BlogownerPostEntity extends PostEntity {
   @Exclude()
   declare reviewedById: number | null;
 
-  /**
-   * ẨN thời gian xóa mềm
-   */
   @Exclude()
   declare deletedAt: Date | null;
 
-  /**
-   * Danh sách ảnh/video thuộc bài viết.
-   */
   @Type(() => MediaEntity)
   media?: MediaEntity[];
+
+  /**
+   * Các phiên bản ngôn ngữ trong cùng nhóm dịch.
+   * Bao gồm bài gốc và các bản dịch chưa bị xóa.
+   */
+  translations?: BlogownerTranslationSummary[];
 
   constructor(partial: Partial<BlogownerPostEntity>) {
     super(partial);
@@ -37,5 +48,7 @@ export class BlogownerPostEntity extends PostEntity {
         item instanceof MediaEntity ? item : new MediaEntity(item),
       );
     }
+
+    this.translations = partial.translations;
   }
 }

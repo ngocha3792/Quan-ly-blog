@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PostStatus } from '@prisma/client';
 
 import { PrismaService, getVietnamCalendarDate, getVietnamDateKey, formatVietnamDate } from '@app/core';
-
+const FEATURED_POST_LIMIT = 5;
 @Injectable()
 export class BlogownerDashboardService {
   constructor(private readonly prisma: PrismaService) { }
@@ -27,6 +27,8 @@ export class BlogownerDashboardService {
       totalLikes,
       totalComments,
       dailyMetrics,
+      topPostsByViews,
+      topPostsByLikes
     ] = await this.prisma.$transaction([
       this.prisma.post.count({
         where: {
@@ -116,6 +118,94 @@ export class BlogownerDashboardService {
           metricDate: 'asc',
         },
       }),
+      this.prisma.post.findMany({
+  where: {
+    authorId: ownerId,
+    status: PostStatus.PUBLISH,
+    deletedAt: null,
+  },
+  select: {
+    id: true,
+    title: true,
+    thumbnailUrl: true,
+    status: true,
+    viewCount: true,
+    updatedAt: true,
+
+    language: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        flag: true,
+      },
+    },
+
+    _count: {
+      select: {
+        postLikes: true,
+      },
+    },
+  },
+
+  orderBy: [
+    {
+      viewCount: 'desc',
+    },
+    {
+      updatedAt: 'desc',
+    },
+  ],
+
+  take: FEATURED_POST_LIMIT,
+}),
+      this.prisma.post.findMany({
+  where: {
+    authorId: ownerId,
+    status: PostStatus.PUBLISH,
+    deletedAt: null,
+  },
+
+  select: {
+    id: true,
+    title: true,
+    thumbnailUrl: true,
+    status: true,
+    viewCount: true,
+    updatedAt: true,
+
+    language: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        flag: true,
+      },
+    },
+
+    _count: {
+      select: {
+        postLikes: true,
+      },
+    },
+  },
+
+  orderBy: [
+    {
+      postLikes: {
+        _count: 'desc',
+      },
+    },
+    {
+      viewCount: 'desc',
+    },
+    {
+      updatedAt: 'desc',
+    },
+  ],
+
+  take: FEATURED_POST_LIMIT,
+}),
     ]);
 
     /**
@@ -156,21 +246,41 @@ export class BlogownerDashboardService {
         likes: metric?.likes ?? 0,
       };
     });
+    const mapFeaturedPost = (
+  post: (typeof topPostsByViews)[number],
+) => ({
+  id: post.id,
+  title: post.title,
+  thumbnailUrl: post.thumbnailUrl,
+  status: post.status,
 
+  views: post.viewCount,
+
+  likes: post._count.postLikes,
+
+  language: post.language,
+});
     return {
-      postCounts: {
-        total: totalPosts,
-        draft: draftPosts,
-        pendingReview: pendingReviewPosts,
-        published: publishedPosts,
-        rejected: rejectedPosts,
-      },
-      totals: {
-        views: viewAggregate._sum.viewCount ?? 0,
-        likes: totalLikes,
-        comments: totalComments,
-      },
-      last7Days,
-    };
+  postCounts: {
+    total: totalPosts,
+    draft: draftPosts,
+    pendingReview: pendingReviewPosts,
+    published: publishedPosts,
+    rejected: rejectedPosts,
+  },
+
+  totals: {
+    views: viewAggregate._sum.viewCount ?? 0,
+    likes: totalLikes,
+    comments: totalComments,
+  },
+
+  last7Days,
+
+  featuredPosts: {
+    byViews: topPostsByViews.map(mapFeaturedPost),
+    byLikes: topPostsByLikes.map(mapFeaturedPost),
+  },
+};
   }
 }

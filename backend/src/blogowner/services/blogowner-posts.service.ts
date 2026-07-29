@@ -131,15 +131,78 @@ export class BlogownerPostsService {
    * - REJECT;
    * - rejectionReason.
    */
-  async findOne(ownerId: number, postId: number): Promise<BlogownerPostEntity> {
-    const post = await this.helper.findOwnedPost(
-      ownerId,
-      postId,
-      BLOGOWNER_POST_INCLUDE,
-    );
+async findOne(
+  ownerId: number,
+  postId: number,
+): Promise<BlogownerPostEntity> {
+  const post = await this.helper.findOwnedPost(
+    ownerId,
+    postId,
+    BLOGOWNER_POST_INCLUDE,
+  );
 
-    return new BlogownerPostEntity(post);
-  }
+  /**
+   * Nếu post đang xem là bài gốc:
+   * rootPostId = chính id của nó.
+   *
+   * Nếu post đang xem là bản dịch:
+   * rootPostId = parentPostId.
+   */
+  const rootPostId = post.parentPostId ?? post.id;
+
+  /**
+   * Lấy toàn bộ phiên bản ngôn ngữ trong cùng nhóm.
+   */
+  const translations = await this.prisma.post.findMany({
+    where: {
+      authorId: ownerId,
+      deletedAt: null,
+
+      OR: [
+        {
+          id: rootPostId,
+        },
+        {
+          parentPostId: rootPostId,
+        },
+      ],
+    },
+
+    select: {
+      id: true,
+      title: true,
+      thumbnailUrl: true,
+      status: true,
+      parentPostId: true,
+      languageId: true,
+
+      language: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          flag: true,
+        },
+      },
+    },
+
+    orderBy: [
+      {
+        language: {
+          code: 'asc',
+        },
+      },
+      {
+        id: 'asc',
+      },
+    ],
+  });
+
+  return new BlogownerPostEntity({
+    ...post,
+    translations,
+  });
+}
 
   /**
    * Tạo bài viết mới.
@@ -217,33 +280,76 @@ export class BlogownerPostsService {
 
     const nextStatus = this.helper.getNextStatusOnEdit(existingPost.status);
 
-    const updateData = { ...dto };
+ const updateData = { ...dto };
 
-    if (thumbnailFile) {
-      if (!thumbnailFile.mimetype.startsWith('image/')) {
-        throw new BadRequestException('Chỉ hỗ trợ tải lên file ảnh cho thumbnail');
-      }
-      try {
-        await this.deleteOldThumbnail(existingPost.thumbnailUrl);
+let newThumbnailPublicId: string | null = null;
 
-        const uploadedResult = await this.cloudinary.uploadFile(
-          thumbnailFile,
-          `nestjs_blog/posts/${postId}/thumbnail`,
-        );
-        updateData.thumbnailUrl = uploadedResult.secure_url;
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : 'Lỗi không xác định';
-        throw new BadRequestException(
-          `Lỗi khi upload thumbnail: ${message}`,
-        );
-      }
+if (thumbnailFile) {
+  if (!thumbnailFile.mimetype.startsWith('image/')) {
+    throw new BadRequestException(
+      'Chỉ hỗ trợ tải lên file ảnh cho thumbnail',
+    );
+  }
+
+  try {
+    /**
+     * Upload ảnh mới trước.
+     *
+     * Chưa xóa thumbnail cũ ở đây để tránh trường hợp
+     * upload/update DB lỗi làm mất ảnh cũ.
+     */
+    const uploadedResult = await this.cloudinary.uploadFile(
+      thumbnailFile,
+      `nestjs_blog/posts/${postId}/thumbnail`,
+    );
+
+    updateData.thumbnailUrl = uploadedResult.secure_url;
+    newThumbnailPublicId = uploadedResult.public_id;
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Lỗi không xác định';
+
+    throw new BadRequestException(
+      `Lỗi khi upload thumbnail: ${message}`,
+    );
+  }
+}
+
+try {
+  await this.postsService.update(postId, {
+    ...updateData,
+    status: nextStatus,
+  });
+} catch (error) {
+  /**
+   * Ảnh mới đã upload nhưng DB update thất bại.
+   * Cleanup ảnh mới để tránh file rác trên Cloudinary.
+   */
+  if (newThumbnailPublicId) {
+    try {
+      await this.cloudinary.deleteFile(
+        newThumbnailPublicId,
+        'image',
+      );
+    } catch {
+      // Không ghi đè lỗi update DB ban đầu.
     }
+  }
 
-    await this.postsService.update(postId, {
-      ...updateData,
-      status: nextStatus,
-    });
+  throw error;
+}
+
+/**
+ * Chỉ xóa thumbnail cũ sau khi DB đã cập nhật
+ * thành công sang thumbnail mới.
+ */
+if (thumbnailFile) {
+  await this.deleteOldThumbnail(
+    existingPost.thumbnailUrl,
+  );
+}
 
     if (mediaFiles && mediaFiles.length > 0) {
       for (const file of mediaFiles) {
@@ -297,13 +403,15 @@ export class BlogownerPostsService {
     };
   }
 
-  /**
-   * Gửi bài sang Moderator để kiểm duyệt.
-   *
-   * Chỉ cho phép:
-   * - DRAFT  -> PENDING_REVIEW
-   * - REJECT -> PENDING_REVIEW
-   */
+/**
+ * Gửi bài sang Moderator để kiểm duyệt.
+ *
+ * Chỉ cho phép:
+ * - DRAFT -> PENDING_REVIEW
+ *
+ * Bài REJECT phải được chỉnh sửa trước.
+ * Khi chỉnh sửa, update() sẽ chuyển REJECT -> DRAFT.
+ */
   async submitForReview(
     ownerId: number,
     postId: number,
@@ -311,20 +419,28 @@ export class BlogownerPostsService {
     const post = await this.helper.findOwnedPost(ownerId, postId);
 
     if (post.status === PostStatus.PENDING_REVIEW) {
-      throw new BadRequestException('Bài viết này đang chờ Moderator duyệt.');
-    }
+  throw new BadRequestException(
+    'Bài viết này đang chờ Moderator duyệt.',
+  );
+}
 
-    if (post.status === PostStatus.PUBLISH) {
-      throw new BadRequestException(
-        'Bài viết đã được xuất bản. Chỉ khi chỉnh sửa bài thì bài mới được gửi duyệt lại.',
-      );
-    }
+if (post.status === PostStatus.PUBLISH) {
+  throw new BadRequestException(
+    'Bài viết đã được xuất bản. Chỉ khi chỉnh sửa bài thì bài mới được gửi duyệt lại.',
+  );
+}
 
-    if (post.status !== PostStatus.DRAFT && post.status !== PostStatus.REJECT) {
-      throw new BadRequestException(
-        `Không thể gửi duyệt bài viết đang ở trạng thái ${post.status}.`,
-      );
-    }
+if (post.status === PostStatus.REJECT) {
+  throw new BadRequestException(
+    'Bài viết bị từ chối phải được chỉnh sửa trước khi gửi duyệt lại.',
+  );
+}
+
+if (post.status !== PostStatus.DRAFT) {
+  throw new BadRequestException(
+    `Không thể gửi duyệt bài viết đang ở trạng thái ${post.status}.`,
+  );
+}
 
     await this.prisma.post.update({
       where: {
@@ -431,11 +547,11 @@ export class BlogownerPostsService {
       },
     });
 
-    if (existingTranslation) {
-      throw new ConflictException(
-        'Bài viết đã có phiên bản cho ngôn ngữ được chọn.',
-      );
-    }
+    if (existingTranslation && existingTranslation.deletedAt === null) {
+  throw new ConflictException(
+    'Bài viết đã có phiên bản cho ngôn ngữ được chọn.',
+  );
+}
 
     const categoryGroupIds = Array.from(
       new Set(
@@ -479,6 +595,58 @@ export class BlogownerPostsService {
     }
 
     const sourceTagIds = sourcePost.postTags.map((postTag) => postTag.tagId);
+    /**
+ * Nếu phiên bản ngôn ngữ này từng bị soft-delete,
+ * sử dụng lại record cũ thay vì tạo record mới.
+ *
+ * Điều này cũng tránh vi phạm unique:
+ * (parentPostId, languageId).
+ */
+if (existingTranslation) {
+  await this.prisma.post.update({
+    where: {
+      id: existingTranslation.id,
+    },
+
+    data: {
+      title: dto.title,
+      content: dto.content,
+
+      thumbnailUrl:
+        dto.thumbnailUrl ?? sourcePost.thumbnailUrl ?? null,
+
+      status: PostStatus.DRAFT,
+
+      parentPostId: rootPostId,
+      languageId: dto.targetLanguageId,
+
+      deletedAt: null,
+
+      publishedAt: null,
+      reviewedById: null,
+      reviewedAt: null,
+      rejectionReason: null,
+
+      postCategories: {
+        deleteMany: {},
+
+        create: translatedCategories.map((category) => ({
+          categoryId: category.id,
+        })),
+      },
+
+      postTags: {
+        deleteMany: {},
+
+        create: sourceTagIds.map((tagId) => ({
+          tagId,
+        })),
+      },
+    },
+  });
+
+  return this.findOne(ownerId, existingTranslation.id);
+}
 
     const translatedPost = await this.postsService.create(ownerId, {
       title: dto.title,
