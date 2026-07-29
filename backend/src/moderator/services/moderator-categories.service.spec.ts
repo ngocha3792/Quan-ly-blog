@@ -12,6 +12,7 @@ import {
 } from '@app/core';
 
 import { ModeratorCategoriesService } from './moderator-categories.service';
+import { ModeratorCategoriesValidator } from '../validators/moderator-categories.validator';
 
 describe('ModeratorCategoriesService', () => {
   let service: ModeratorCategoriesService;
@@ -89,6 +90,7 @@ describe('ModeratorCategoriesService', () => {
       await Test.createTestingModule({
         providers: [
           ModeratorCategoriesService,
+          ModeratorCategoriesValidator,
 
           {
             provide: PrismaService,
@@ -294,15 +296,15 @@ describe('ModeratorCategoriesService', () => {
         .mockResolvedValueOnce(baseGroup);
 
       const result = await service.create({
-        code: 'Programming',
+        code: 'programming',
         translations: [
           {
             languageId: 4,
-            name: ' Lập trình ',
+            name: 'Lập trình',
           },
           {
             languageId: 1,
-            name: ' Programming ',
+            name: 'Programming',
           },
         ],
       });

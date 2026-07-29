@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PostStatus } from '@prisma/client';
 
-import { PrismaService } from '@app/core';
+import { PrismaService, getVietnamCalendarDate, getVietnamDateKey, formatVietnamDate } from '@app/core';
 
 @Injectable()
 export class BlogownerDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Thống kê dashboard của Blog Owner:
@@ -14,9 +14,8 @@ export class BlogownerDashboardService {
    * - view và like trong 7 ngày gần nhất theo giờ Việt Nam.
    */
   async getDashboard(ownerId: number) {
-    const today = this.getVietnamDateOnly();
-    const startDate = this.getVietnamDateOnly(-6);
-    const tomorrow = this.getVietnamDateOnly(1);
+    const startDate = getVietnamCalendarDate(-6);
+    const tomorrow = getVietnamCalendarDate(1);
 
     const [
       totalPosts,
@@ -131,7 +130,7 @@ export class BlogownerDashboardService {
     >();
 
     for (const metric of dailyMetrics) {
-      const dateKey = this.formatDate(metric.metricDate);
+      const dateKey = formatVietnamDate(metric.metricDate);
       const currentMetric = metricMap.get(dateKey) ?? {
         views: 0,
         likes: 0,
@@ -148,11 +147,7 @@ export class BlogownerDashboardService {
      * Ngày không có dữ liệu sẽ có views = 0 và likes = 0.
      */
     const last7Days = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(startDate);
-
-      date.setUTCDate(startDate.getUTCDate() + index);
-
-      const dateKey = this.formatDate(date);
+      const dateKey = getVietnamDateKey(-6 + index);
       const metric = metricMap.get(dateKey);
 
       return {
@@ -177,50 +172,5 @@ export class BlogownerDashboardService {
       },
       last7Days,
     };
-  }
-
-  /**
-   * Lấy ngày theo múi giờ Việt Nam.
-   *
-   * offsetDays:
-   *  0 = hôm nay
-   * -1 = hôm qua
-   *  1 = ngày mai
-   *
-   * Kết quả được đưa về UTC 00:00 để tương thích
-   * với cột PostgreSQL DATE.
-   */
-  private getVietnamDateOnly(offsetDays = 0): Date {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-
-    const parts = formatter.formatToParts(new Date());
-
-    const year = Number(
-      parts.find((part) => part.type === 'year')?.value,
-    );
-
-    const month = Number(
-      parts.find((part) => part.type === 'month')?.value,
-    );
-
-    const day = Number(
-      parts.find((part) => part.type === 'day')?.value,
-    );
-
-    return new Date(
-      Date.UTC(year, month - 1, day + offsetDays, 0, 0, 0, 0),
-    );
-  }
-
-  /**
-   * Chuyển Date thành chuỗi YYYY-MM-DD.
-   */
-  private formatDate(date: Date): string {
-    return date.toISOString().slice(0, 10);
   }
 }

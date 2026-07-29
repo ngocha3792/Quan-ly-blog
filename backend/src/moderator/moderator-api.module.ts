@@ -16,6 +16,7 @@ import { ModeratorCategoriesService } from './services/moderator-categories.serv
 import { ModeratorDashboardService } from './services/moderator-dashboard.service';
 import { ModeratorPostsService } from './services/moderator-posts.service';
 import { ModeratorReportsService } from './services/moderator-reports.service';
+import { ModeratorCategoriesValidator } from './validators/moderator-categories.validator';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ModeratorReportsService } from './services/moderator-reports.service';
     ModeratorReportsService,
     ModeratorCategoriesService,
     ModeratorDashboardService,
+    ModeratorCategoriesValidator,
   ],
 })
 export class ModeratorApiModule {}

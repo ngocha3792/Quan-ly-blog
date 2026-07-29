@@ -6,14 +6,12 @@ import {
   ReportTargetType,
 } from '@prisma/client';
 
-import { PrismaService } from '@app/core';
-
-const VIETNAM_TIME_ZONE = 'Asia/Ho_Chi_Minh';
-
-/**
- * Việt Nam luôn sử dụng UTC+7 và không có daylight saving time.
- */
-const VIETNAM_UTC_OFFSET_HOURS = 7;
+import { 
+  PrismaService, 
+  getVietnamDayStartUtc, 
+  getVietnamDateKey,
+  formatVietnamDate 
+} from '@app/core';
 
 @Injectable()
 export class ModeratorDashboardService {
@@ -39,9 +37,9 @@ export class ModeratorDashboardService {
      * 00:00 ngày 28/07 tại Việt Nam
      * = 17:00 ngày 27/07 theo UTC.
      */
-    const todayStart = this.getVietnamDayStartUtc();
-    const tomorrowStart = this.getVietnamDayStartUtc(1);
-    const sevenDaysAgoStart = this.getVietnamDayStartUtc(-6);
+    const todayStart = getVietnamDayStartUtc();
+    const tomorrowStart = getVietnamDayStartUtc(1);
+    const sevenDaysAgoStart = getVietnamDayStartUtc(-6);
 
     const [
       pendingPosts,
@@ -201,127 +199,9 @@ export class ModeratorDashboardService {
       }),
     ]);
 
-    const reportStatusCounts = {
-      pending: 0,
-      resolved: 0,
-      rejected: 0,
-    };
-
-    for (const group of statusGroups) {
-  const count = this.getGroupCount(group._count);
-
-  switch (group.status) {
-    case ReportStatus.PENDING:
-      reportStatusCounts.pending = count;
-      break;
-
-    case ReportStatus.RESOLVED:
-      reportStatusCounts.resolved = count;
-      break;
-
-    case ReportStatus.REJECTED:
-      reportStatusCounts.rejected = count;
-      break;
-  }
-}
-
-    const reportReasonCounts = {
-      spam: 0,
-      harassment: 0,
-      inappropriate: 0,
-      copyright: 0,
-      misinformation: 0,
-      other: 0,
-    };
-
-   for (const group of reasonGroups) {
-  const count = this.getGroupCount(group._count);
-
-  switch (group.reason) {
-    case ReportReason.SPAM:
-      reportReasonCounts.spam = count;
-      break;
-
-    case ReportReason.HARASSMENT:
-      reportReasonCounts.harassment = count;
-      break;
-
-    case ReportReason.INAPPROPRIATE:
-      reportReasonCounts.inappropriate = count;
-      break;
-
-    case ReportReason.COPYRIGHT:
-      reportReasonCounts.copyright = count;
-      break;
-
-    case ReportReason.MISINFORMATION:
-      reportReasonCounts.misinformation = count;
-      break;
-
-    case ReportReason.OTHER:
-      reportReasonCounts.other = count;
-      break;
-  }
-}
-
-    /**
-     * Khởi tạo đủ 7 ngày, kể cả những ngày không có report.
-     */
-    const dailyReportMap = new Map<
-      string,
-      {
-        postReports: number;
-        commentReports: number;
-      }
-    >();
-
-    for (let index = 0; index < 7; index += 1) {
-      const dateKey = this.getVietnamDateKey(-6 + index);
-
-      dailyReportMap.set(dateKey, {
-        postReports: 0,
-        commentReports: 0,
-      });
-    }
-
-    /**
-     * Cộng report theo ngày Việt Nam và loại target.
-     */
-    for (const report of recentReports) {
-      const dateKey = this.formatVietnamDate(
-        report.createdAt,
-      );
-
-      const current = dailyReportMap.get(dateKey);
-
-      /**
-       * Báo cáo nằm ngoài khoảng 7 ngày sẽ không xuất hiện,
-       * nhưng vẫn kiểm tra để service an toàn.
-       */
-      if (!current) {
-        continue;
-      }
-
-      if (report.targetType === ReportTargetType.POST) {
-        current.postReports += 1;
-      }
-
-      if (
-        report.targetType === ReportTargetType.COMMENT
-      ) {
-        current.commentReports += 1;
-      }
-    }
-
-    const last7Days = Array.from(
-      dailyReportMap.entries(),
-    ).map(([date, counts]) => ({
-      date,
-      postReports: counts.postReports,
-      commentReports: counts.commentReports,
-      totalReports:
-        counts.postReports + counts.commentReports,
-    }));
+    const reportStatusCounts = this.mapReportStatusCounts(statusGroups);
+    const reportReasonCounts = this.mapReportReasonCounts(reasonGroups);
+    const last7Days = this.mapLast7DaysReports(recentReports);
 
     return {
       overview: {
@@ -351,135 +231,146 @@ export class ModeratorDashboardService {
   }
 
   /**
-   * Lấy đầu ngày theo giờ Việt Nam nhưng trả về UTC instant.
+   * Lấy tổng số bản ghi từ kết quả groupBy của Prisma.
    *
-   * Ví dụ:
-   * 2026-07-28 00:00:00 tại Việt Nam
-   * -> 2026-07-27T17:00:00.000Z
+   * Prisma có thể suy luận _count là:
+   * true | object | undefined
+   *
+   * Vì vậy cần kiểm tra kiểu trước khi lấy _all.
    */
+  private getGroupCount(count: unknown): number {
+    if (
+      typeof count !== 'object' ||
+      count === null ||
+      !('_all' in count)
+    ) {
+      return 0;
+    }
 
-  /**
- * Lấy tổng số bản ghi từ kết quả groupBy của Prisma.
- *
- * Prisma có thể suy luận _count là:
- * true | object | undefined
- *
- * Vì vậy cần kiểm tra kiểu trước khi lấy _all.
- */
-private getGroupCount(count: unknown): number {
-  if (
-    typeof count !== 'object' ||
-    count === null ||
-    !('_all' in count)
+    const total = (count as { _all?: unknown })._all;
+
+    return typeof total === 'number' ? total : 0;
+  }
+
+  private mapReportStatusCounts(
+    statusGroups: { status: ReportStatus; _count: unknown }[],
   ) {
-    return 0;
+    const reportStatusCounts = {
+      pending: 0,
+      resolved: 0,
+      rejected: 0,
+    };
+
+    for (const group of statusGroups) {
+      const count = this.getGroupCount(group._count);
+
+      switch (group.status) {
+        case ReportStatus.PENDING:
+          reportStatusCounts.pending = count;
+          break;
+
+        case ReportStatus.RESOLVED:
+          reportStatusCounts.resolved = count;
+          break;
+
+        case ReportStatus.REJECTED:
+          reportStatusCounts.rejected = count;
+          break;
+      }
+    }
+
+    return reportStatusCounts;
   }
 
-  const total = (count as { _all?: unknown })._all;
+  private mapReportReasonCounts(
+    reasonGroups: { reason: ReportReason; _count: unknown }[],
+  ) {
+    const reportReasonCounts = {
+      spam: 0,
+      harassment: 0,
+      inappropriate: 0,
+      copyright: 0,
+      misinformation: 0,
+      other: 0,
+    };
 
-  return typeof total === 'number' ? total : 0;
-}
-  private getVietnamDayStartUtc(offsetDays = 0): Date {
-    const calendarDate =
-      this.getVietnamCalendarDate(offsetDays);
+    for (const group of reasonGroups) {
+      const count = this.getGroupCount(group._count);
 
-    return new Date(
-      calendarDate.getTime() -
-        VIETNAM_UTC_OFFSET_HOURS *
-          60 *
-          60 *
-          1000,
-    );
+      switch (group.reason) {
+        case ReportReason.SPAM:
+          reportReasonCounts.spam = count;
+          break;
+
+        case ReportReason.HARASSMENT:
+          reportReasonCounts.harassment = count;
+          break;
+
+        case ReportReason.INAPPROPRIATE:
+          reportReasonCounts.inappropriate = count;
+          break;
+
+        case ReportReason.COPYRIGHT:
+          reportReasonCounts.copyright = count;
+          break;
+
+        case ReportReason.MISINFORMATION:
+          reportReasonCounts.misinformation = count;
+          break;
+
+        case ReportReason.OTHER:
+          reportReasonCounts.other = count;
+          break;
+      }
+    }
+
+    return reportReasonCounts;
   }
 
-  /**
-   * Lấy ngày lịch của Việt Nam và lưu dưới dạng UTC 00:00.
-   *
-   * Hàm này chỉ dùng để sinh YYYY-MM-DD,
-   * không dùng trực tiếp để lọc DateTime.
-   */
-  private getVietnamCalendarDate(
-    offsetDays = 0,
-  ): Date {
-    const formatter = new Intl.DateTimeFormat(
-      'en-CA',
+  private mapLast7DaysReports(
+    recentReports: { targetType: ReportTargetType; createdAt: Date }[],
+  ) {
+    const dailyReportMap = new Map<
+      string,
       {
-        timeZone: VIETNAM_TIME_ZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      },
-    );
+        postReports: number;
+        commentReports: number;
+      }
+    >();
 
-    const parts = formatter.formatToParts(new Date());
+    for (let index = 0; index < 7; index += 1) {
+      const dateKey = getVietnamDateKey(-6 + index);
 
-    const year = Number(
-      parts.find((part) => part.type === 'year')
-        ?.value,
-    );
+      dailyReportMap.set(dateKey, {
+        postReports: 0,
+        commentReports: 0,
+      });
+    }
 
-    const month = Number(
-      parts.find((part) => part.type === 'month')
-        ?.value,
-    );
+    for (const report of recentReports) {
+      const dateKey = formatVietnamDate(report.createdAt);
 
-    const day = Number(
-      parts.find((part) => part.type === 'day')
-        ?.value,
-    );
+      const current = dailyReportMap.get(dateKey);
 
-    return new Date(
-      Date.UTC(
-        year,
-        month - 1,
-        day + offsetDays,
-        0,
-        0,
-        0,
-        0,
-      ),
-    );
+      if (!current) {
+        continue;
+      }
+
+      if (report.targetType === ReportTargetType.POST) {
+        current.postReports += 1;
+      }
+
+      if (report.targetType === ReportTargetType.COMMENT) {
+        current.commentReports += 1;
+      }
+    }
+
+    return Array.from(dailyReportMap.entries()).map(([date, counts]) => ({
+      date,
+      postReports: counts.postReports,
+      commentReports: counts.commentReports,
+      totalReports: counts.postReports + counts.commentReports,
+    }));
   }
 
-  /**
-   * Tạo chuỗi ngày YYYY-MM-DD theo giờ Việt Nam.
-   */
-  private getVietnamDateKey(
-    offsetDays = 0,
-  ): string {
-    return this.getVietnamCalendarDate(offsetDays)
-      .toISOString()
-      .slice(0, 10);
-  }
-
-  /**
-   * Chuyển một UTC DateTime thành ngày Việt Nam.
-   */
-  private formatVietnamDate(date: Date): string {
-    const formatter = new Intl.DateTimeFormat(
-      'en-CA',
-      {
-        timeZone: VIETNAM_TIME_ZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      },
-    );
-
-    const parts = formatter.formatToParts(date);
-
-    const year = parts.find(
-      (part) => part.type === 'year',
-    )?.value;
-
-    const month = parts.find(
-      (part) => part.type === 'month',
-    )?.value;
-
-    const day = parts.find(
-      (part) => part.type === 'day',
-    )?.value;
-
-    return `${year}-${month}-${day}`;
-  }
 }
