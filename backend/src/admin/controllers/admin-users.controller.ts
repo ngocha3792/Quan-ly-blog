@@ -79,22 +79,33 @@ export class AdminUsersController {
 
   @Roles(UserRole.SUPER_ADMIN)
   @Patch(':id/unlock')
-  unlockUser(@Param('id', ParseIntPipe) id: number) {
-    return this.adminUsersService.unlockUser(id);
+  unlockUser(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() adminUser: User,
+  ) {
+    return this.adminUsersService.unlockUser(id, adminUser.id);
   }
 
   @Roles(UserRole.SUPER_ADMIN)
   @Patch(':id/role')
   changeRole(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() adminUser: User,
     @Body() changeUserRoleDto: ChangeUserRoleDto,
   ) {
-    return this.adminUsersService.changeRole(id, changeUserRoleDto);
+    return this.adminUsersService.changeRole(
+      id,
+      adminUser.id,
+      changeUserRoleDto,
+    );
   }
 
   @Roles(UserRole.SUPER_ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.remove(id);
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() adminUser: User,
+  ) {
+    return this.adminUsersService.removeUser(id, adminUser.id);
   }
 }

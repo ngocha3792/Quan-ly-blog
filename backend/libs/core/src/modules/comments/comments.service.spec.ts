@@ -24,7 +24,9 @@ describe('CommentsService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -37,6 +39,16 @@ describe('CommentsService', () => {
      * Tránh mock của test trước chạy sang test sau.
      */
     jest.resetAllMocks();
+
+    mockPrismaService.$transaction.mockImplementation(async (cb) => {
+      if (typeof cb === 'function') {
+        return cb(mockPrismaService);
+      }
+      if (Array.isArray(cb)) {
+        return Promise.all(cb);
+      }
+      return cb;
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -390,7 +402,7 @@ describe('CommentsService', () => {
       expect(prisma.comment.update).not.toHaveBeenCalled();
     });
 
-    it('should soft delete successfully if user is the owner', async () => {
+    it('should soft delete comment and its child replies if user is the owner', async () => {
       mockPrismaService.comment.findFirst.mockResolvedValueOnce({
         id: 1,
         postId: 1,
@@ -407,12 +419,23 @@ describe('CommentsService', () => {
         content: 'Test comment',
         deletedAt: new Date(),
       });
+      mockPrismaService.comment.updateMany.mockResolvedValueOnce({ count: 2 });
 
       const result = await service.remove(1, userId);
 
       expect(prisma.comment.update).toHaveBeenCalledWith({
         where: {
           id: 1,
+        },
+        data: {
+          deletedAt: expect.any(Date),
+        },
+      });
+
+      expect(prisma.comment.updateMany).toHaveBeenCalledWith({
+        where: {
+          parentId: 1,
+          deletedAt: null,
         },
         data: {
           deletedAt: expect.any(Date),

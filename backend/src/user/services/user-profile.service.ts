@@ -72,6 +72,15 @@ export class UserProfileService {
   }
 
   async removeProfile(userId: number): Promise<UserProfileEntity> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UserNotFoundException(userId.toString());
+    }
+
+    if (user.avatarUrl) {
+      await this.deleteOldAvatar(user.avatarUrl);
+    }
+
     const removedUser = await this.usersService.remove(userId);
     return new UserProfileEntity(removedUser);
   }

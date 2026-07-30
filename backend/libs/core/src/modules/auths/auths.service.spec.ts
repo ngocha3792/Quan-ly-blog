@@ -9,6 +9,7 @@ import {
   TokenNotValidException,
   SessionInvalidException,
   AccountBannedException,
+  UserNotFoundException
 } from '@app/core/common/exceptions';
 
 describe('AuthsService', () => {
@@ -38,6 +39,7 @@ describe('AuthsService', () => {
   const mockUsersService = {
     create: jest.fn(),
     findByEmailorUsername: jest.fn(),
+    findById: jest.fn(),
   };
 
   const mockBcryptUtil = {
@@ -147,9 +149,27 @@ describe('AuthsService', () => {
 
   describe('refreshToken', () => {
     const dto: any = { refreshToken: 'refresh' };
+    const mockUser = { id: 1, role: 'BLOG_OWNER', email: 'test@example.com', status: 'ACTIVE' };
+
+    it('should throw UserNotFoundException if user does not exist in DB', async () => {
+      mockJwtUtil.verifyRefreshToken.mockReturnValue({ sub: '1' });
+      mockUsersService.findById.mockResolvedValueOnce(null);
+      await expect(service.refreshToken(dto)).rejects.toThrow(
+        UserNotFoundException,
+      );
+    });
+
+    it('should throw AccountBannedException if user status is LOCKED', async () => {
+      mockJwtUtil.verifyRefreshToken.mockReturnValue({ sub: '1' });
+      mockUsersService.findById.mockResolvedValueOnce({ ...mockUser, status: 'LOCKED', lockReason: 'Banned' });
+      await expect(service.refreshToken(dto)).rejects.toThrow(
+        AccountBannedException,
+      );
+    });
 
     it('should throw TokenNotValidException if no active sessions', async () => {
       mockJwtUtil.verifyRefreshToken.mockReturnValue({ sub: '1' });
+      mockUsersService.findById.mockResolvedValueOnce(mockUser);
       mockPrismaService.userSession.findMany.mockResolvedValueOnce([]);
       await expect(service.refreshToken(dto)).rejects.toThrow(
         TokenNotValidException,
@@ -158,6 +178,7 @@ describe('AuthsService', () => {
 
     it('should throw SessionInvalidException if device changed', async () => {
       mockJwtUtil.verifyRefreshToken.mockReturnValue({ sub: '1' });
+      mockUsersService.findById.mockResolvedValueOnce(mockUser);
       const session = {
         id: 1,
         refreshTokenHash: 'hash',
@@ -177,6 +198,7 @@ describe('AuthsService', () => {
 
     it('should throw SessionInvalidException if token hash does not match any session', async () => {
       mockJwtUtil.verifyRefreshToken.mockReturnValue({ sub: '1' });
+      mockUsersService.findById.mockResolvedValueOnce(mockUser);
       const session = { id: 1, refreshTokenHash: 'hash' };
       mockPrismaService.userSession.findMany.mockResolvedValueOnce([session]);
       mockBcryptUtil.comparePassword.mockResolvedValueOnce(false);
@@ -186,12 +208,13 @@ describe('AuthsService', () => {
       );
     });
 
-    it('should return new access token if successful', async () => {
+    it('should return new access token using fresh user role from DB if successful', async () => {
       mockJwtUtil.verifyRefreshToken.mockReturnValue({
         sub: '1',
-        role: 'USER',
+        role: 'NORMAL', // Old payload role
         email: 'test@example.com',
       });
+      mockUsersService.findById.mockResolvedValueOnce(mockUser); // DB role is BLOG_OWNER
       const session = {
         id: 1,
         refreshTokenHash: 'hash',
@@ -202,6 +225,7 @@ describe('AuthsService', () => {
       mockJwtUtil.generateAccessToken.mockReturnValue('new-access');
 
       const result = await service.refreshToken(dto, 'ip', 'device-1');
+      expect(mockJwtUtil.generateAccessToken).toHaveBeenCalledWith('1', 'BLOG_OWNER', 'test@example.com');
       expect(result).toEqual({ accessToken: 'new-access' });
     });
   });

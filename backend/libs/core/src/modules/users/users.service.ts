@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { UpdateUserDto, CreateUserDto, GetUsersDto } from './dto/index';
 import { UserEntity } from './entities/user.entity';
@@ -11,7 +11,7 @@ import {
   SelfActionNotAllowedException,
 } from '@app/core/common/exceptions';
 import { PaginationParams, PaginatedResult } from '@app/core/common/interfaces';
-import { Prisma, UserStatus } from '@prisma/client';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -150,13 +150,48 @@ export class UsersService {
       throw new UserNotFoundException(id.toString());
     }
 
-    const deletedUser = await this.prisma.user.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        status: UserStatus.LOCKED, // Khóa luôn tài khoản khi xóa mềm
-      },
-    });
+    if (user.role === UserRole.SUPER_ADMIN) {
+      const superAdminCount = await this.prisma.user.count({
+        where: {
+          role: UserRole.SUPER_ADMIN,
+          status: UserStatus.ACTIVE,
+          deletedAt: null,
+        },
+      });
+      if (superAdminCount <= 1) {
+        throw new ForbiddenException(
+          'Không thể xóa Super Admin cuối cùng trong hệ thống.',
+        );
+      }
+    }
+
+    const now = new Date();
+
+    const [deletedUser] = await this.prisma.$transaction([
+      // 1. Khóa và đánh dấu xóa mềm người dùng
+      this.prisma.user.update({
+        where: { id },
+        data: {
+          deletedAt: now,
+          status: UserStatus.LOCKED,
+        },
+      }),
+      // 2. Thu hồi toàn bộ phiên đăng nhập
+      this.prisma.userSession.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: now },
+      }),
+      // 3. Ẩn toàn bộ bài viết của người dùng
+      this.prisma.post.updateMany({
+        where: { authorId: id, deletedAt: null },
+        data: { deletedAt: now },
+      }),
+      // 4. Ẩn toàn bộ bình luận của người dùng
+      this.prisma.comment.updateMany({
+        where: { userId: id, deletedAt: null },
+        data: { deletedAt: now },
+      }),
+    ]);
 
     return new UserEntity(deletedUser);
   }

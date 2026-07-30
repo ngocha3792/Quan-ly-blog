@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import {
-  PostNotFoundException,
-  ExistActionNotAllowedException,
-} from '@app/core/common/exceptions';
+import { PostNotFoundException } from '@app/core/common/exceptions';
 import { PostInteractionService } from './post-interaction.service';
 
 describe('PostInteractionService', () => {
@@ -14,6 +11,8 @@ describe('PostInteractionService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       delete: jest.Mock;
+      upsert: jest.Mock;
+      deleteMany: jest.Mock;
       count: jest.Mock;
       findMany: jest.Mock;
     };
@@ -21,6 +20,8 @@ describe('PostInteractionService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       delete: jest.Mock;
+      upsert: jest.Mock;
+      deleteMany: jest.Mock;
       count: jest.Mock;
       findMany: jest.Mock;
     };
@@ -35,6 +36,8 @@ describe('PostInteractionService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
+        upsert: jest.fn(),
+        deleteMany: jest.fn(),
         count: jest.fn(),
         findMany: jest.fn(),
       },
@@ -42,6 +45,8 @@ describe('PostInteractionService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
+        upsert: jest.fn(),
+        deleteMany: jest.fn(),
         count: jest.fn(),
         findMany: jest.fn(),
       },
@@ -76,78 +81,63 @@ describe('PostInteractionService', () => {
       });
     });
 
-    it('should throw ExistActionNotAllowedException if already liked', async () => {
+    it('should upsert like and return entity idempotently', async () => {
       prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postLike.findUnique.mockResolvedValueOnce({
-        postId: 100,
-        userId: 1,
-      });
-
-      await expect(service.likePost(1, 100)).rejects.toThrow(
-        ExistActionNotAllowedException,
-      );
-    });
-
-    it('should create like and return entity', async () => {
-      prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postLike.findUnique.mockResolvedValueOnce(null);
-      prisma.postLike.create.mockResolvedValueOnce({
+      prisma.postLike.upsert.mockResolvedValueOnce({
         postId: 100,
         userId: 1,
         createdAt: new Date(),
       });
 
       const result = await service.likePost(1, 100);
+      expect(prisma.postLike.upsert).toHaveBeenCalledWith({
+        where: { postId_userId: { postId: 100, userId: 1 } },
+        update: {},
+        create: { postId: 100, userId: 1 },
+      });
       expect(result.postId).toBe(100);
     });
   });
 
   describe('unlikePost', () => {
-    it('should throw ExistActionNotAllowedException if like not found', async () => {
+    it('should deleteMany like idempotently and return success message', async () => {
       prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postLike.findUnique.mockResolvedValueOnce(null);
-
-      await expect(service.unlikePost(1, 100)).rejects.toThrow(
-        ExistActionNotAllowedException,
-      );
-    });
-
-    it('should delete like and return success message', async () => {
-      prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postLike.findUnique.mockResolvedValueOnce({
-        postId: 100,
-        userId: 1,
-      });
+      prisma.postLike.deleteMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await service.unlikePost(1, 100);
-      expect(prisma.postLike.delete).toHaveBeenCalled();
+      expect(prisma.postLike.deleteMany).toHaveBeenCalledWith({
+        where: { postId: 100, userId: 1 },
+      });
       expect(result.message).toBe('Đã bỏ thích bài viết thành công');
     });
   });
 
   describe('bookmarkPost and unbookmarkPost', () => {
-    it('should bookmark post successfully', async () => {
+    it('should bookmark post successfully with upsert', async () => {
       prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postBookmark.findUnique.mockResolvedValueOnce(null);
-      prisma.postBookmark.create.mockResolvedValueOnce({
+      prisma.postBookmark.upsert.mockResolvedValueOnce({
         postId: 100,
         userId: 1,
         createdAt: new Date(),
       });
 
       const result = await service.bookmarkPost(1, 100);
+      expect(prisma.postBookmark.upsert).toHaveBeenCalledWith({
+        where: { postId_userId: { postId: 100, userId: 1 } },
+        update: {},
+        create: { postId: 100, userId: 1 },
+      });
       expect(result.postId).toBe(100);
     });
 
-    it('should unbookmark post successfully', async () => {
+    it('should unbookmark post successfully with deleteMany', async () => {
       prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postBookmark.findUnique.mockResolvedValueOnce({
-        postId: 100,
-        userId: 1,
-      });
+      prisma.postBookmark.deleteMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await service.unbookmarkPost(1, 100);
-      expect(prisma.postBookmark.delete).toHaveBeenCalled();
+      expect(prisma.postBookmark.deleteMany).toHaveBeenCalledWith({
+        where: { postId: 100, userId: 1 },
+      });
       expect(result.message).toBe('Đã bỏ lưu bài viết thành công');
     });
   });

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
+import { UserStatus } from '@prisma/client';
 import {
   SelfActionNotAllowedException,
   ExistActionNotAllowedException,
@@ -21,6 +22,7 @@ export class UserFollowService {
       where: {
         id: followingId,
         deletedAt: null,
+        status: UserStatus.ACTIVE,
       },
     });
 
@@ -89,13 +91,25 @@ export class UserFollowService {
 
   async getFollowerCount(userId: number): Promise<number> {
     return this.prisma.userFollow.count({
-      where: { followingId: userId },
+      where: {
+        followingId: userId,
+        follower: {
+          deletedAt: null,
+          status: UserStatus.ACTIVE,
+        },
+      },
     });
   }
 
   async getFollowingCount(userId: number): Promise<number> {
     return this.prisma.userFollow.count({
-      where: { followerId: userId },
+      where: {
+        followerId: userId,
+        following: {
+          deletedAt: null,
+          status: UserStatus.ACTIVE,
+        },
+      },
     });
   }
 
@@ -103,6 +117,18 @@ export class UserFollowService {
     userId: number,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<UserFollowSummaryEntity>> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(userId.toString());
+    }
+
     const { page = 1, skip = 0, take = 10 } = pagination || {};
     const [totalItems, follows] = await Promise.all([
       this.prisma.userFollow.count({
@@ -110,6 +136,7 @@ export class UserFollowService {
           followingId: userId,
           follower: {
             deletedAt: null,
+            status: UserStatus.ACTIVE,
           },
         },
       }),
@@ -118,6 +145,7 @@ export class UserFollowService {
           followingId: userId,
           follower: {
             deletedAt: null,
+            status: UserStatus.ACTIVE,
           },
         },
         select: {
@@ -154,6 +182,18 @@ export class UserFollowService {
     userId: number,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<UserFollowSummaryEntity>> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(userId.toString());
+    }
+
     const { page = 1, skip = 0, take = 10 } = pagination || {};
     const [totalItems, follows] = await Promise.all([
       this.prisma.userFollow.count({
@@ -161,6 +201,7 @@ export class UserFollowService {
           followerId: userId,
           following: {
             deletedAt: null,
+            status: UserStatus.ACTIVE,
           },
         },
       }),
@@ -169,6 +210,7 @@ export class UserFollowService {
           followerId: userId,
           following: {
             deletedAt: null,
+            status: UserStatus.ACTIVE,
           },
         },
         select: {

@@ -207,14 +207,27 @@ export class CommentsService {
       throw new NotCommentOwnerException();
     }
 
-    const deletedComment = await this.prisma.comment.update({
-      where: {
-        id,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
+    const now = new Date();
+
+    const [deletedComment] = await this.prisma.$transaction([
+      this.prisma.comment.update({
+        where: {
+          id,
+        },
+        data: {
+          deletedAt: now,
+        },
+      }),
+      this.prisma.comment.updateMany({
+        where: {
+          parentId: id,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: now,
+        },
+      }),
+    ]);
 
     return new CommentEntity(deletedComment);
   }
@@ -230,14 +243,24 @@ export class CommentsService {
       throw new CommentNotFoundException(id.toString());
     }
 
-    const restoredComment = await this.prisma.comment.update({
-      where: {
-        id,
-      },
-      data: {
-        deletedAt: null,
-      },
-    });
+    const [restoredComment] = await this.prisma.$transaction([
+      this.prisma.comment.update({
+        where: {
+          id,
+        },
+        data: {
+          deletedAt: null,
+        },
+      }),
+      this.prisma.comment.updateMany({
+        where: {
+          parentId: id,
+        },
+        data: {
+          deletedAt: null,
+        },
+      }),
+    ]);
 
     return new CommentEntity(restoredComment);
   }

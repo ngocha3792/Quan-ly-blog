@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import {
   PrismaService,
   UsersService,
   UserNotFoundException,
   EmailAlreadyExistsException,
   UsernameAlreadyExistsException,
+  SelfActionNotAllowedException,
   GetUsersDto,
   PaginationParams,
   PaginatedResult,
@@ -20,7 +21,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly bcryptUtil: BcryptUtil,
-  ) {}
+  ) { }
 
   /**
    * Lấy danh sách tất cả tài khoản (tận dụng lại UsersService từ @app/core để tránh lặp code).
@@ -29,7 +30,10 @@ export class AdminUsersService {
     getUsersDto: GetUsersDto,
     paginationParams: PaginationParams,
   ): Promise<PaginatedResult<AdminUserEntity>> {
-    const result = await this.usersService.findAll(getUsersDto, paginationParams);
+    const result = await this.usersService.findAll(
+      getUsersDto,
+      paginationParams,
+    );
 
     return {
       items: result.items.map((user) => new AdminUserEntity(user)),
@@ -38,27 +42,14 @@ export class AdminUsersService {
   }
 
   /**
-   * Xem chi tiết thông tin 1 tài khoản bao gồm tất cả các bài viết của blogowner đó
-   * cùng các thông số tương tác: lượt xem (viewCount), lượt thích (likeCount), lượt bình luận (commentCount).
+   * Lấy chi tiết một người dùng bao gồm danh sách các bài viết đã đăng.
    */
   async findOne(id: number): Promise<AdminUserEntity> {
     const user = await this.prisma.user.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
+      where: { id },
       include: {
         posts: {
-          where: {
-            deletedAt: null,
-          },
           include: {
-            _count: {
-              select: {
-                postLikes: true,
-                comments: true,
-              },
-            },
             postCategories: {
               include: {
                 category: true,
@@ -69,9 +60,12 @@ export class AdminUsersService {
                 tag: true,
               },
             },
-          },
-          orderBy: {
-            createdAt: 'desc',
+            _count: {
+              select: {
+                postLikes: true,
+                comments: true,
+              },
+            },
           },
         },
       },
@@ -92,10 +86,17 @@ export class AdminUsersService {
     adminId: number,
     lockUserDto: LockUserDto,
   ): Promise<AdminUserEntity> {
+    const numericAdminId = Number(adminId);
+    if (userId === numericAdminId) {
+      throw new SelfActionNotAllowedException('khóa tài khoản');
+    }
+
     const user = await this.usersService.findById(userId);
     if (!user) throw new UserNotFoundException(userId.toString());
 
-    const numericAdminId = Number(adminId);
+    if (user.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Không thể khóa tài khoản Super Admin.');
+    }
 
     const [updatedUser] = await this.prisma.$transaction([
       this.prisma.user.update({
@@ -120,9 +121,17 @@ export class AdminUsersService {
   /**
    * Mở khóa tài khoản người dùng.
    */
-  async unlockUser(userId: number): Promise<AdminUserEntity> {
+  async unlockUser(userId: number, adminId?: number): Promise<AdminUserEntity> {
+    if (adminId && userId === Number(adminId)) {
+      throw new SelfActionNotAllowedException('mở khóa tài khoản');
+    }
+
     const user = await this.usersService.findById(userId);
     if (!user) throw new UserNotFoundException(userId.toString());
+
+    if (user.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Không thể thao tác trên tài khoản Super Admin.');
+    }
 
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
@@ -138,23 +147,85 @@ export class AdminUsersService {
   }
 
   /**
-   * Thay đổi vai trò (thêm quyền / tước quyền) của người dùng.
+   * Thay đổi vai trò (thêm quyền / tước quyền) của người dùng và thu hồi phiên đăng nhập cũ, tránh refreshToken dùng role cũ
    */
   async changeRole(
     userId: number,
+    adminId: number,
     changeUserRoleDto: ChangeUserRoleDto,
   ): Promise<AdminUserEntity> {
+    const numericAdminId = Number(adminId);
+    if (userId === numericAdminId) {
+      throw new SelfActionNotAllowedException('thay đổi vai trò');
+    }
+
     const user = await this.usersService.findById(userId);
     if (!user) throw new UserNotFoundException(userId.toString());
 
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        role: changeUserRoleDto.role,
-      },
-    });
+    if (user.role === UserRole.SUPER_ADMIN) {
+      const superAdminCount = await this.prisma.user.count({
+        where: {
+          role: UserRole.SUPER_ADMIN,
+          status: UserStatus.ACTIVE,
+          deletedAt: null,
+        },
+      });
+      if (superAdminCount <= 1 && changeUserRoleDto.role !== UserRole.SUPER_ADMIN) {
+        throw new ForbiddenException(
+          'Không thể thay đổi vai trò của Super Admin cuối cùng trong hệ thống.',
+        );
+      }
+      throw new ForbiddenException(
+        'Không thể thay đổi vai trò của tài khoản Super Admin khác.',
+      );
+    }
+
+    const [updatedUser] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          role: changeUserRoleDto.role,
+        },
+      }),
+      // Thu hồi tất cả các phiên đăng nhập hiện tại để buộc người dùng cấp lại token phù hợp vai trò mới
+      this.prisma.userSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
 
     return new AdminUserEntity(updatedUser);
+  }
+
+  /**
+   * Xóa tài khoản người dùng bởi Admin.
+   */
+  async removeUser(userId: number, adminId: number) {
+    const numericAdminId = Number(adminId);
+    if (userId === numericAdminId) {
+      throw new SelfActionNotAllowedException('xóa tài khoản');
+    }
+
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UserNotFoundException(userId.toString());
+
+    if (user.role === UserRole.SUPER_ADMIN) {
+      const superAdminCount = await this.prisma.user.count({
+        where: {
+          role: UserRole.SUPER_ADMIN,
+          status: UserStatus.ACTIVE,
+          deletedAt: null,
+        },
+      });
+      if (superAdminCount <= 1) {
+        throw new ForbiddenException(
+          'Không thể xóa Super Admin cuối cùng trong hệ thống.',
+        );
+      }
+      throw new ForbiddenException('Không thể xóa tài khoản Super Admin khác.');
+    }
+
+    return this.usersService.remove(userId);
   }
 
   /**

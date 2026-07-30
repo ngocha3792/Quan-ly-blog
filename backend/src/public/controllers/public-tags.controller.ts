@@ -9,6 +9,8 @@ import { Public, GetTagsDto, Pagination, LangCode } from '@app/core';
 import { TagsPublicService } from '../services/tags-public.service';
 import type { PaginationParams } from '@app/core';
 
+import { GetTopQueryDto } from '../dto';
+
 @Controller('/tags')
 @UseInterceptors(ClassSerializerInterceptor)
 export class PublicTagsController {
@@ -17,10 +19,10 @@ export class PublicTagsController {
   @Public()
   @Get('top')
   async getTopTags(
-    @Query('limit') limit: number = 10,
+    @Query() query: GetTopQueryDto,
     @LangCode() langCode: string | null,
   ) {
-    return this.tagsPublicService.getTopTags(Number(limit), langCode);
+    return this.tagsPublicService.getTopTags(query.limit, langCode);
   }
 
   @Public()

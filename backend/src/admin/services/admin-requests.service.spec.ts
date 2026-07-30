@@ -12,9 +12,17 @@ describe('AdminRequestsService', () => {
   let service: AdminRequestsService;
 
   const mockPrismaService = {
+    blogOwnerRequest: {
+      updateMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
     user: {
       update: jest.fn(),
     },
+    userSession: {
+      updateMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
 
   const mockBlogOwnerRequestsService = {
@@ -25,6 +33,13 @@ describe('AdminRequestsService', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+
+    mockPrismaService.$transaction.mockImplementation(async (cb) => {
+      if (typeof cb === 'function') {
+        return cb(mockPrismaService);
+      }
+      return Promise.all(cb);
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -63,7 +78,7 @@ describe('AdminRequestsService', () => {
   });
 
   describe('reviewRequest', () => {
-    it('should update request status and promote user role to BLOG_OWNER when APPROVED', async () => {
+    it('should update request status, promote user role to BLOG_OWNER and revoke active sessions in transaction when APPROVED', async () => {
       const initialRequest = new BlogOwnerRequestEntity({
         id: 1,
         userId: 10,
@@ -73,28 +88,39 @@ describe('AdminRequestsService', () => {
         updatedAt: new Date(),
       });
 
-      const updatedRequest = new BlogOwnerRequestEntity({
+      const updatedRequestData = {
         ...initialRequest,
         status: BlogOwnerRequestStatus.APPROVED,
         reviewedById: 99,
         reviewedAt: new Date(),
-      });
+      };
 
       mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(initialRequest);
-      mockBlogOwnerRequestsService.update.mockResolvedValueOnce(updatedRequest);
+      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({ count: 1 });
       mockPrismaService.user.update.mockResolvedValueOnce({});
+      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrismaService.blogOwnerRequest.findUnique.mockResolvedValueOnce(updatedRequestData);
 
       const result = await service.reviewRequest(1, 99, {
         status: BlogOwnerRequestStatus.APPROVED,
       });
 
-      expect(mockBlogOwnerRequestsService.update).toHaveBeenCalledWith(1, 99, {
-        status: BlogOwnerRequestStatus.APPROVED,
-        rejectionReason: undefined,
+      expect(mockPrismaService.blogOwnerRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, status: BlogOwnerRequestStatus.PENDING },
+        data: {
+          status: BlogOwnerRequestStatus.APPROVED,
+          rejectionReason: null,
+          reviewedById: 99,
+          reviewedAt: expect.any(Date),
+        },
       });
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: 10 },
         data: { role: UserRole.BLOG_OWNER },
+      });
+      expect(mockPrismaService.userSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 10, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
       });
       expect(result.status).toBe(BlogOwnerRequestStatus.APPROVED);
     });
@@ -109,28 +135,54 @@ describe('AdminRequestsService', () => {
         updatedAt: new Date(),
       });
 
-      const updatedRequest = new BlogOwnerRequestEntity({
+      const updatedRequestData = {
         ...initialRequest,
         status: BlogOwnerRequestStatus.REJECTED,
         rejectionReason: 'Invalid topic',
         reviewedById: 99,
         reviewedAt: new Date(),
-      });
+      };
 
       mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(initialRequest);
-      mockBlogOwnerRequestsService.update.mockResolvedValueOnce(updatedRequest);
+      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrismaService.blogOwnerRequest.findUnique.mockResolvedValueOnce(updatedRequestData);
 
       const result = await service.reviewRequest(1, 99, {
         status: BlogOwnerRequestStatus.REJECTED,
         rejectionReason: 'Invalid topic',
       });
 
-      expect(mockBlogOwnerRequestsService.update).toHaveBeenCalledWith(1, 99, {
-        status: BlogOwnerRequestStatus.REJECTED,
-        rejectionReason: 'Invalid topic',
+      expect(mockPrismaService.blogOwnerRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, status: BlogOwnerRequestStatus.PENDING },
+        data: {
+          status: BlogOwnerRequestStatus.REJECTED,
+          rejectionReason: 'Invalid topic',
+          reviewedById: 99,
+          reviewedAt: expect.any(Date),
+        },
       });
       expect(mockPrismaService.user.update).not.toHaveBeenCalled();
       expect(result.status).toBe(BlogOwnerRequestStatus.REJECTED);
+    });
+
+    it('should throw BadRequestException if updateMany returns count 0 (concurrent review)', async () => {
+      const initialRequest = new BlogOwnerRequestEntity({
+        id: 1,
+        userId: 10,
+        status: BlogOwnerRequestStatus.PENDING,
+        reason: 'Want to blog',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(initialRequest);
+      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        service.reviewRequest(1, 99, {
+          status: BlogOwnerRequestStatus.APPROVED,
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if request has already been processed', async () => {

@@ -136,25 +136,55 @@ export class PostsPublicService {
     }
 
     /**
-     * Fire-and-forget: ghi log lượt xem + tăng viewCount.
+     * Fire-and-forget: ghi log lượt xem + tăng viewCount (có deduplicate chống spam/bot).
      * Không block response trả về cho client.
      */
     const viewerKey = viewerIp || 'anonymous';
 
-    Promise.all([
-      this.postsService.incrementViewCount(post.id),
-
-      this.prisma.postViewLog.create({
-        data: {
-          postId: post.id,
-          viewerKey,
-        },
-      }),
-    ]).catch(() => {
+    this.recordViewWithDeduplication(post.id, viewerKey).catch(() => {
       /* Bỏ qua lỗi ghi log — không ảnh hưởng trải nghiệm đọc bài */
     });
 
     return post;
+  }
+
+  /**
+   * Chống trùng lặp lượt xem (Deduplicate) theo bài viết và IP/user trong khoảng thời gian quy định (5 phút).
+   */
+  private async recordViewWithDeduplication(
+    postId: number,
+    viewerKey: string,
+  ): Promise<void> {
+    const DEDUPLICATION_WINDOW_MINUTES = 5;
+    const since = new Date(
+      Date.now() - DEDUPLICATION_WINDOW_MINUTES * 60 * 1000,
+    );
+
+    // Kiểm tra xem viewerKey (IP/user) đã được ghi nhận lượt xem cho bài viết này trong vòng 5 phút qua chưa
+    const existingLog = await this.prisma.postViewLog.findFirst({
+      where: {
+        postId,
+        viewerKey,
+        viewedAt: {
+          gte: since,
+        },
+      },
+    });
+
+    // Nếu đã xem trong khoảng thời gian chống trùng lặp -> Bỏ qua không tăng viewCount và không ghi log mới
+    if (existingLog) {
+      return;
+    }
+
+    await Promise.all([
+      this.postsService.incrementViewCount(postId),
+      this.prisma.postViewLog.create({
+        data: {
+          postId,
+          viewerKey,
+        },
+      }),
+    ]);
   }
 
   async getTopPosts(limit: number, langCode: string | null) {

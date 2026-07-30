@@ -12,6 +12,8 @@ import type { PaginationParams } from '@app/core';
 import { Pagination } from '@app/core/common/decorators';
 import { UsersPublicService } from '../services/users-public.service';
 
+import { GetTopQueryDto } from '../dto';
+
 @Controller('/authors')
 @UseInterceptors(ClassSerializerInterceptor)
 export class PublicAuthorsController {
@@ -19,8 +21,8 @@ export class PublicAuthorsController {
 
   @Public()
   @Get('top')
-  async getTopAuthors(@Query('limit') limit?: number) {
-    return this.usersPublicService.getTopAuthors(limit ? Number(limit) : 10);
+  async getTopAuthors(@Query() query: GetTopQueryDto) {
+    return this.usersPublicService.getTopAuthors(query.limit);
   }
 
   @Public()

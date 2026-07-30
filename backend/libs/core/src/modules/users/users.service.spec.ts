@@ -22,6 +22,16 @@ describe('UsersService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    userSession: {
+      updateMany: jest.fn(),
+    },
+    post: {
+      updateMany: jest.fn(),
+    },
+    comment: {
+      updateMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
 
   const mockBcryptUtil = {
@@ -29,6 +39,12 @@ describe('UsersService', () => {
   };
 
   beforeEach(async () => {
+    jest.resetAllMocks();
+
+    mockPrismaService.$transaction.mockImplementation(
+      async (operations: Promise<unknown>[]) => Promise.all(operations),
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -102,6 +118,43 @@ describe('UsersService', () => {
       await expect(service.update(999, {})).rejects.toThrow(
         UserNotFoundException,
       );
+    });
+  });
+
+  describe('remove', () => {
+    it('should throw UserNotFoundException if user not found', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValueOnce(null);
+
+      await expect(service.remove(999)).rejects.toThrow(
+        UserNotFoundException,
+      );
+    });
+
+    it('should soft delete user, revoke active sessions, and hide posts/comments', async () => {
+      const existingUser = { id: 1, username: 'testuser' };
+      const deletedUser = { ...existingUser, status: 'LOCKED', deletedAt: new Date() };
+
+      mockPrismaService.user.findFirst.mockResolvedValueOnce(existingUser);
+      mockPrismaService.user.update.mockResolvedValueOnce(deletedUser);
+      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrismaService.post.updateMany.mockResolvedValueOnce({ count: 5 });
+      mockPrismaService.comment.updateMany.mockResolvedValueOnce({ count: 10 });
+
+      const result = await service.remove(1);
+
+      expect(result.id).toEqual(1);
+      expect(mockPrismaService.userSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 1, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(mockPrismaService.post.updateMany).toHaveBeenCalledWith({
+        where: { authorId: 1, deletedAt: null },
+        data: { deletedAt: expect.any(Date) },
+      });
+      expect(mockPrismaService.comment.updateMany).toHaveBeenCalledWith({
+        where: { userId: 1, deletedAt: null },
+        data: { deletedAt: expect.any(Date) },
+      });
     });
   });
 });

@@ -8,19 +8,22 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
+import { UserStatus } from '@prisma/client';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { JWTUtil } from '../utils';
 import { AuthenticatedRequest } from '../interfaces';
+import { PrismaService } from '../../core/prisma/prisma.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private jwtUtil: JWTUtil,
+    private prisma: PrismaService,
   ) { }
 
-  canActivate(context: ExecutionContext): boolean {
-    // 1. Kiểm tra xem có gắn cờ @Public() không
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    // 1. Kiểm tra xem có gắn cờ @Public() không, nếu có cờ public mặc định cho qua không cần kiểm tra JWT
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -43,14 +46,32 @@ export class JwtAuthGuard implements CanActivate {
     // 3. Tiến hành xác thực qua JWTUtil
     // Nếu token hết hạn hoặc sai chữ ký, hàm verifyAccessToken sẽ tự quăng lỗi 401 (ngừng luồng chạy ngay lập tức)
     const payload = this.jwtUtil.verifyAccessToken(token);
+    const userId = parseInt(payload.sub, 10);
 
-    // 4. Nếu qua ải thành công, gắn thông tin vào Request
-    // Trong JWTUtil bạn đang đóng gói payload gồm: { sub: userId, role, email }
-    // Ta map lại thành user object để các chỗ khác (như @CurrentUser hay RolesGuard) dùng cho dễ
+    // 4. Kiểm tra sự tồn tại và trạng thái tài khoản trong DB
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || user.deletedAt !== null) {
+      throw new UnauthorizedException(
+        'Tài khoản không tồn tại hoặc đã bị xóa.',
+      );
+    }
+
+    if (user.status === UserStatus.LOCKED) {
+      throw new UnauthorizedException(
+        user.lockReason
+          ? `Tài khoản đã bị khóa: ${user.lockReason}`
+          : 'Tài khoản của bạn đã bị khóa.',
+      );
+    }
+
+    // 5. Nếu qua ải thành công, gắn thông tin cập nhật mới nhất từ DB vào Request
     request['user'] = {
-      id: payload.sub,
-      role: payload.role,
-      email: payload.email,
+      id: user.id.toString(),
+      role: user.role,
+      email: user.email,
     };
 
     return true;

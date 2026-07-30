@@ -135,7 +135,13 @@ describe('UserFollowService', () => {
       prisma.userFollow.count.mockResolvedValueOnce(10);
       const res = await service.getFollowerCount(1);
       expect(prisma.userFollow.count).toHaveBeenCalledWith({
-        where: { followingId: 1 },
+        where: {
+          followingId: 1,
+          follower: {
+            deletedAt: null,
+            status: 'ACTIVE',
+          },
+        },
       });
       expect(res).toBe(10);
     });
@@ -144,14 +150,29 @@ describe('UserFollowService', () => {
       prisma.userFollow.count.mockResolvedValueOnce(5);
       const res = await service.getFollowingCount(1);
       expect(prisma.userFollow.count).toHaveBeenCalledWith({
-        where: { followerId: 1 },
+        where: {
+          followerId: 1,
+          following: {
+            deletedAt: null,
+            status: 'ACTIVE',
+          },
+        },
       });
       expect(res).toBe(5);
     });
   });
 
   describe('getFollowers', () => {
+    it('should throw UserNotFoundException if user does not exist', async () => {
+      prisma.user.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getFollowers(999, { page: 1, take: 10, skip: 0 }),
+      ).rejects.toThrow(UserNotFoundException);
+    });
+
     it('should return paginated followers mapped to UserFollowSummaryEntity', async () => {
+      prisma.user.findFirst.mockResolvedValueOnce({ id: 1 });
       prisma.userFollow.count.mockResolvedValueOnce(1);
       prisma.userFollow.findMany.mockResolvedValueOnce([
         {
@@ -175,7 +196,16 @@ describe('UserFollowService', () => {
   });
 
   describe('getFollowing', () => {
+    it('should throw UserNotFoundException if user does not exist', async () => {
+      prisma.user.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getFollowing(999, { page: 1, take: 10, skip: 0 }),
+      ).rejects.toThrow(UserNotFoundException);
+    });
+
     it('should return paginated following mapped to UserFollowSummaryEntity', async () => {
+      prisma.user.findFirst.mockResolvedValueOnce({ id: 1 });
       prisma.userFollow.count.mockResolvedValueOnce(1);
       prisma.userFollow.findMany.mockResolvedValueOnce([
         {

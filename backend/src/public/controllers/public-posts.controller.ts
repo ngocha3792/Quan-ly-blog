@@ -13,6 +13,8 @@ import type { PaginationParams } from '@app/core';
 import { Pagination } from '@app/core/common/decorators';
 import { PostsPublicService } from '../services/posts-public.service';
 
+import { GetTopQueryDto } from '../dto';
+
 @Controller('/posts')
 @UseInterceptors(ClassSerializerInterceptor)
 export class PublicPostsController {
@@ -31,10 +33,10 @@ export class PublicPostsController {
   @Public()
   @Get('top')
   async getTopPosts(
-    @Query('limit') limit: number = 10,
+    @Query() query: GetTopQueryDto,
     @LangCode() langCode: string | null,
   ) {
-    return this.postsPublicService.getTopPosts(Number(limit), langCode);
+    return this.postsPublicService.getTopPosts(query.limit, langCode);
   }
 
   @Public()

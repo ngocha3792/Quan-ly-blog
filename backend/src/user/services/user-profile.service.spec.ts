@@ -128,12 +128,31 @@ describe('UserProfileService', () => {
   });
 
   describe('removeProfile', () => {
-    it('should remove user and return profile', async () => {
+    it('should throw UserNotFoundException if user does not exist', async () => {
+      usersService.findById.mockResolvedValueOnce(null);
+
+      await expect(service.removeProfile(999)).rejects.toThrow(
+        UserNotFoundException,
+      );
+    });
+
+    it('should remove user, delete avatar on Cloudinary if present, and return profile', async () => {
+      const mockUser = {
+        id: 1,
+        username: 'testuser',
+        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1234/user_avatar.jpg',
+      };
       const mockRemovedUser = { id: 1, username: 'deleted' };
+
+      usersService.findById.mockResolvedValueOnce(mockUser);
       usersService.remove.mockResolvedValueOnce(mockRemovedUser);
 
       const result = await service.removeProfile(1);
 
+      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
+        'user_avatar',
+        'image',
+      );
       expect(usersService.remove).toHaveBeenCalledWith(1);
       expect(result.username).toBe('deleted');
     });

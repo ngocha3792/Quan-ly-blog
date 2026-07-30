@@ -4,6 +4,7 @@ import {
   TokenNotValidException,
   SessionInvalidException,
   AccountBannedException,
+  UserNotFoundException,
 } from '@app/core/common/exceptions';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -92,6 +93,15 @@ export class AuthsService {
     );
     const userId = parseInt(payload.sub, 10);
 
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UserNotFoundException(userId.toString());
+    }
+
+    if (user.status === 'LOCKED') {
+      throw new AccountBannedException(user.lockReason || undefined);
+    }
+
     const activeSessions = await this.prisma.userSession.findMany({
       where: {
         userId,
@@ -138,9 +148,9 @@ export class AuthsService {
     }
 
     const accessToken = this.jwtUtil.generateAccessToken(
-      payload.sub,
-      payload.role,
-      payload.email,
+      user.id.toString(),
+      user.role,
+      user.email,
     );
 
     return {

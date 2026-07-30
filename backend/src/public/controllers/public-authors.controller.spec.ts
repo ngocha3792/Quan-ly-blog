@@ -39,7 +39,7 @@ describe('PublicAuthorsController', () => {
         { id: 1, username: 'author1', followerCount: 10 },
       ]);
 
-      const result = await controller.getTopAuthors(5);
+      const result = await controller.getTopAuthors({ limit: 5 });
 
       expect(usersPublicService.getTopAuthors).toHaveBeenCalledWith(5);
       expect(result).toEqual([

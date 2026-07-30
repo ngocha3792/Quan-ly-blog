@@ -67,21 +67,15 @@ export class PostInteractionService {
   async likePost(userId: number, postId: number) {
     await this.findOnePost(postId);
 
-    const existingLike = await this.prisma.postLike.findUnique({
+    const postLike = await this.prisma.postLike.upsert({
       where: {
         postId_userId: {
           postId,
           userId,
         },
       },
-    });
-
-    if (existingLike) {
-      throw new ExistActionNotAllowedException('thích', postId.toString());
-    }
-
-    const postLike = await this.prisma.postLike.create({
-      data: {
+      update: {},
+      create: {
         postId,
         userId,
       },
@@ -93,25 +87,10 @@ export class PostInteractionService {
   async unlikePost(userId: number, postId: number) {
     await this.findOnePost(postId);
 
-    const existingLike = await this.prisma.postLike.findUnique({
+    await this.prisma.postLike.deleteMany({
       where: {
-        postId_userId: {
-          postId,
-          userId,
-        },
-      },
-    });
-
-    if (!existingLike) {
-      throw new ExistActionNotAllowedException('bỏ thích', postId.toString());
-    }
-
-    await this.prisma.postLike.delete({
-      where: {
-        postId_userId: {
-          postId,
-          userId,
-        },
+        postId,
+        userId,
       },
     });
 
@@ -121,21 +100,15 @@ export class PostInteractionService {
   async bookmarkPost(userId: number, postId: number) {
     await this.findOnePost(postId);
 
-    const existingBookmark = await this.prisma.postBookmark.findUnique({
+    const postBookmark = await this.prisma.postBookmark.upsert({
       where: {
         postId_userId: {
           postId,
           userId,
         },
       },
-    });
-
-    if (existingBookmark) {
-      throw new ExistActionNotAllowedException('lưu', postId.toString());
-    }
-
-    const postBookmark = await this.prisma.postBookmark.create({
-      data: {
+      update: {},
+      create: {
         postId,
         userId,
       },
@@ -147,25 +120,10 @@ export class PostInteractionService {
   async unbookmarkPost(userId: number, postId: number) {
     await this.findOnePost(postId);
 
-    const existingBookmark = await this.prisma.postBookmark.findUnique({
+    await this.prisma.postBookmark.deleteMany({
       where: {
-        postId_userId: {
-          postId,
-          userId,
-        },
-      },
-    });
-
-    if (!existingBookmark) {
-      throw new ExistActionNotAllowedException('bỏ lưu', postId.toString());
-    }
-
-    await this.prisma.postBookmark.delete({
-      where: {
-        postId_userId: {
-          postId,
-          userId,
-        },
+        postId,
+        userId,
       },
     });
 
