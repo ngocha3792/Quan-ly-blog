@@ -17,6 +17,7 @@ export class BlogownerOptionsService {
       this.prisma.language.findMany({
         where: {
           deletedAt: null,
+          isActive: true,
         },
         select: {
           id: true,
@@ -35,6 +36,7 @@ export class BlogownerOptionsService {
 
           language: {
             deletedAt: null,
+            isActive: true,
           },
 
           categoryGroup: {
@@ -54,6 +56,8 @@ export class BlogownerOptionsService {
               code: true,
               name: true,
               flag: true,
+              isDefault: true,
+              isActive: true,
             },
           },
 

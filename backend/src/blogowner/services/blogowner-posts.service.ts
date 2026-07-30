@@ -101,7 +101,7 @@ export class BlogownerPostsService {
     private readonly postsService: PostsService,
     private readonly helper: BlogownerPostHelperService,
     private readonly translationService : TranslationService,
-  ) { }
+  ) {}
 
   /**
    * Xem toàn bộ bài viết của Blog Owner đang đăng nhập.
@@ -324,11 +324,42 @@ export class BlogownerPostsService {
       BLOGOWNER_POST_INCLUDE,
     );
 
-    this.helper.assertEditable(existingPost.status);
+this.helper.assertEditable(existingPost.status);
 
-    const nextStatus = this.helper.getNextStatusOnEdit(existingPost.status);
+/**
+ * Chỉ xem request là một lần chỉnh sửa khi Owner
+ * thực sự gửi ít nhất một trường dữ liệu hoặc file.
+ *
+ * Tránh trường hợp:
+ * - REJECT + PATCH {}  -> DRAFT;
+ * - PUBLISH + PATCH {} -> PENDING_REVIEW;
+ * dù nội dung bài viết không hề được chỉnh sửa.
+ */
+const hasDtoChanges = Object.values(dto).some(
+  (value) => value !== undefined,
+);
 
-    const updateData = { ...dto };
+const hasThumbnailChange = Boolean(thumbnailFile);
+
+const hasMediaChanges = Boolean(
+  mediaFiles && mediaFiles.length > 0,
+);
+
+if (
+  !hasDtoChanges &&
+  !hasThumbnailChange &&
+  !hasMediaChanges
+) {
+  throw new BadRequestException(
+    'Không có dữ liệu nào để cập nhật.',
+  );
+}
+
+const nextStatus =
+  this.helper.getNextStatusOnEdit(existingPost.status);
+
+const updateData = { ...dto };
+
     let newThumbnailPublicId: string | null = null;
 
     if (thumbnailFile) {
@@ -363,6 +394,23 @@ export class BlogownerPostsService {
       throw error;
     }
 
+/**
+ * Sau khi nội dung bài viết đã được cập nhật thành công,
+ * reset thông tin kiểm duyệt ngay lập tức.
+ *
+ * Việc này phải xảy ra trước các thao tác Cloudinary/media
+ * phía sau để nếu upload media thất bại thì trạng thái bài
+ * và review metadata vẫn nhất quán.
+ *
+ * - REJECT  -> DRAFT + clear review data
+ * - PUBLISH -> PENDING_REVIEW + clear review data
+ * - DRAFT   -> không thay đổi
+ */
+await this.helper.resetReviewOnEdit(
+  postId,
+  existingPost.status,
+);
+
     /**
      * Chỉ xóa thumbnail cũ sau khi DB đã cập nhật
      * thành công sang thumbnail mới.
@@ -372,14 +420,6 @@ export class BlogownerPostsService {
     }
 
     await this.helper.uploadMediaFiles(postId, mediaFiles);
-
-    /*
-     * Khi bài bị từ chối được sửa lại hoặc bài đã xuất bản
-     * được cập nhật, xóa thông tin kiểm duyệt cũ.
-     *
-     * publishedAt không bị thay đổi.
-     */
-    await this.helper.resetReviewOnEdit(postId, existingPost.status);
 
     return this.findOne(ownerId, postId);
   }
@@ -433,20 +473,8 @@ export class BlogownerPostsService {
 
     return this.findOne(ownerId, postId);
   }
-
   /**
-   * Tạo bản dịch từ bài viết nguồn.
-   *
-   * Quy tắc:
-   * - bài nguồn phải thuộc Blog Owner;
-   * - mỗi ngôn ngữ chỉ có một bản trong cùng nhóm dịch;
-   * - category được tìm theo CategoryGroup;
-   * - tag được sao chép từ bài nguồn;
-   * - bài dịch mới luôn là DRAFT.
-   */
-
-  /**
- * Dịch tự động title + content bằng Google Translation.
+ * Dịch tự động title + content 
  *
  * API này chỉ trả preview:
  * - không tạo Post;
@@ -511,6 +539,7 @@ async translatePreview(
       where: {
         id: dto.targetLanguageId,
         deletedAt: null,
+        isActive: true,
       },
 
       select: LANGUAGE_SELECT,
@@ -518,7 +547,7 @@ async translatePreview(
 
   if (!targetLanguage) {
     throw new BadRequestException(
-      `Không tìm thấy ngôn ngữ đích có ID ${dto.targetLanguageId}.`,
+      `Ngôn ngữ đích có ID ${dto.targetLanguageId} không tồn tại hoặc đang bị vô hiệu hóa.`,
     );
   }
 
@@ -527,8 +556,8 @@ async translatePreview(
     sourcePost.id;
 
   /**
-   * Không tốn tiền gọi Google nếu translation
-   * cho language này đã tồn tại.
+   * Không gọi dịch vụ dịch tự động nếu bản dịch
+   * cho ngôn ngữ này đã tồn tại.
    */
   const existingTranslation =
     await this.prisma.post.findFirst({
@@ -621,10 +650,10 @@ async translatePreview(
     );
   }
 
-  /**
-   * Chỉ sau khi validation hoàn tất mới gọi Google,
-   * tránh tốn quota/API cost vô ích.
-   */
+ /**
+ * Chỉ gọi dịch vụ dịch tự động sau khi
+ * toàn bộ validation đã hoàn tất.
+ */
   const translated = await this.translationService.translatePost({
       title: sourcePost.title,
       content: sourcePost.content,
@@ -663,6 +692,17 @@ async translatePreview(
     },
   };
 }
+
+  /**
+   * Tạo bản dịch từ bài viết nguồn.
+   *
+   * Quy tắc:
+   * - bài nguồn phải thuộc Blog Owner;
+   * - mỗi ngôn ngữ chỉ có một bản trong cùng nhóm dịch;
+   * - category được tìm theo CategoryGroup;
+   * - tag được sao chép từ bài nguồn;
+   * - bài dịch mới luôn là DRAFT.
+   */
 
   async translate(
     ownerId: number,
@@ -705,12 +745,13 @@ async translatePreview(
       where: {
         id: dto.targetLanguageId,
         deletedAt: null,
+        isActive: true,
       },
     });
 
     if (!targetLanguage) {
       throw new BadRequestException(
-        `Không tìm thấy ngôn ngữ đích có ID ${dto.targetLanguageId}.`,
+        `Ngôn ngữ đích có ID ${dto.targetLanguageId} không tồn tại hoặc đang bị vô hiệu hóa.`,
       );
     }
 

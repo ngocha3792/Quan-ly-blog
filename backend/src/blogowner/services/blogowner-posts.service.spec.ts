@@ -656,11 +656,159 @@ describe('BlogownerPostsService', () => {
         '<p>English content</p>',
     });
   });
+  it('should reject translate preview when target language is inactive', async () => {
+  mockPrismaService.post.findFirst.mockResolvedValueOnce({
+    id: 1,
+    authorId: 3,
+    parentPostId: null,
+
+    title: 'Hướng dẫn NestJS',
+    content: '<p>Nội dung tiếng Việt</p>',
+    thumbnailUrl: null,
+
+    language: {
+      id: 4,
+      code: 'vi',
+      name: 'Tiếng Việt',
+      flag: 'vn',
+    },
+
+    postCategories: [
+      {
+        category: {
+          categoryGroupId: 10,
+        },
+      },
+    ],
+  });
+
+  /**
+   * Query target language với:
+   * deletedAt: null,
+   * isActive: true
+   *
+   * Không tìm thấy => language bị disable
+   * hoặc không tồn tại.
+   */
+  mockPrismaService.language.findFirst.mockResolvedValue(null);
+
+  await expect(
+    service.translatePreview(
+      3,
+      1,
+      {
+        targetLanguageId: 5,
+      },
+    ),
+  ).rejects.toThrow(BadRequestException);
+
+  expect(
+    mockPrismaService.language.findFirst,
+  ).toHaveBeenCalledWith({
+    where: {
+      id: 5,
+      deletedAt: null,
+      isActive: true,
+    },
+
+    select: expect.any(Object),
+  });
+
+  expect(
+    mockTranslationService.translatePost,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPrismaService.category.findMany,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPostsService.create,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPrismaService.post.update,
+  ).not.toHaveBeenCalled();
+});
 
   /**
    * CREATE / RESTORE TRANSLATION
    */
 
+  it('should reject creating translation when target language is inactive', async () => {
+  mockPrismaService.post.findFirst.mockResolvedValueOnce({
+    id: 1,
+    title: 'Bài tiếng Việt',
+    content: 'Nội dung tiếng Việt',
+    thumbnailUrl: null,
+
+    authorId: 3,
+    parentPostId: null,
+    languageId: 4,
+
+    postCategories: [
+      {
+        categoryId: 13,
+
+        category: {
+          id: 13,
+          categoryGroupId: 5,
+        },
+      },
+    ],
+
+    postTags: [
+      {
+        postId: 1,
+        tagId: 1,
+      },
+    ],
+  });
+
+  mockPrismaService.language.findFirst.mockResolvedValue(null);
+
+  await expect(
+    service.translate(
+      3,
+      1,
+      {
+        targetLanguageId: 5,
+        title: 'English Post',
+        content: 'English content',
+      },
+    ),
+  ).rejects.toThrow(BadRequestException);
+
+  expect(
+    mockPrismaService.language.findFirst,
+  ).toHaveBeenCalledWith({
+    where: {
+      id: 5,
+      deletedAt: null,
+      isActive: true,
+    },
+  });
+
+  /**
+   * Phải fail trước khi tìm translation cũ,
+   * map category hoặc tạo/update Post.
+   */
+  expect(
+    mockPrismaService.post.findFirst,
+  ).toHaveBeenCalledTimes(1);
+
+  expect(
+    mockPrismaService.category.findMany,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPostsService.create,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPrismaService.post.update,
+  ).not.toHaveBeenCalled();
+});
   it('should restore a deleted translation instead of creating a new post', async () => {
     mockPrismaService.post.findFirst
       .mockResolvedValueOnce({
@@ -1070,6 +1218,170 @@ describe('BlogownerPostsService', () => {
     expect(result.id).toBe(16);
   });
 
+  /**
+ * UPDATE POST
+ */
+
+it('should reject an empty update without changing post status', async () => {
+  mockHelper.findOwnedPost.mockResolvedValue({
+    id: 3,
+    authorId: 3,
+    status: PostStatus.REJECT,
+
+    rejectionReason:
+      'Nội dung chưa đạt yêu cầu.',
+  });
+
+  await expect(
+    service.update(
+      3,
+      3,
+      {},
+    ),
+  ).rejects.toThrow(
+    new BadRequestException(
+      'Không có dữ liệu nào để cập nhật.',
+    ),
+  );
+
+  expect(
+    mockHelper.assertEditable,
+  ).toHaveBeenCalledWith(
+    PostStatus.REJECT,
+  );
+
+  /**
+   * Không được tính trạng thái tiếp theo
+   * nếu request thực tế không chỉnh sửa gì.
+   */
+  expect(
+    mockHelper.getNextStatusOnEdit,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPostsService.update,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockHelper.uploadThumbnail,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockHelper.uploadMediaFiles,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockHelper.resetReviewOnEdit,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPrismaService.post.update,
+  ).not.toHaveBeenCalled();
+});
+
+it('should reset review metadata before uploading media when editing a published post', async () => {
+  const mediaFile = {
+    mimetype: 'image/png',
+    buffer: Buffer.from('fake-media'),
+    originalname: 'media.png',
+  } as Express.Multer.File;
+
+  mockHelper.findOwnedPost.mockResolvedValue({
+    id: 1,
+    authorId: 3,
+    status: PostStatus.PUBLISH,
+    thumbnailUrl: null,
+
+    reviewedById: 8,
+    reviewedAt: new Date(
+      '2026-07-30T08:00:00.000Z',
+    ),
+  });
+
+  mockHelper.getNextStatusOnEdit.mockReturnValue(
+    PostStatus.PENDING_REVIEW,
+  );
+
+  mockPostsService.update.mockResolvedValue({
+    id: 1,
+  });
+
+  mockHelper.resetReviewOnEdit.mockResolvedValue(
+    undefined,
+  );
+
+  /**
+   * Giả lập media upload thất bại sau khi
+   * nội dung/status đã được update.
+   */
+  mockHelper.uploadMediaFiles.mockRejectedValue(
+    new Error('Media upload failed'),
+  );
+
+  await expect(
+    service.update(
+      3,
+      1,
+      {
+        title: 'Updated published post',
+      },
+      undefined,
+      [mediaFile],
+    ),
+  ).rejects.toThrow('Media upload failed');
+
+  /**
+   * Bài PUBLISH phải được chuyển về
+   * PENDING_REVIEW trước.
+   */
+  expect(
+    mockPostsService.update,
+  ).toHaveBeenCalledWith(
+    1,
+    expect.objectContaining({
+      title: 'Updated published post',
+      status: PostStatus.PENDING_REVIEW,
+    }),
+  );
+
+  /**
+   * Review metadata phải được reset
+   * dù upload media sau đó thất bại.
+   */
+  expect(
+    mockHelper.resetReviewOnEdit,
+  ).toHaveBeenCalledWith(
+    1,
+    PostStatus.PUBLISH,
+  );
+
+  expect(
+    mockHelper.uploadMediaFiles,
+  ).toHaveBeenCalledWith(
+    1,
+    [mediaFile],
+  );
+
+  /**
+   * Quan trọng nhất:
+   * reset review phải chạy TRƯỚC upload media.
+   */
+  expect(
+    mockHelper.resetReviewOnEdit.mock
+      .invocationCallOrder[0],
+  ).toBeLessThan(
+    mockHelper.uploadMediaFiles.mock
+      .invocationCallOrder[0],
+  );
+
+  /**
+   * Vì upload media bị lỗi nên không được
+   * đi tiếp tới findOne().
+   */
+  expect(
+    mockPrismaService.post.findFirst,
+  ).not.toHaveBeenCalled();
+});
   /**
    * THUMBNAIL
    */
