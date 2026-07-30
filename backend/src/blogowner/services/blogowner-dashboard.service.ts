@@ -1,11 +1,44 @@
 import { Injectable } from '@nestjs/common';
-import { PostStatus } from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
 
-import { PrismaService, getVietnamCalendarDate, getVietnamDateKey, formatVietnamDate } from '@app/core';
+import {
+  PrismaService,
+  getVietnamCalendarDate,
+  getVietnamDateKey,
+  formatVietnamDate,
+} from '@app/core';
+
 const FEATURED_POST_LIMIT = 5;
+
+const FEATURED_POST_SELECT = {
+  id: true,
+  title: true,
+  thumbnailUrl: true,
+  status: true,
+  viewCount: true,
+  updatedAt: true,
+  language: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      flag: true,
+    },
+  },
+  _count: {
+    select: {
+      postLikes: true,
+    },
+  },
+} as const;
+
+type FeaturedPostRecord = Prisma.PostGetPayload<{
+  select: typeof FEATURED_POST_SELECT;
+}>;
+
 @Injectable()
 export class BlogownerDashboardService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Thống kê dashboard của Blog Owner:
@@ -16,6 +49,14 @@ export class BlogownerDashboardService {
   async getDashboard(ownerId: number) {
     const startDate = getVietnamCalendarDate(-6);
     const tomorrow = getVietnamCalendarDate(1);
+
+    const basePostWhere = { authorId: ownerId, deletedAt: null };
+    const publishedPostWhere = { ...basePostWhere, status: PostStatus.PUBLISH };
+
+    const countPosts = (status?: PostStatus) =>
+      this.prisma.post.count({
+        where: status ? { ...basePostWhere, status } : basePostWhere,
+      });
 
     const [
       totalPosts,
@@ -28,52 +69,16 @@ export class BlogownerDashboardService {
       totalComments,
       dailyMetrics,
       topPostsByViews,
-      topPostsByLikes
+      topPostsByLikes,
     ] = await this.prisma.$transaction([
-      this.prisma.post.count({
-        where: {
-          authorId: ownerId,
-          deletedAt: null,
-        },
-      }),
-
-      this.prisma.post.count({
-        where: {
-          authorId: ownerId,
-          deletedAt: null,
-          status: PostStatus.DRAFT,
-        },
-      }),
-
-      this.prisma.post.count({
-        where: {
-          authorId: ownerId,
-          deletedAt: null,
-          status: PostStatus.PENDING_REVIEW,
-        },
-      }),
-
-      this.prisma.post.count({
-        where: {
-          authorId: ownerId,
-          deletedAt: null,
-          status: PostStatus.PUBLISH,
-        },
-      }),
-
-      this.prisma.post.count({
-        where: {
-          authorId: ownerId,
-          deletedAt: null,
-          status: PostStatus.REJECT,
-        },
-      }),
+      countPosts(),
+      countPosts(PostStatus.DRAFT),
+      countPosts(PostStatus.PENDING_REVIEW),
+      countPosts(PostStatus.PUBLISH),
+      countPosts(PostStatus.REJECT),
 
       this.prisma.post.aggregate({
-        where: {
-          authorId: ownerId,
-          deletedAt: null,
-        },
+        where: basePostWhere,
         _sum: {
           viewCount: true,
         },
@@ -81,20 +86,14 @@ export class BlogownerDashboardService {
 
       this.prisma.postLike.count({
         where: {
-          post: {
-            authorId: ownerId,
-            deletedAt: null,
-          },
+          post: basePostWhere,
         },
       }),
 
       this.prisma.comment.count({
         where: {
           deletedAt: null,
-          post: {
-            authorId: ownerId,
-            deletedAt: null,
-          },
+          post: basePostWhere,
         },
       }),
 
@@ -104,10 +103,7 @@ export class BlogownerDashboardService {
             gte: startDate,
             lt: tomorrow,
           },
-          post: {
-            authorId: ownerId,
-            deletedAt: null,
-          },
+          post: basePostWhere,
         },
         select: {
           metricDate: true,
@@ -118,94 +114,39 @@ export class BlogownerDashboardService {
           metricDate: 'asc',
         },
       }),
+
       this.prisma.post.findMany({
-  where: {
-    authorId: ownerId,
-    status: PostStatus.PUBLISH,
-    deletedAt: null,
-  },
-  select: {
-    id: true,
-    title: true,
-    thumbnailUrl: true,
-    status: true,
-    viewCount: true,
-    updatedAt: true,
+        where: publishedPostWhere,
+        select: FEATURED_POST_SELECT,
+        orderBy: [
+          {
+            viewCount: 'desc',
+          },
+          {
+            updatedAt: 'desc',
+          },
+        ],
+        take: FEATURED_POST_LIMIT,
+      }),
 
-    language: {
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        flag: true,
-      },
-    },
-
-    _count: {
-      select: {
-        postLikes: true,
-      },
-    },
-  },
-
-  orderBy: [
-    {
-      viewCount: 'desc',
-    },
-    {
-      updatedAt: 'desc',
-    },
-  ],
-
-  take: FEATURED_POST_LIMIT,
-}),
       this.prisma.post.findMany({
-  where: {
-    authorId: ownerId,
-    status: PostStatus.PUBLISH,
-    deletedAt: null,
-  },
-
-  select: {
-    id: true,
-    title: true,
-    thumbnailUrl: true,
-    status: true,
-    viewCount: true,
-    updatedAt: true,
-
-    language: {
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        flag: true,
-      },
-    },
-
-    _count: {
-      select: {
-        postLikes: true,
-      },
-    },
-  },
-
-  orderBy: [
-    {
-      postLikes: {
-        _count: 'desc',
-      },
-    },
-    {
-      viewCount: 'desc',
-    },
-    {
-      updatedAt: 'desc',
-    },
-  ],
-
-  take: FEATURED_POST_LIMIT,
-}),
+        where: publishedPostWhere,
+        select: FEATURED_POST_SELECT,
+        orderBy: [
+          {
+            postLikes: {
+              _count: 'desc',
+            },
+          },
+          {
+            viewCount: 'desc',
+          },
+          {
+            updatedAt: 'desc',
+          },
+        ],
+        take: FEATURED_POST_LIMIT,
+      }),
     ]);
 
     /**
@@ -246,41 +187,35 @@ export class BlogownerDashboardService {
         likes: metric?.likes ?? 0,
       };
     });
-    const mapFeaturedPost = (
-  post: (typeof topPostsByViews)[number],
-) => ({
-  id: post.id,
-  title: post.title,
-  thumbnailUrl: post.thumbnailUrl,
-  status: post.status,
 
-  views: post.viewCount,
+    const mapFeaturedPost = (post: FeaturedPostRecord) => ({
+      id: post.id,
+      title: post.title,
+      thumbnailUrl: post.thumbnailUrl,
+      status: post.status,
+      views: post.viewCount,
+      likes: post._count.postLikes,
+      language: post.language,
+    });
 
-  likes: post._count.postLikes,
-
-  language: post.language,
-});
     return {
-  postCounts: {
-    total: totalPosts,
-    draft: draftPosts,
-    pendingReview: pendingReviewPosts,
-    published: publishedPosts,
-    rejected: rejectedPosts,
-  },
-
-  totals: {
-    views: viewAggregate._sum.viewCount ?? 0,
-    likes: totalLikes,
-    comments: totalComments,
-  },
-
-  last7Days,
-
-  featuredPosts: {
-    byViews: topPostsByViews.map(mapFeaturedPost),
-    byLikes: topPostsByLikes.map(mapFeaturedPost),
-  },
-};
+      postCounts: {
+        total: totalPosts,
+        draft: draftPosts,
+        pendingReview: pendingReviewPosts,
+        published: publishedPosts,
+        rejected: rejectedPosts,
+      },
+      totals: {
+        views: viewAggregate._sum.viewCount ?? 0,
+        likes: totalLikes,
+        comments: totalComments,
+      },
+      last7Days,
+      featuredPosts: {
+        byViews: topPostsByViews.map(mapFeaturedPost),
+        byLikes: topPostsByLikes.map(mapFeaturedPost),
+      },
+    };
   }
-}
+}

@@ -9,11 +9,12 @@ export class MailService {
   constructor(
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Gửi email khôi phục mật khẩu cho người dùng.
    */
+
   async sendPasswordResetEmail(
     email: string,
     token: string,

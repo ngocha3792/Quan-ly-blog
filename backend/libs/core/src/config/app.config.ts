@@ -11,7 +11,7 @@ export default registerAs('app', () => ({
   apiPrefix: process.env.API_PREFIX || 'api',
 
   // Domain của Frontend để cấu hình CORS (Chống lỗi chặn nguồn chéo)
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4200',
 
   // Chế độ bảo trì mà Middleware lúc nãy chúng ta viết đang cần
   maintenanceMode: process.env.MAINTENANCE_MODE === 'true',

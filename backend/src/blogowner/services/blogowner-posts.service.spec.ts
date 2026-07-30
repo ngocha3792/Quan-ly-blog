@@ -41,21 +41,60 @@ const mockPostsService = {
 };
 
   const mockHelper = {
-  findOwnedPost: jest.fn(),
-  assertEditable: jest.fn(),
-  getNextStatusOnEdit: jest.fn(),
-  resetReviewOnEdit: jest.fn(),
-};
+    findOwnedPost: jest.fn(),
+    assertEditable: jest.fn(),
+    assertSubmittable: jest.fn(),
+    getNextStatusOnEdit: jest.fn(),
+    resetReviewOnEdit: jest.fn(),
+    uploadThumbnail: jest.fn(),
+    uploadMediaFiles: jest.fn(),
+    deleteOldThumbnail: jest.fn(),
+  };
 
   const mockMediaService = {};
 
   const mockCloudinaryService = {
-  uploadFile: jest.fn(),
-  deleteFile: jest.fn(),
-};
+    uploadFile: jest.fn(),
+    deleteFile: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.resetAllMocks();
+
+    mockHelper.uploadThumbnail.mockImplementation((postId, file) =>
+      mockCloudinaryService.uploadFile(
+        file,
+        `nestjs_blog/posts/${postId}/thumbnail`,
+      ),
+    );
+
+    mockHelper.deleteOldThumbnail.mockImplementation((url) => {
+      if (url && url.includes('/upload/')) {
+        const parts = url.split('/upload/');
+        if (parts.length > 1) {
+          let path = parts[1].replace(/^v\d+\//, '');
+          const publicId = path.substring(0, path.lastIndexOf('.')) || path;
+          return mockCloudinaryService.deleteFile(publicId, 'image');
+        }
+      }
+    });
+
+    mockHelper.assertSubmittable.mockImplementation((status: PostStatus) => {
+      if (status !== PostStatus.DRAFT) {
+        const statusErrors: Record<string, string> = {
+          [PostStatus.PENDING_REVIEW]:
+            'Bài viết này đang chờ Moderator duyệt.',
+          [PostStatus.PUBLISH]:
+            'Bài viết đã được xuất bản. Chỉ khi chỉnh sửa bài thì bài mới được gửi duyệt lại.',
+          [PostStatus.REJECT]:
+            'Bài viết bị từ chối phải được chỉnh sửa trước khi gửi duyệt lại.',
+        };
+        throw new BadRequestException(
+          statusErrors[status] ??
+            `Không thể gửi duyệt bài viết đang ở trạng thái ${status}.`,
+        );
+      }
+    });
 
     const module: TestingModule =
       await Test.createTestingModule({
