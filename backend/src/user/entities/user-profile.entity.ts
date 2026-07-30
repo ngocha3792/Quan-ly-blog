@@ -1,11 +1,8 @@
-import { type User } from '@prisma/client';
 import { Exclude, Expose } from 'class-transformer';
 import { UserEntity } from '@app/core';
+import { UserFollowSummaryEntity } from './user-follow-summary.entity';
 
-export type UserFollowerSummary = Pick<
-  User,
-  'id' | 'username' | 'avatarUrl' | 'bio'
->;
+export type UserFollowerSummary = UserFollowSummaryEntity;
 
 /**
  * Entity dành riêng cho User API (ví dụ: profile của người dùng).
@@ -69,8 +66,7 @@ export class UserProfileEntity extends UserEntity {
             'follower' in item &&
             item.follower
           ) {
-            const { id, username, avatarUrl, bio } = item.follower;
-            return { id, username, avatarUrl, bio };
+            return new UserFollowSummaryEntity(item.follower);
           }
           // Trường hợp 2: Dữ liệu đã là đối tượng User { id, username, avatarUrl, bio }
           if (
@@ -79,12 +75,11 @@ export class UserProfileEntity extends UserEntity {
             'id' in item &&
             'username' in item
           ) {
-            const { id, username, avatarUrl, bio } = item;
-            return { id, username, avatarUrl, bio };
+            return new UserFollowSummaryEntity(item);
           }
           return null;
         })
-        .filter((item): item is UserFollowerSummary => item !== null);
+        .filter((item): item is UserFollowSummaryEntity => item !== null);
     }
   }
 }

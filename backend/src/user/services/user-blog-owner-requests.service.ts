@@ -7,6 +7,7 @@ import {
   CreateBlogOwnerRequestDto,
   ExistActionNotAllowedException,
   GetBlogOwnerRequestsDto,
+  PaginatedResult,
   PaginationParams,
   PrismaService,
   UserNotFoundException,
@@ -51,7 +52,7 @@ export class UserBlogOwnerRequestsService {
     userId: number,
     query: GetBlogOwnerRequestsDto,
     paginationParams: PaginationParams,
-  ) {
+  ): Promise<PaginatedResult<UserBlogOwnerRequestEntity>> {
     const secureQuery: GetBlogOwnerRequestsDto = {
       ...query,
       userId,
@@ -62,11 +63,14 @@ export class UserBlogOwnerRequestsService {
       paginationParams,
     );
 
+    const items = result.items.map((req) => new UserBlogOwnerRequestEntity(req));
+
     return {
-      total: result.meta.totalItems,
-      page: result.meta.currentPage,
-      take: result.meta.itemsPerPage,
-      data: result.items.map((req) => new UserBlogOwnerRequestEntity(req)),
+      items,
+      meta: {
+        ...result.meta,
+        itemCount: items.length,
+      },
     };
   }
 

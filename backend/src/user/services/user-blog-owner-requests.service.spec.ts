@@ -130,8 +130,8 @@ describe('UserBlogOwnerRequestsService', () => {
         { status: BlogOwnerRequestStatus.PENDING, userId: 5 },
         { page: 1, take: 10, skip: 0 },
       );
-      expect(res.total).toBe(1);
-      expect(res.data[0].id).toBe(1);
+      expect(res.meta.totalItems).toBe(1);
+      expect(res.items[0].id).toBe(1);
     });
   });
 

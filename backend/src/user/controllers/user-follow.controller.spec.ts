@@ -44,7 +44,7 @@ describe('UserFollowController', () => {
 
   describe('getMyFollowers', () => {
     it('should call getFollowers with current user ID', async () => {
-      const mockResult = { total: 1, data: [] };
+      const mockResult = { items: [], meta: {} as any };
       userFollowService.getFollowers.mockResolvedValueOnce(mockResult);
 
       const result = await controller.getMyFollowers({ id: 1 } as any, {} as any);
@@ -56,7 +56,7 @@ describe('UserFollowController', () => {
 
   describe('getMyFollowing', () => {
     it('should call getFollowing with current user ID', async () => {
-      const mockResult = { total: 1, data: [] };
+      const mockResult = { items: [], meta: {} as any };
       userFollowService.getFollowing.mockResolvedValueOnce(mockResult);
 
       const result = await controller.getMyFollowing({ id: 1 } as any, {} as any);
@@ -68,7 +68,7 @@ describe('UserFollowController', () => {
 
   describe('getUserFollowers', () => {
     it('should call getFollowers with target user ID', async () => {
-      const mockResult = { total: 1, data: [] };
+      const mockResult = { items: [], meta: {} as any };
       userFollowService.getFollowers.mockResolvedValueOnce(mockResult);
 
       const result = await controller.getUserFollowers(2, {} as any);
@@ -80,7 +80,7 @@ describe('UserFollowController', () => {
 
   describe('getUserFollowing', () => {
     it('should call getFollowing with target user ID', async () => {
-      const mockResult = { total: 1, data: [] };
+      const mockResult = { items: [], meta: {} as any };
       userFollowService.getFollowing.mockResolvedValueOnce(mockResult);
 
       const result = await controller.getUserFollowing(2, {} as any);
@@ -104,7 +104,7 @@ describe('UserFollowController', () => {
 
   describe('unfollowUser', () => {
     it('should call unfollowUser with current user ID and target ID', async () => {
-      const mockResult = { success: true, message: 'Đã bỏ follow thành công' };
+      const mockResult = { message: 'Đã bỏ follow thành công' };
       userFollowService.unfollowUser.mockResolvedValueOnce(mockResult);
 
       const result = await controller.unfollowUser({ id: 1 } as any, 2);

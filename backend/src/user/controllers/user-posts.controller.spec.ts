@@ -48,7 +48,7 @@ describe('UserPostsController', () => {
 
   describe('getBookmarkedPosts', () => {
     it('should call getBookmarkedPosts with current user ID', async () => {
-      const mockResult = { total: 1, data: [] };
+      const mockResult = { items: [], meta: {} as any };
       postInteractionService.getBookmarkedPosts.mockResolvedValueOnce(mockResult);
 
       const result = await controller.getBookmarkedPosts({ id: 1 } as any, {} as any);
@@ -59,7 +59,7 @@ describe('UserPostsController', () => {
 
   describe('getLikedPosts', () => {
     it('should call getLikedPosts with current user ID', async () => {
-      const mockResult = { total: 1, data: [] };
+      const mockResult = { items: [], meta: {} as any };
       postInteractionService.getLikedPosts.mockResolvedValueOnce(mockResult);
 
       const result = await controller.getLikedPosts({ id: 1 } as any, {} as any);
@@ -81,7 +81,7 @@ describe('UserPostsController', () => {
 
   describe('unbookmarkPost', () => {
     it('should call unbookmarkPost with user ID and post ID', async () => {
-      const mockResult = { success: true, message: 'Đã bỏ lưu bài viết thành công' };
+      const mockResult = { message: 'Đã bỏ lưu bài viết thành công' };
       postInteractionService.unbookmarkPost.mockResolvedValueOnce(mockResult);
 
       const result = await controller.unbookmarkPost({ id: 1 } as any, 10);
@@ -103,7 +103,7 @@ describe('UserPostsController', () => {
 
   describe('unlikePost', () => {
     it('should call unlikePost with user ID and post ID', async () => {
-      const mockResult = { success: true, message: 'Đã bỏ thích bài viết thành công' };
+      const mockResult = { message: 'Đã bỏ thích bài viết thành công' };
       postInteractionService.unlikePost.mockResolvedValueOnce(mockResult);
 
       const result = await controller.unlikePost({ id: 1 } as any, 10);

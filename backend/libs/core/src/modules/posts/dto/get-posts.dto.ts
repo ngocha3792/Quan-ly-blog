@@ -21,6 +21,10 @@ export class GetPostsDto {
   languageId?: number;
 
   @IsOptional()
+  @IsString()
+  lang?: string;
+
+  @IsOptional()
   @IsInt()
   @Type(() => Number)
   authorId?: number;

@@ -5,8 +5,8 @@ import {
   ExistActionNotAllowedException,
   UserNotFoundException,
 } from '@app/core/common/exceptions';
-import type { PaginationParams } from '@app/core';
-import { UserProfileEntity } from '../entities';
+import type { PaginationParams, PaginatedResult } from '@app/core';
+import { UserFollowSummaryEntity } from '../entities';
 
 @Injectable()
 export class UserFollowService {
@@ -84,7 +84,7 @@ export class UserFollowService {
       },
     });
 
-    return { success: true, message: 'Đã bỏ follow thành công' };
+    return { message: 'Đã bỏ follow thành công' };
   }
 
   async getFollowerCount(userId: number): Promise<number> {
@@ -99,9 +99,12 @@ export class UserFollowService {
     });
   }
 
-  async getFollowers(userId: number, pagination?: PaginationParams) {
+  async getFollowers(
+    userId: number,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<UserFollowSummaryEntity>> {
     const { page = 1, skip = 0, take = 10 } = pagination || {};
-    const [total, follows] = await Promise.all([
+    const [totalItems, follows] = await Promise.all([
       this.prisma.userFollow.count({
         where: {
           followingId: userId,
@@ -117,8 +120,15 @@ export class UserFollowService {
             deletedAt: null,
           },
         },
-        include: {
-          follower: true,
+        select: {
+          follower: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              bio: true,
+            },
+          },
         },
         skip,
         take,
@@ -126,17 +136,26 @@ export class UserFollowService {
       }),
     ]);
 
+    const items = follows.map((f) => new UserFollowSummaryEntity(f.follower));
+
     return {
-      total,
-      page,
-      take,
-      data: follows.map((f) => new UserProfileEntity(f.follower)),
+      items,
+      meta: {
+        totalItems,
+        itemCount: items.length,
+        itemsPerPage: take,
+        totalPages: Math.ceil(totalItems / take) || 0,
+        currentPage: page,
+      },
     };
   }
 
-  async getFollowing(userId: number, pagination?: PaginationParams) {
+  async getFollowing(
+    userId: number,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<UserFollowSummaryEntity>> {
     const { page = 1, skip = 0, take = 10 } = pagination || {};
-    const [total, follows] = await Promise.all([
+    const [totalItems, follows] = await Promise.all([
       this.prisma.userFollow.count({
         where: {
           followerId: userId,
@@ -152,8 +171,15 @@ export class UserFollowService {
             deletedAt: null,
           },
         },
-        include: {
-          following: true,
+        select: {
+          following: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              bio: true,
+            },
+          },
         },
         skip,
         take,
@@ -161,11 +187,17 @@ export class UserFollowService {
       }),
     ]);
 
+    const items = follows.map((f) => new UserFollowSummaryEntity(f.following));
+
     return {
-      total,
-      page,
-      take,
-      data: follows.map((f) => new UserProfileEntity(f.following)),
+      items,
+      meta: {
+        totalItems,
+        itemCount: items.length,
+        itemsPerPage: take,
+        totalPages: Math.ceil(totalItems / take) || 0,
+        currentPage: page,
+      },
     };
   }
 }

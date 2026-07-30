@@ -13,6 +13,10 @@ export class GetCategoriesDto {
   languageId?: number;
 
   @IsOptional()
+  @IsString()
+  lang?: string;
+
+  @IsOptional()
   @Type(() => Number)
   page?: number;
 

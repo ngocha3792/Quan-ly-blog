@@ -1,19 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserRole } from '@prisma/client';
 
-import {
-  CommentsService,
-  JwtAuthGuard,
-  RolesGuard,
-} from '@app/core';
+import { JwtAuthGuard, RolesGuard } from '@app/core';
 import type { JwtPayload } from '@app/core';
 
 import { UserCommentsController } from './user-comments.controller';
+import { UserCommentsService } from '../services/user-comments.service';
 
 describe('UserCommentsController', () => {
   let controller: UserCommentsController;
 
-  let commentsService: {
+  let userCommentsService: {
     create: jest.Mock;
     update: jest.Mock;
     remove: jest.Mock;
@@ -28,7 +25,7 @@ describe('UserCommentsController', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
 
-    commentsService = {
+    userCommentsService = {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
@@ -38,8 +35,8 @@ describe('UserCommentsController', () => {
       controllers: [UserCommentsController],
       providers: [
         {
-          provide: CommentsService,
-          useValue: commentsService,
+          provide: UserCommentsService,
+          useValue: userCommentsService,
         },
       ],
     });
@@ -69,7 +66,7 @@ describe('UserCommentsController', () => {
   });
 
   it('should create a comment using postId from URL', async () => {
-    commentsService.create.mockResolvedValueOnce({
+    userCommentsService.create.mockResolvedValueOnce({
       id: 2,
       postId: 1,
       userId: 4,
@@ -85,16 +82,19 @@ describe('UserCommentsController', () => {
       },
     );
 
-    expect(commentsService.create).toHaveBeenCalledWith(4, {
-      content: 'Bình luận mới',
-      postId: 1,
-    });
+    expect(userCommentsService.create).toHaveBeenCalledWith(
+      4,
+      1,
+      {
+        content: 'Bình luận mới',
+      },
+    );
 
     expect(result.id).toBe(2);
   });
 
   it('should create a reply with parentId', async () => {
-    commentsService.create.mockResolvedValueOnce({
+    userCommentsService.create.mockResolvedValueOnce({
       id: 3,
       postId: 1,
       userId: 4,
@@ -111,17 +111,20 @@ describe('UserCommentsController', () => {
       },
     );
 
-    expect(commentsService.create).toHaveBeenCalledWith(4, {
-      content: 'Phản hồi mới',
-      parentId: 1,
-      postId: 1,
-    });
+    expect(userCommentsService.create).toHaveBeenCalledWith(
+      4,
+      1,
+      {
+        content: 'Phản hồi mới',
+        parentId: 1,
+      },
+    );
 
     expect(result.parentId).toBe(1);
   });
 
   it('should update the current user comment', async () => {
-    commentsService.update.mockResolvedValueOnce({
+    userCommentsService.update.mockResolvedValueOnce({
       id: 2,
       content: 'Nội dung đã sửa',
     });
@@ -134,7 +137,7 @@ describe('UserCommentsController', () => {
       },
     );
 
-    expect(commentsService.update).toHaveBeenCalledWith(
+    expect(userCommentsService.update).toHaveBeenCalledWith(
       2,
       4,
       {
@@ -146,7 +149,7 @@ describe('UserCommentsController', () => {
   });
 
   it('should remove the current user comment', async () => {
-    commentsService.remove.mockResolvedValueOnce({
+    userCommentsService.remove.mockResolvedValueOnce({
       id: 2,
       deletedAt: new Date(),
     });
@@ -156,7 +159,7 @@ describe('UserCommentsController', () => {
       2,
     );
 
-    expect(commentsService.remove).toHaveBeenCalledWith(2, 4);
+    expect(userCommentsService.remove).toHaveBeenCalledWith(2, 4);
     expect(result.id).toBe(2);
   });
 });

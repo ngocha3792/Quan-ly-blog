@@ -8,6 +8,10 @@ export class GetTagsDto {
   // @IsProfanityFree()
   search?: string;
 
+  @IsOptional()
+  @IsString()
+  lang?: string;
+
 
   @IsOptional()
   @Type(() => Number)

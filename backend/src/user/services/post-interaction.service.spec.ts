@@ -65,12 +65,15 @@ describe('PostInteractionService', () => {
   });
 
   describe('likePost', () => {
-    it('should throw PostNotFoundException if post not found', async () => {
+    it('should throw PostNotFoundException if post not found or not published', async () => {
       prisma.post.findFirst.mockResolvedValueOnce(null);
 
       await expect(service.likePost(1, 100)).rejects.toThrow(
         PostNotFoundException,
       );
+      expect(prisma.post.findFirst).toHaveBeenCalledWith({
+        where: { id: 100, deletedAt: null, status: 'PUBLISH' },
+      });
     });
 
     it('should throw ExistActionNotAllowedException if already liked', async () => {
@@ -118,7 +121,7 @@ describe('PostInteractionService', () => {
 
       const result = await service.unlikePost(1, 100);
       expect(prisma.postLike.delete).toHaveBeenCalled();
-      expect(result.success).toBe(true);
+      expect(result.message).toBe('Đã bỏ thích bài viết thành công');
     });
   });
 
@@ -145,7 +148,7 @@ describe('PostInteractionService', () => {
 
       const result = await service.unbookmarkPost(1, 100);
       expect(prisma.postBookmark.delete).toHaveBeenCalled();
-      expect(result.success).toBe(true);
+      expect(result.message).toBe('Đã bỏ lưu bài viết thành công');
     });
   });
 
@@ -164,9 +167,9 @@ describe('PostInteractionService', () => {
 
       const result = await service.getBookmarkedPosts(1, { page: 1, take: 10, skip: 0 });
 
-      expect(result.total).toBe(1);
-      expect(result.data[0].id).toBe(10);
-      expect(result.data[0].likeCount).toBe(2);
+      expect(result.meta.totalItems).toBe(1);
+      expect(result.items[0].id).toBe(10);
+      expect(result.items[0].likeCount).toBe(2);
     });
   });
 
@@ -185,9 +188,9 @@ describe('PostInteractionService', () => {
 
       const result = await service.getLikedPosts(1, { page: 1, take: 10, skip: 0 });
 
-      expect(result.total).toBe(1);
-      expect(result.data[0].id).toBe(20);
-      expect(result.data[0].likeCount).toBe(5);
+      expect(result.meta.totalItems).toBe(1);
+      expect(result.items[0].id).toBe(20);
+      expect(result.items[0].likeCount).toBe(5);
     });
   });
 });

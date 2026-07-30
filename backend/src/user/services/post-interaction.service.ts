@@ -8,7 +8,7 @@ import {
   PostLikeEntity,
   PostBookmarkEntity,
 } from '@app/core/modules/posts/entities';
-import type { PaginationParams } from '@app/core';
+import type { PaginationParams, PaginatedResult } from '@app/core';
 import { Prisma } from '@prisma/client';
 import { UserPostEntity } from '../entities';
 
@@ -51,7 +51,11 @@ export class PostInteractionService {
 
   private async findOnePost(id: number) {
     const post = await this.prisma.post.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        status: 'PUBLISH',
+      },
     });
 
     if (!post) {
@@ -111,7 +115,7 @@ export class PostInteractionService {
       },
     });
 
-    return { success: true, message: 'Đã bỏ thích bài viết thành công' };
+    return { message: 'Đã bỏ thích bài viết thành công' };
   }
 
   async bookmarkPost(userId: number, postId: number) {
@@ -165,10 +169,13 @@ export class PostInteractionService {
       },
     });
 
-    return { success: true, message: 'Đã bỏ lưu bài viết thành công' };
+    return { message: 'Đã bỏ lưu bài viết thành công' };
   }
 
-  async getBookmarkedPosts(userId: number, pagination?: PaginationParams) {
+  async getBookmarkedPosts(
+    userId: number,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<UserPostEntity>> {
     const { page = 1, skip = 0, take = 10 } = pagination || {};
 
     const where: Prisma.PostBookmarkWhereInput = {
@@ -179,7 +186,7 @@ export class PostInteractionService {
       },
     };
 
-    const [total, bookmarks] = await Promise.all([
+    const [totalItems, bookmarks] = await Promise.all([
       this.prisma.postBookmark.count({ where }),
       this.prisma.postBookmark.findMany({
         where,
@@ -194,15 +201,24 @@ export class PostInteractionService {
       }),
     ]);
 
+    const items = bookmarks.map((b) => new UserPostEntity(b.post));
+
     return {
-      total,
-      page,
-      take,
-      data: bookmarks.map((b) => new UserPostEntity(b.post)),
+      items,
+      meta: {
+        totalItems,
+        itemCount: items.length,
+        itemsPerPage: take,
+        totalPages: Math.ceil(totalItems / take) || 0,
+        currentPage: page,
+      },
     };
   }
 
-  async getLikedPosts(userId: number, pagination?: PaginationParams) {
+  async getLikedPosts(
+    userId: number,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<UserPostEntity>> {
     const { page = 1, skip = 0, take = 10 } = pagination || {};
 
     const where: Prisma.PostLikeWhereInput = {
@@ -213,7 +229,7 @@ export class PostInteractionService {
       },
     };
 
-    const [total, likes] = await Promise.all([
+    const [totalItems, likes] = await Promise.all([
       this.prisma.postLike.count({ where }),
       this.prisma.postLike.findMany({
         where,
@@ -228,11 +244,17 @@ export class PostInteractionService {
       }),
     ]);
 
+    const items = likes.map((l) => new UserPostEntity(l.post));
+
     return {
-      total,
-      page,
-      take,
-      data: likes.map((l) => new UserPostEntity(l.post)),
+      items,
+      meta: {
+        totalItems,
+        itemCount: items.length,
+        itemsPerPage: take,
+        totalPages: Math.ceil(totalItems / take) || 0,
+        currentPage: page,
+      },
     };
   }
 }

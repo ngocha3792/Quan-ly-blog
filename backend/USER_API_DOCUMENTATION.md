@@ -151,25 +151,27 @@ curl -X GET "http://localhost:8080/api/v1/user/follow/followers?page=1&limit=10"
 **Response mẫu (200 OK):**
 ```json
 {
-  "total": 25,
-  "page": 1,
-  "take": 10,
-  "data": [
+  "items": [
     {
       "id": 102,
       "username": "backend_dev",
       "bio": "Senior Node.js Developer",
-      "avatarUrl": "https://res.cloudinary.com/demo/image/upload/v1/avatar_dev.jpg",
-      "createdAt": "2026-07-20T08:30:00.000Z"
+      "avatarUrl": "https://res.cloudinary.com/demo/image/upload/v1/avatar_dev.jpg"
     },
     {
       "id": 88,
       "username": "frontend_master",
       "bio": "React & Angular enthusiast",
-      "avatarUrl": null,
-      "createdAt": "2026-07-22T14:15:00.000Z"
+      "avatarUrl": null
     }
-  ]
+  ],
+  "meta": {
+    "totalItems": 25,
+    "itemCount": 2,
+    "itemsPerPage": 10,
+    "totalPages": 3,
+    "currentPage": 1
+  }
 }
 ```
 
@@ -260,10 +262,7 @@ curl -X GET "http://localhost:8080/api/v1/user/posts/bookmarks?page=1&limit=10" 
 **Response mẫu (200 OK):**
 ```json
 {
-  "total": 12,
-  "page": 1,
-  "take": 10,
-  "data": [
+  "items": [
     {
       "id": 501,
       "title": "Hướng dẫn tối ưu NestJS với Prisma & PostgreSQL",
@@ -307,7 +306,14 @@ curl -X GET "http://localhost:8080/api/v1/user/posts/bookmarks?page=1&limit=10" 
         }
       ]
     }
-  ]
+  ],
+  "meta": {
+    "totalItems": 12,
+    "itemCount": 1,
+    "itemsPerPage": 10,
+    "totalPages": 2,
+    "currentPage": 1
+  }
 }
 ```
 
@@ -550,10 +556,7 @@ curl -X GET "http://localhost:8080/api/v1/user/blog-owner-requests?page=1&limit=
 **Response mẫu (200 OK):**
 ```json
 {
-  "total": 1,
-  "page": 1,
-  "take": 10,
-  "data": [
+  "items": [
     {
       "id": 3,
       "userId": 15,
@@ -565,7 +568,14 @@ curl -X GET "http://localhost:8080/api/v1/user/blog-owner-requests?page=1&limit=
       "createdAt": "2026-07-28T14:00:00.000Z",
       "updatedAt": "2026-07-28T14:00:00.000Z"
     }
-  ]
+  ],
+  "meta": {
+    "totalItems": 1,
+    "itemCount": 1,
+    "itemsPerPage": 10,
+    "totalPages": 1,
+    "currentPage": 1
+  }
 }
 ```
 

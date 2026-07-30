@@ -8,7 +8,7 @@ export default registerAs('app', () => ({
   port: parseInt(process.env.APP_PORT || process.env.PORT || '8080', 10),
 
   // Tiền tố cho toàn bộ API (VD: /api/v1)
-  apiPrefix: process.env.API_PREFIX || 'api',
+  apiPrefix: process.env.API_PREFIX || 'api/v1',
 
   // Domain của Frontend để cấu hình CORS (Chống lỗi chặn nguồn chéo)
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4200',

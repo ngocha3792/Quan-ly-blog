@@ -125,7 +125,6 @@ describe('UserFollowService', () => {
         },
       });
       expect(result).toEqual({
-        success: true,
         message: 'Đã bỏ follow thành công',
       });
     });
@@ -152,7 +151,7 @@ describe('UserFollowService', () => {
   });
 
   describe('getFollowers', () => {
-    it('should return paginated followers mapped to UserProfileEntity', async () => {
+    it('should return paginated followers mapped to UserFollowSummaryEntity', async () => {
       prisma.userFollow.count.mockResolvedValueOnce(1);
       prisma.userFollow.findMany.mockResolvedValueOnce([
         {
@@ -169,14 +168,14 @@ describe('UserFollowService', () => {
 
       expect(prisma.userFollow.count).toHaveBeenCalled();
       expect(prisma.userFollow.findMany).toHaveBeenCalled();
-      expect(result.total).toBe(1);
-      expect(result.data[0].id).toBe(2);
-      expect(result.data[0].username).toBe('follower1');
+      expect(result.meta.totalItems).toBe(1);
+      expect(result.items[0].id).toBe(2);
+      expect(result.items[0].username).toBe('follower1');
     });
   });
 
   describe('getFollowing', () => {
-    it('should return paginated following mapped to UserProfileEntity', async () => {
+    it('should return paginated following mapped to UserFollowSummaryEntity', async () => {
       prisma.userFollow.count.mockResolvedValueOnce(1);
       prisma.userFollow.findMany.mockResolvedValueOnce([
         {
@@ -193,9 +192,9 @@ describe('UserFollowService', () => {
 
       expect(prisma.userFollow.count).toHaveBeenCalled();
       expect(prisma.userFollow.findMany).toHaveBeenCalled();
-      expect(result.total).toBe(1);
-      expect(result.data[0].id).toBe(3);
-      expect(result.data[0].username).toBe('following1');
+      expect(result.meta.totalItems).toBe(1);
+      expect(result.items[0].id).toBe(3);
+      expect(result.items[0].username).toBe('following1');
     });
   });
 });
