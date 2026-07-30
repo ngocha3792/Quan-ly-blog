@@ -135,12 +135,12 @@ model PasswordResetToken {
 }
 
 model Language {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
+  id        Int     @id @default(autoincrement())
+  code      String  @unique
   name      String
   flag      String?
-  isDefault Boolean  @default(false) @map("is_default")
-  isActive  Boolean  @default(true) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default")
+  isActive  Boolean @default(true) @map("is_active")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

@@ -30,6 +30,7 @@ import {
 import type { JwtPayload, PaginationParams } from '@app/core';
 
 import {
+  AutoTranslateBlogownerPostDto,
   CreateBlogownerPostDto,
   GetBlogownerPostsDto,
   TranslateBlogownerPostDto,
@@ -78,14 +79,20 @@ export class BlogownerPostsController {
   }
 
   /**
-   * Tạo bài viết nháp.
-   *
-   * POST /api/v1/blog-owner/posts
-   *
-   * Backend luôn tự gán:
-   * status = DRAFT
-   * authorId = user đang đăng nhập
-   */
+ * Tạo bài viết.
+ *
+ * POST /api/v1/blog-owner/posts
+ * authorId = user đang đăng nhập
+ * 
+ * - submitForReview = false / undefined
+ *   -> DRAFT
+ *
+ * - submitForReview = true
+ *   -> PENDING_REVIEW sau khi tạo/upload hoàn tất
+ *
+ * Blog Owner không được PUBLISH trực tiếp.
+ */
+
   @Post()
   @UseInterceptors(
     FileFieldsInterceptor(
@@ -193,6 +200,30 @@ export class BlogownerPostsController {
   ) {
     return this.blogownerPostsService.submitForReview(Number(user.id), postId);
   }
+
+  /**
+ * Dịch tự động title + content bằng Google.
+ *
+ * Chỉ trả preview, chưa lưu translation.
+ *
+ * POST /api/v1/blog-owner/posts/:id/translate-preview
+ */
+@Post(':id/translate-preview')
+@HttpCode(HttpStatus.OK)
+translatePreview(
+  @CurrentUser() user: JwtPayload,
+  @Param('id', ParseIntPipe)
+  sourcePostId: number,
+  @Body()
+  dto: AutoTranslateBlogownerPostDto,
+) {
+  return this.blogownerPostsService.translatePreview(
+    Number(user.id),
+    sourcePostId,
+    dto,
+  );
+}
+
 
   /**
    * Tạo bản dịch của bài viết.

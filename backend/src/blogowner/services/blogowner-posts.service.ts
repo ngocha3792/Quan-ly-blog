@@ -16,6 +16,7 @@ import {
 } from '@app/core';
 
 import {
+  AutoTranslateBlogownerPostDto,
   CreateBlogownerPostDto,
   GetBlogownerPostsDto,
   TranslateBlogownerPostDto,
@@ -26,7 +27,7 @@ import {
   BlogownerPostHelperService,
   RESET_REVIEW_DATA,
 } from './blogowner-post-helper.service';
-
+import { TranslationService } from './translation.service';
 const LANGUAGE_SELECT = {
   id: true,
   code: true,
@@ -99,6 +100,7 @@ export class BlogownerPostsService {
     private readonly prisma: PrismaService,
     private readonly postsService: PostsService,
     private readonly helper: BlogownerPostHelperService,
+    private readonly translationService : TranslationService,
   ) { }
 
   /**
@@ -207,8 +209,19 @@ export class BlogownerPostsService {
   /**
    * Tạo bài viết mới.
    *
-   * Blog Owner không được tự chọn trạng thái.
-   * Mọi bài mới luôn được tạo dưới dạng DRAFT.
+   * Blog Owner không được tự gửi status trực tiếp.
+   *
+   * Quy tắc:
+   * - submitForReview = false / undefined:
+   *   tạo bài và giữ trạng thái DRAFT.
+   *
+   * - submitForReview = true:
+   *   backend vẫn tạo DRAFT trước,
+   *   hoàn tất thumbnail/media,
+   *   sau đó mới chuyển sang PENDING_REVIEW.
+   *
+   * Làm như vậy để Moderator không nhìn thấy một bài
+   * đang PENDING_REVIEW trong khi upload file còn chưa hoàn tất.
    */
   async create(
     ownerId: number,
@@ -216,27 +229,77 @@ export class BlogownerPostsService {
     thumbnailFile?: Express.Multer.File,
     mediaFiles?: Express.Multer.File[],
   ): Promise<BlogownerPostEntity> {
+    /**
+     * submitForReview chỉ là business flag của Blog Owner,
+     * không phải field của Post trong database.
+     *
+     * Vì vậy phải tách nó ra trước khi truyền DTO
+     * xuống PostsService.
+     */
+    const {
+      submitForReview = false,
+      ...createPostData
+    } = dto;
+
+    /**
+     * Bất kể Owner chọn lưu nháp hay gửi duyệt ngay,
+     * Post luôn được tạo dưới dạng DRAFT trước.
+     */
     const createdPost = await this.postsService.create(ownerId, {
-      ...dto,
+      ...createPostData,
       status: PostStatus.DRAFT,
     });
 
+    /**
+     * Upload thumbnail trước.
+     */
     if (thumbnailFile) {
       const uploadedResult = await this.helper.uploadThumbnail(
         createdPost.id,
         thumbnailFile,
       );
+
       await this.prisma.post.update({
-        where: { id: createdPost.id },
+        where: {
+          id: createdPost.id,
+        },
         data: {
           thumbnailUrl: uploadedResult.secure_url,
         },
       });
     }
 
-    await this.helper.uploadMediaFiles(createdPost.id, mediaFiles);
+    /**
+     * Upload toàn bộ media trước khi gửi Moderator duyệt.
+     */
+    await this.helper.uploadMediaFiles(
+      createdPost.id,
+      mediaFiles,
+    );
 
-    return this.findOne(ownerId, createdPost.id);
+    /**
+     * Nếu Owner xác nhận bài đã hoàn chỉnh,
+     * chuyển sang PENDING_REVIEW sau khi
+     * toàn bộ quá trình tạo/upload đã hoàn tất.
+     *
+     * Blog Owner không được chuyển thẳng sang PUBLISH.
+     */
+    if (submitForReview) {
+      await this.prisma.post.update({
+        where: {
+          id: createdPost.id,
+        },
+        data: {
+          status: PostStatus.PENDING_REVIEW,
+          ...RESET_REVIEW_DATA,
+        },
+      });
+    }
+
+    return this.findOne(
+      ownerId,
+      createdPost.id,
+    );
   }
 
   /**
@@ -381,6 +444,226 @@ export class BlogownerPostsService {
    * - tag được sao chép từ bài nguồn;
    * - bài dịch mới luôn là DRAFT.
    */
+
+  /**
+ * Dịch tự động title + content bằng Google Translation.
+ *
+ * API này chỉ trả preview:
+ * - không tạo Post;
+ * - không update Post;
+ * - không thay đổi status.
+ */
+async translatePreview(
+  ownerId: number,
+  sourcePostId: number,
+  dto: AutoTranslateBlogownerPostDto,
+) {
+  /**
+   * Lấy bài nguồn cùng language và CategoryGroup.
+   */
+  const sourcePost =
+    await this.prisma.post.findFirst({
+      where: {
+        id: sourcePostId,
+        deletedAt: null,
+      },
+
+      select: {
+        id: true,
+        authorId: true,
+        parentPostId: true,
+
+        title: true,
+        content: true,
+        thumbnailUrl: true,
+
+        language: {
+          select: LANGUAGE_SELECT,
+        },
+
+        postCategories: {
+          select: {
+            category: {
+              select: {
+                categoryGroupId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+  if (!sourcePost) {
+    throw new BadRequestException(
+      `Không tìm thấy bài viết nguồn có ID ${sourcePostId}.`,
+    );
+  }
+
+  if (sourcePost.authorId !== ownerId) {
+    throw new NotPostOwnerException();
+  }
+
+  /**
+   * Ngôn ngữ đích phải đang hoạt động.
+   */
+  const targetLanguage =
+    await this.prisma.language.findFirst({
+      where: {
+        id: dto.targetLanguageId,
+        deletedAt: null,
+      },
+
+      select: LANGUAGE_SELECT,
+    });
+
+  if (!targetLanguage) {
+    throw new BadRequestException(
+      `Không tìm thấy ngôn ngữ đích có ID ${dto.targetLanguageId}.`,
+    );
+  }
+
+  const rootPostId =
+    sourcePost.parentPostId ??
+    sourcePost.id;
+
+  /**
+   * Không tốn tiền gọi Google nếu translation
+   * cho language này đã tồn tại.
+   */
+  const existingTranslation =
+    await this.prisma.post.findFirst({
+      where: {
+        languageId:
+          dto.targetLanguageId,
+
+        deletedAt: null,
+
+        OR: [
+          {
+            id: rootPostId,
+          },
+          {
+            parentPostId: rootPostId,
+          },
+        ],
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  if (existingTranslation) {
+    throw new ConflictException(
+      'Bài viết đã có phiên bản cho ngôn ngữ được chọn.',
+    );
+  }
+
+  /**
+   * Kiểm tra trước CategoryGroup có category
+   * của language đích không.
+   *
+   * Nếu không có thì translate xong cũng
+   * không thể lưu translation.
+   */
+  const categoryGroupIds = Array.from(
+    new Set(
+      sourcePost.postCategories.map(
+        (postCategory) =>
+          postCategory.category
+            .categoryGroupId,
+      ),
+    ),
+  );
+
+  if (categoryGroupIds.length === 0) {
+    throw new BadRequestException(
+      'Bài viết nguồn chưa có danh mục.',
+    );
+  }
+
+  const translatedCategories =
+    await this.prisma.category.findMany({
+      where: {
+        categoryGroupId: {
+          in: categoryGroupIds,
+        },
+
+        languageId:
+          dto.targetLanguageId,
+
+        deletedAt: null,
+
+        categoryGroup: {
+          deletedAt: null,
+        },
+      },
+
+      select: {
+        categoryGroupId: true,
+      },
+    });
+
+  const translatedCategoryGroupIds =
+    new Set(
+      translatedCategories.map(
+        (category) =>
+          category.categoryGroupId,
+      ),
+    );
+
+  if (
+    translatedCategoryGroupIds.size !==
+    categoryGroupIds.length
+  ) {
+    throw new BadRequestException(
+      'Một hoặc nhiều danh mục chưa có bản dịch trong ngôn ngữ được chọn.',
+    );
+  }
+
+  /**
+   * Chỉ sau khi validation hoàn tất mới gọi Google,
+   * tránh tốn quota/API cost vô ích.
+   */
+  const translated = await this.translationService.translatePost({
+      title: sourcePost.title,
+      content: sourcePost.content,
+
+      sourceLanguageCode:
+        sourcePost.language.code,
+
+      targetLanguageCode:
+        targetLanguage.code,
+    });
+
+  /**
+   * Chỉ trả preview.
+   * Không ghi DB ở đây.
+   */
+  return {
+    sourcePost: {
+      id: sourcePost.id,
+      rootPostId,
+
+      title: sourcePost.title,
+      content: sourcePost.content,
+
+      thumbnailUrl:
+        sourcePost.thumbnailUrl,
+
+      language:
+        sourcePost.language,
+    },
+
+    translation: {
+      language: targetLanguage,
+
+      title: translated.title,
+      content: translated.content,
+    },
+  };
+}
+
   async translate(
     ownerId: number,
     sourcePostId: number,
@@ -580,6 +863,3 @@ export class BlogownerPostsService {
     return this.findOne(ownerId, translatedPost.id);
   }
 }
-
-
-
