@@ -17,7 +17,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private jwtUtil: JWTUtil,
-  ) {}
+  ) { }
 
   canActivate(context: ExecutionContext): boolean {
     // 1. Kiểm tra xem có gắn cờ @Public() không

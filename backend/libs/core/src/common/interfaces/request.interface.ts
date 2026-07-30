@@ -9,7 +9,7 @@ import { Request } from 'express';
 
 // Hình dáng của User sau khi được JwtAuthGuard giải mã
 export interface JwtPayload {
-  id: string;
+  id: number | string;
   role: string;
   email: string;
 }

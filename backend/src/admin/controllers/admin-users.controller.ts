@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Body,
   Patch,
   Param,
@@ -11,26 +12,30 @@ import {
   ClassSerializerInterceptor,
   UseGuards,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { UserRole, type User } from '@prisma/client';
 
 import {
   UsersService,
   UpdateUserDto,
   GetUsersDto,
-  UserEntity,
+  Pagination,
+  Roles,
+  CurrentUser,
+  JwtAuthGuard,
+  RolesGuard,
 } from '@app/core';
-import { UserNotFoundException } from '@app/core';
-
-import { Pagination, Roles } from '@app/core';
 import type { PaginationParams } from '@app/core';
+import { AdminUsersService } from '../services/admin-users.service';
+import { CreateModeratorDto, LockUserDto, ChangeUserRoleDto } from '../dto';
 
-import { JwtAuthGuard, RolesGuard } from '@app/core';
-
-@Controller('/users')
+@Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class AdminUsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly adminUsersService: AdminUsersService,
+    private readonly usersService: UsersService,
+  ) { }
 
   @Roles(UserRole.SUPER_ADMIN)
   @Get()
@@ -38,15 +43,19 @@ export class AdminUsersController {
     @Query() getUsersDto: GetUsersDto,
     @Pagination() paginationParams: PaginationParams,
   ) {
-    return this.usersService.findAll(getUsersDto, paginationParams);
+    return this.adminUsersService.findAll(getUsersDto, paginationParams);
+  }
+
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post('/moderators')
+  createModerator(@Body() createModeratorDto: CreateModeratorDto) {
+    return this.adminUsersService.createModerator(createModeratorDto);
   }
 
   @Roles(UserRole.SUPER_ADMIN)
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    const user = await this.usersService.findById(id);
-    if (!user) throw new UserNotFoundException(id.toString());
-    return new UserEntity(user);
+    return this.adminUsersService.findOne(id);
   }
 
   @Roles(UserRole.SUPER_ADMIN)
@@ -56,6 +65,31 @@ export class AdminUsersController {
     @Body() updateUserDto: UpdateUserDto,
   ) {
     return this.usersService.update(id, updateUserDto);
+  }
+
+  @Roles(UserRole.SUPER_ADMIN)
+  @Patch(':id/lock')
+  lockUser(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() adminUser: User,
+    @Body() lockUserDto: LockUserDto,
+  ) {
+    return this.adminUsersService.lockUser(id, adminUser.id, lockUserDto);
+  }
+
+  @Roles(UserRole.SUPER_ADMIN)
+  @Patch(':id/unlock')
+  unlockUser(@Param('id', ParseIntPipe) id: number) {
+    return this.adminUsersService.unlockUser(id);
+  }
+
+  @Roles(UserRole.SUPER_ADMIN)
+  @Patch(':id/role')
+  changeRole(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() changeUserRoleDto: ChangeUserRoleDto,
+  ) {
+    return this.adminUsersService.changeRole(id, changeUserRoleDto);
   }
 
   @Roles(UserRole.SUPER_ADMIN)

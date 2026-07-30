@@ -13,8 +13,6 @@ import {
 import { UserRole } from '@prisma/client';
 
 import {
-  CommentsService,
-  CreateCommentDto,
   CurrentUser,
   JwtAuthGuard,
   Roles,
@@ -24,13 +22,14 @@ import {
 import type { JwtPayload } from '@app/core';
 
 import { CreateUserCommentDto } from '../dto';
+import { UserCommentsService } from '../services/user-comments.service';
 
 @Controller('user')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.NORMAL, UserRole.BLOG_OWNER)
 @UseInterceptors(ClassSerializerInterceptor)
 export class UserCommentsController {
-  constructor(private readonly commentsService: CommentsService) {}
+  constructor(private readonly userCommentsService: UserCommentsService) {}
 
   /**
    * Tạo comment gốc hoặc reply.
@@ -43,14 +42,10 @@ export class UserCommentsController {
     @Param('postId', ParseIntPipe) postId: number,
     @Body() dto: CreateUserCommentDto,
   ) {
-    const createCommentDto: CreateCommentDto = {
-      ...dto,
-      postId,
-    };
-
-    return this.commentsService.create(
+    return this.userCommentsService.create(
       Number(user.id),
-      createCommentDto,
+      postId,
+      dto,
     );
   }
 
@@ -65,7 +60,7 @@ export class UserCommentsController {
     @Param('commentId', ParseIntPipe) commentId: number,
     @Body() dto: UpdateCommentDto,
   ) {
-    return this.commentsService.update(
+    return this.userCommentsService.update(
       commentId,
       Number(user.id),
       dto,
@@ -82,7 +77,7 @@ export class UserCommentsController {
     @CurrentUser() user: JwtPayload,
     @Param('commentId', ParseIntPipe) commentId: number,
   ) {
-    return this.commentsService.remove(
+    return this.userCommentsService.remove(
       commentId,
       Number(user.id),
     );

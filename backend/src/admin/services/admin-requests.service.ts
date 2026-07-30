@@ -1,8 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import { BlogOwnerRequestsService } from '@app/core/modules/blog-owner-requests/blog-owner-requests.service';
-import { UpdateBlogOwnerRequestDto } from '@app/core/modules/blog-owner-requests/dto';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  PrismaService,
+  BlogOwnerRequestsService,
+  PaginationParams,
+  PaginatedResult,
+  GetBlogOwnerRequestsDto,
+  BlogOwnerRequestEntity,
+} from '@app/core';
 import { BlogOwnerRequestStatus, UserRole } from '@prisma/client';
+import { ReviewBlogOwnerRequestDto } from '../dto';
 
 @Injectable()
 export class AdminRequestsService {
@@ -11,26 +17,46 @@ export class AdminRequestsService {
     private readonly blogOwnerRequestsService: BlogOwnerRequestsService,
   ) {}
 
-  async updateRequestStatus(
+  /**
+   * Lấy danh sách các yêu cầu trở thành Blog Owner.
+   */
+  async findAllRequests(
+    query: GetBlogOwnerRequestsDto,
+    paginationParams: PaginationParams,
+  ): Promise<PaginatedResult<BlogOwnerRequestEntity>> {
+    return this.blogOwnerRequestsService.findAll(query, paginationParams);
+  }
+
+  /**
+   * Duyệt hoặc Từ chối yêu cầu trở thành Blog Owner từ người dùng.
+   * Nếu duyệt (APPROVED), hệ thống sẽ tự động cập nhật vai trò của User thành BLOG_OWNER.
+   */
+  async reviewRequest(
     id: number,
     reviewerId: number,
-    updateDto: UpdateBlogOwnerRequestDto,
-  ) {
-    // Find the request first to check its current status
+    reviewDto: ReviewBlogOwnerRequestDto,
+  ): Promise<BlogOwnerRequestEntity> {
     const request = await this.blogOwnerRequestsService.findOne(id);
 
-    // Update the request using the core service
+    if (request.status !== BlogOwnerRequestStatus.PENDING) {
+      throw new BadRequestException(
+        `Yêu cầu này đã được xử lý trước đó với trạng thái "${request.status}".`,
+      );
+    }
+
+    const numericReviewerId = Number(reviewerId);
+
     const updatedRequest = await this.blogOwnerRequestsService.update(
       id,
-      reviewerId,
-      updateDto,
+      numericReviewerId,
+      {
+        status: reviewDto.status,
+        rejectionReason: reviewDto.rejectionReason,
+      },
     );
 
-    // Cập nhật Role của User thành BLOG_OWNER nếu yêu cầu được duyệt
-    if (
-      updateDto.status === BlogOwnerRequestStatus.APPROVED &&
-      request.status !== BlogOwnerRequestStatus.APPROVED
-    ) {
+    // Nếu duyệt yêu cầu -> Cập nhật role của User thành BLOG_OWNER
+    if (reviewDto.status === BlogOwnerRequestStatus.APPROVED) {
       await this.prisma.user.update({
         where: { id: request.userId },
         data: { role: UserRole.BLOG_OWNER },

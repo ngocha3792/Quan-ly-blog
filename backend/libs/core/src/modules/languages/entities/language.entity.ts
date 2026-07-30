@@ -6,6 +6,8 @@ export class LanguageEntity implements Language {
   code: string;
   name: string;
   flag: string | null;
+  isDefault: boolean;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 
