@@ -11,7 +11,7 @@
 | Cơ chế xác thực | JWT access token và refresh token theo session |
 | Cơ chế phân quyền | RBAC khớp role chính xác kết hợp điều kiện tài nguyên/trạng thái |
 | Base URL | `/api/v1` |
-| Ngày rà soát source | 31/07/2026 |
+| Ngày rà soát source | 30/07/2026 |
 | Tổng số role | 4 |
 | Tổng số nhóm API | 5 |
 | Tổng số endpoint | 83 |
