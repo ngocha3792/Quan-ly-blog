@@ -49,12 +49,27 @@ export class TagsService {
       where.name = { contains: search, mode: 'insensitive' };
     }
 
+    const sortField = query.sortBy;
+    const sortDirection: 'asc' | 'desc' =
+      (query.sortOrder || query.order || 'desc').toLowerCase() === 'asc'
+        ? 'asc'
+        : 'desc';
+
+    let orderBy: Prisma.TagOrderByWithRelationInput;
+    if (sortField === 'name') {
+      orderBy = { name: sortDirection };
+    } else if (sortField === 'posts' || sortField === 'postsCount') {
+      orderBy = { postTags: { _count: sortDirection } };
+    } else {
+      orderBy = { createdAt: sortDirection };
+    }
+
     const [tags, totalItems] = await Promise.all([
       this.prisma.tag.findMany({
         where,
         skip,
         take,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       }),
       this.prisma.tag.count({ where }),
     ]);

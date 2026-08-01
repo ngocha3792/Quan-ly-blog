@@ -21,8 +21,14 @@ export class PublicAuthorsController {
 
   @Public()
   @Get('top')
-  async getTopAuthors(@Query() query: GetTopQueryDto) {
-    return this.usersPublicService.getTopAuthors(query.limit);
+  async getTopAuthors(
+    @Query() query: GetTopQueryDto,
+    @LangCode() langCode: string | null,
+  ) {
+    return this.usersPublicService.getTopAuthors(
+      query.limit,
+      query.langCode ?? langCode,
+    );
   }
 
   @Public()

@@ -55,12 +55,27 @@ export class CategoriesService {
       where.languageId = languageId;
     }
 
+    const sortField = query.sortBy;
+    const sortDirection: 'asc' | 'desc' =
+      (query.sortOrder || query.order || 'desc').toLowerCase() === 'asc'
+        ? 'asc'
+        : 'desc';
+
+    let orderBy: Prisma.CategoryOrderByWithRelationInput;
+    if (sortField === 'name') {
+      orderBy = { name: sortDirection };
+    } else if (sortField === 'posts' || sortField === 'postsCount') {
+      orderBy = { postCategories: { _count: sortDirection } };
+    } else {
+      orderBy = { createdAt: sortDirection };
+    }
+
     const [categories, totalItems] = await Promise.all([
       this.prisma.category.findMany({
         where,
         skip,
         take,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include,
       }),
       this.prisma.category.count({ where }),

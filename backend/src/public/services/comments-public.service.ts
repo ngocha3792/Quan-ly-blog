@@ -3,6 +3,7 @@ import { PostStatus, Prisma } from '@prisma/client';
 
 import {
   CommentEntity,
+  GetCommentsDto,
   PostNotFoundException,
   PrismaService,
 } from '@app/core';
@@ -72,6 +73,7 @@ export class CommentsPublicService {
 
   async findAllByPost(
     postId: number,
+    query: GetCommentsDto,
     paginationParams: PaginationParams,
   ): Promise<PaginatedResult<CommentEntity>> {
     const { skip, take, page } = paginationParams;
@@ -106,14 +108,25 @@ export class CommentsPublicService {
       deletedAt: null,
     };
 
+    const sortField = query.sortBy;
+    const sortDirection: 'asc' | 'desc' =
+      (query.sortOrder || query.order || 'desc').toLowerCase() === 'asc'
+        ? 'asc'
+        : 'desc';
+
+    let orderBy: Prisma.CommentOrderByWithRelationInput;
+    if (sortField === 'updatedAt') {
+      orderBy = { updatedAt: sortDirection };
+    } else {
+      orderBy = { createdAt: sortDirection };
+    }
+
     const [comments, totalItems] = await Promise.all([
       this.prisma.comment.findMany({
         where,
         skip,
         take,
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy,
         select: PUBLIC_COMMENT_SELECT,
       }),
 

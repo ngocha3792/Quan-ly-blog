@@ -61,4 +61,16 @@ export class GetPostsDto {
   @IsInt()
   @Type(() => Number)
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'asc' | 'desc';
+
+  @IsOptional()
+  @IsString()
+  order?: 'asc' | 'desc';
 }

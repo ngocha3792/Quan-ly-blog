@@ -23,4 +23,16 @@ export class GetCategoriesDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'asc' | 'desc';
+
+  @IsOptional()
+  @IsString()
+  order?: 'asc' | 'desc';
 }

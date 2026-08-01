@@ -36,7 +36,10 @@ export class PublicPostsController {
     @Query() query: GetTopQueryDto,
     @LangCode() langCode: string | null,
   ) {
-    return this.postsPublicService.getTopPosts(query.limit, langCode);
+    return this.postsPublicService.getTopPosts(
+      query.limit,
+      query.langCode ?? langCode,
+    );
   }
 
   @Public()

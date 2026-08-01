@@ -65,10 +65,37 @@ export class PostsPublicService {
       }
     }
 
+    const sortField = query.sortBy;
+    const sortDirection: 'asc' | 'desc' =
+      (query.sortOrder || query.order || 'desc').toLowerCase() === 'asc'
+        ? 'asc'
+        : 'desc';
+
+    let orderBy:
+      | Prisma.PostOrderByWithRelationInput
+      | Prisma.PostOrderByWithRelationInput[];
+
+    if (
+      sortField === 'views' ||
+      sortField === 'viewCount' ||
+      sortField === 'viewsCount'
+    ) {
+      orderBy = { viewCount: sortDirection };
+    } else if (sortField === 'title') {
+      orderBy = { title: sortDirection };
+    } else if (sortField === 'publishedAt') {
+      orderBy = { publishedAt: sortDirection };
+    } else if (sortField === 'likes' || sortField === 'likesCount') {
+      orderBy = { postLikes: { _count: sortDirection } };
+    } else {
+      orderBy = { createdAt: sortDirection };
+    }
+
     const result = await this.postsService.findAll(
       query,
       paginationParams,
       PUBLIC_POST_INCLUDE,
+      orderBy,
     );
 
     return {

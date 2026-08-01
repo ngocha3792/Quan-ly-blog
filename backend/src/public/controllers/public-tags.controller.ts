@@ -22,7 +22,10 @@ export class PublicTagsController {
     @Query() query: GetTopQueryDto,
     @LangCode() langCode: string | null,
   ) {
-    return this.tagsPublicService.getTopTags(query.limit, langCode);
+    return this.tagsPublicService.getTopTags(
+      query.limit,
+      query.langCode ?? langCode,
+    );
   }
 
   @Public()

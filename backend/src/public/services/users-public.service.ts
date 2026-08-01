@@ -71,10 +71,37 @@ export class UsersPublicService {
     };
   }
 
-  async getTopAuthors(limit: number = 10) {
-    // Gom nhóm theo followingId và đếm số lượng người follow
+  async getTopAuthors(
+    limit: number = 10,
+    langCode: string | null = null,
+  ) {
+    let languageUserFilter: { posts: { some: { language: { code: string }; status: PostStatus; deletedAt: null } } } | {} = {};
+
+    if (langCode) {
+      languageUserFilter = {
+        posts: {
+          some: {
+            language: { code: langCode },
+            status: PostStatus.PUBLISH,
+            deletedAt: null,
+          },
+        },
+      };
+    }
+
+    const whereAuthorCondition = {
+      status: UserStatus.ACTIVE,
+      role: UserRole.BLOG_OWNER,
+      deletedAt: null,
+      ...languageUserFilter,
+    };
+
+    // Gom nhóm theo followingId và đếm số lượng người follow của các tác giả hợp lệ
     const topFollows = await this.prisma.userFollow.groupBy({
       by: ['followingId'],
+      where: {
+        following: whereAuthorCondition,
+      },
       _count: {
         followingId: true,
       },
@@ -86,15 +113,21 @@ export class UsersPublicService {
       take: limit,
     });
 
+    let topAuthors: {
+      id: number;
+      username: string;
+      avatarUrl: string | null;
+      bio: string | null;
+      followerCount: number;
+    }[] = [];
+
     if (topFollows.length > 0) {
       // Lấy thông tin user của các tác giả này
       const userIds = topFollows.map((f) => f.followingId);
       const users = await this.prisma.user.findMany({
         where: {
           id: { in: userIds },
-          status: UserStatus.ACTIVE,
-          role: UserRole.BLOG_OWNER,
-          deletedAt: null,
+          ...whereAuthorCondition,
         },
         select: {
           id: true,
@@ -105,7 +138,7 @@ export class UsersPublicService {
       });
 
       // Map kết quả đếm và thông tin user, giữ nguyên thứ tự của topFollows
-      const topAuthors = topFollows
+      topAuthors = topFollows
         .map((f) => {
           const user = users.find((u) => u.id === f.followingId);
           if (!user) return null;
@@ -118,38 +151,44 @@ export class UsersPublicService {
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null);
-
-      if (topAuthors.length > 0) {
-        return topAuthors;
-      }
     }
 
-    // Khi không có tác giả nào có lượt follow, lấy danh sách tác giả active mặc định
-    const fallbackUsers = await this.prisma.user.findMany({
-      where: {
-        status: UserStatus.ACTIVE,
-        role: UserRole.BLOG_OWNER,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        username: true,
-        avatarUrl: true,
-        bio: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
-    });
+    // Nếu đã có đủ tác giả theo limit thì trả về ngay
+    if (topAuthors.length >= limit) {
+      return topAuthors;
+    }
 
-    return fallbackUsers.map((user) => ({
+    // Ngược lại, nếu chưa đủ limit, bù thêm các tác giả active khác
+    const existingIds = topAuthors.map((a) => a.id);
+    const needed = limit - topAuthors.length;
+
+    const fallbackUsers =
+      (await this.prisma.user.findMany({
+        where: {
+          ...whereAuthorCondition,
+          ...(existingIds.length > 0 ? { id: { notIn: existingIds } } : {}),
+        },
+        select: {
+          id: true,
+          username: true,
+          avatarUrl: true,
+          bio: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: needed,
+      })) ?? [];
+
+    const fallbackAuthors = fallbackUsers.map((user) => ({
       id: user.id,
       username: user.username,
       avatarUrl: user.avatarUrl,
       bio: user.bio,
       followerCount: 0,
     }));
+
+    return [...topAuthors, ...fallbackAuthors];
   }
 }
 

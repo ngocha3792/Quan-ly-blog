@@ -67,6 +67,13 @@ describe('UsersPublicService', () => {
 
       expect(prisma.userFollow.groupBy).toHaveBeenCalledWith({
         by: ['followingId'],
+        where: {
+          following: {
+            status: UserStatus.ACTIVE,
+            role: UserRole.BLOG_OWNER,
+            deletedAt: null,
+          },
+        },
         _count: { followingId: true },
         orderBy: { _count: { followingId: 'desc' } },
         take: 5,
@@ -110,7 +117,7 @@ describe('UsersPublicService', () => {
         { id: 2, username: 'author2', avatarUrl: 'url2', bio: 'bio2' },
       ]);
 
-      const result = await service.getTopAuthors(10);
+      const result = await service.getTopAuthors(2);
 
       expect(prisma.user.findMany).toHaveBeenCalledWith({
         where: {
@@ -141,6 +148,40 @@ describe('UsersPublicService', () => {
           avatarUrl: 'url2',
           bio: 'bio2',
           followerCount: 30,
+        },
+      ]);
+    });
+
+    it('should complement with fallback authors if top authors count is less than limit', async () => {
+      prisma.userFollow.groupBy.mockResolvedValueOnce([
+        { followingId: 1, _count: { followingId: 50 } },
+      ]);
+
+      // First call for top authors
+      prisma.user.findMany.mockResolvedValueOnce([
+        { id: 1, username: 'author1', avatarUrl: 'url1', bio: 'bio1' },
+      ]);
+      // Second call for fallback complement
+      prisma.user.findMany.mockResolvedValueOnce([
+        { id: 2, username: 'author2', avatarUrl: 'url2', bio: 'bio2' },
+      ]);
+
+      const result = await service.getTopAuthors(2);
+
+      expect(result).toEqual([
+        {
+          id: 1,
+          username: 'author1',
+          avatarUrl: 'url1',
+          bio: 'bio1',
+          followerCount: 50,
+        },
+        {
+          id: 2,
+          username: 'author2',
+          avatarUrl: 'url2',
+          bio: 'bio2',
+          followerCount: 0,
         },
       ]);
     });

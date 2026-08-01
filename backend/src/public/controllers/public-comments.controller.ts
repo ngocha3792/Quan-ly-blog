@@ -4,10 +4,11 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Query,
   UseInterceptors,
 } from '@nestjs/common';
 
-import { Public } from '@app/core';
+import { Public, GetCommentsDto } from '@app/core';
 import type { PaginationParams } from '@app/core';
 import { Pagination } from '@app/core/common/decorators';
 
@@ -29,10 +30,12 @@ export class PublicCommentsController {
   @Get()
   findAllByPost(
     @Param('postId', ParseIntPipe) postId: number,
+    @Query() query: GetCommentsDto,
     @Pagination() paginationParams: PaginationParams,
   ) {
     return this.commentsPublicService.findAllByPost(
       postId,
+      query,
       paginationParams,
     );
   }

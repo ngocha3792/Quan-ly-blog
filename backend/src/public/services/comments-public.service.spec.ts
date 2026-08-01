@@ -50,7 +50,7 @@ describe('CommentsPublicService', () => {
     mockPrismaService.post.findFirst.mockResolvedValueOnce(null);
 
     await expect(
-      service.findAllByPost(999, {
+      service.findAllByPost(999, {}, {
         skip: 0,
         take: 10,
         page: 1,
@@ -109,7 +109,7 @@ describe('CommentsPublicService', () => {
 
     mockPrismaService.comment.count.mockResolvedValueOnce(1);
 
-    const result = await service.findAllByPost(1, {
+    const result = await service.findAllByPost(1, {}, {
       skip: 0,
       take: 10,
       page: 1,
@@ -169,7 +169,7 @@ describe('CommentsPublicService', () => {
     mockPrismaService.comment.findMany.mockResolvedValueOnce([]);
     mockPrismaService.comment.count.mockResolvedValueOnce(0);
 
-    const result = await service.findAllByPost(1, {
+    const result = await service.findAllByPost(1, {}, {
       skip: 0,
       take: 10,
       page: 1,
