@@ -67,10 +67,10 @@ Mọi request đi qua các thành phần sau:
 
 1. `LoggerMiddleware` ghi nhận request.
 2. `MaintenanceMiddleware` có thể chặn hệ thống trong chế độ bảo trì.
-3. `TrimPipe` cắt khoảng trắng đệ quy trong body.
-4. `ValidationPipe` chuyển kiểu và kiểm tra DTO.
-5. `JwtAuthGuard` xác thực access token nếu route không public.
-6. `RolesGuard` kiểm tra role nếu route khai báo `@Roles`.
+3.  `JwtAuthGuard` xác thực access token nếu route không public.
+4. `RolesGuard` kiểm tra role nếu route khai báo `@Roles`.
+5. `TrimPipe` cắt khoảng trắng đệ quy trong body.
+6. `ValidationPipe` chuyển kiểu và kiểm tra DTO.
 7. Controller gọi service theo actor.
 8. API service điều phối domain service trong `libs/core`.
 9. Prisma đọc hoặc ghi PostgreSQL.
