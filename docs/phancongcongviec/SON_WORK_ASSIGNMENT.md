@@ -1,30 +1,26 @@
 # PHÂN CHIA CÔNG VIỆC — SƠN
 
-> Phạm vi đã ghi nhận trong phiên bản hiện tại gồm module `src/blogowner`, các validation liên quan trong `libs/core` và ba nhóm chức năng chính của `src/moderator`: **Dashboard Moderator**, **Kiểm duyệt bài viết** và **Xử lý báo cáo**. Phần Moderator đã có source và tài liệu API; kết quả kiểm thử runtime sẽ tiếp tục được cập nhật theo từng luồng.
+> Phạm vi đã hoàn thành trong phiên bản hiện tại: `src/blogowner` và các phần validation liên quan trong `libs/core`. Phần `src/moderator` sẽ được bổ sung vào tài liệu sau khi hoàn thiện và kiểm thử.
 
 ## 1. Thông tin tài liệu
 
-| Thuộc tính                       | Nội dung                                                                                                 |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Thành viên                       | Sơn                                                                                                      |
-| Vai trò đề xuất                  | Backend Developer — Blog Owner & Content Moderator APIs                                                  |
-| Phạm vi đã ghi nhận              | Blog Owner API; Dashboard Moderator; kiểm duyệt bài viết; xử lý report bài viết/bình luận                |
-| Phạm vi Moderator hiện tại       | 9 endpoint thuộc ba nhóm: Dashboard, kiểm duyệt bài viết và xử lý báo cáo                                |
-| Ngoài phạm vi Moderator hiện tại | CRUD Category Group, Moderator options, notification, audit history và khôi phục target sau resolve      |
-| Công nghệ                        | NestJS 11, TypeScript, Prisma 7, PostgreSQL, Cloudinary, LibreTranslate                                  |
-| Ngày rà soát                     | 01/08/2026                                                                                               |
-| Căn cứ đánh giá                  | Source Blog Owner, source Moderator, unit test trong source, build, Postman và các tài liệu API hiện tại |
+| Thuộc tính | Nội dung |
+|---|---|
+| Thành viên | Sơn |
+| Vai trò đề xuất | Backend Developer — Blog Owner & Content Moderator APIs |
+| Phạm vi đã ghi nhận | Blog Owner API, quản lý bài viết/media, workflow kiểm duyệt phía tác giả, dịch đa ngôn ngữ |
+| Phạm vi sẽ bổ sung | Content Moderator API |
+| Công nghệ | NestJS 11, TypeScript, Prisma 7, PostgreSQL, Cloudinary, LibreTranslate |
+| Ngày rà soát | 01/08/2026 |
+| Căn cứ đánh giá | Source Blog Owner hiện tại, unit test, build và kiểm tra API đã xác nhận pass |
 
 ---
 
 ## 2. Tổng quan phần việc
 
-Phần việc của Sơn hiện được chia thành hai mảng backend chính:
+Đã xây dựng và hoàn thiện module **Blog Owner**, cung cấp **12 endpoint** cho tác giả quản lý toàn bộ vòng đời bài viết của chính mình: dashboard, danh sách lựa chọn, CRUD bài viết, gửi duyệt, quản lý media và tạo nội dung đa ngôn ngữ.
 
-1. **Blog Owner API:** 12 endpoint cho tác giả quản lý vòng đời bài viết, media, gửi duyệt và nội dung đa ngôn ngữ.
-2. **Content Moderator API:** 9 endpoint thuộc ba nhóm chức năng: Dashboard Moderator, kiểm duyệt bài viết và xử lý báo cáo.
-
-Ngoài controller/service trong `src/blogowner` và `src/moderator`, phần việc còn liên quan đến validation dùng chung trong `libs/core`, Prisma transaction, phân quyền theo JWT/role, soft-delete và tính nhất quán của workflow kiểm duyệt.
+Phần việc không chỉ triển khai controller/service riêng trong `src/blogowner`, mà còn bổ sung validation ở `libs/core/src/modules/posts` để bảo đảm mọi luồng tạo/cập nhật bài dùng chung đều tuân thủ tính toàn vẹn của language, category và tag.
 
 ### 2.1. Vai trò của phần việc trong kiến trúc
 
@@ -32,18 +28,12 @@ Ngoài controller/service trong `src/blogowner` và `src/moderator`, phần vi�
 flowchart LR
     CLIENT[Angular / Web Client]
 
-    subgraph BLOGOWNER[Blog Owner API do Sơn phụ trách]
-        BDASH[Dashboard]
+    subgraph BLOGOWNER[API do Sơn phụ trách]
+        DASHBOARD[Dashboard]
         OPTIONS[Post Options]
         POSTS[Post Lifecycle]
         MEDIA[Media Management]
         TRANSLATION[Translation Workflow]
-    end
-
-    subgraph MODERATOR[Content Moderator API do Sơn phụ trách]
-        MDASH[Dashboard Moderator]
-        REVIEW[Kiểm duyệt bài viết]
-        REPORTS[Xử lý báo cáo]
     end
 
     subgraph CORE[libs/core dùng chung]
@@ -54,28 +44,22 @@ flowchart LR
         PRISMA[PrismaService]
     end
 
+    MODERATOR[Content Moderator API\nBổ sung sau]
     DB[(PostgreSQL)]
     CLOUD[Cloudinary]
     LT[LibreTranslate]
 
     CLIENT --> BLOGOWNER
-    CLIENT --> MODERATOR
-
     BLOGOWNER --> AUTH
-    MODERATOR --> AUTH
-
     POSTS --> POSTCORE
     MEDIA --> MEDIACORE
     MEDIA --> STORAGE
     TRANSLATION --> LT
-
     BLOGOWNER --> PRISMA
-    MODERATOR --> PRISMA
-
     POSTCORE --> DB
     MEDIACORE --> DB
-    PRISMA --> DB
     STORAGE --> CLOUD
+    BLOGOWNER --> MODERATOR
 ```
 
 ---
@@ -86,14 +70,14 @@ flowchart LR
 
 Đã triển khai `BlogownerApiModule` với các controller/service chuyên biệt:
 
-| Thành phần                             | Trách nhiệm                                             |
-| -------------------------------------- | ------------------------------------------------------- |
-| `BlogownerDashboardController/Service` | Thống kê bài viết và tương tác của owner                |
-| `BlogownerOptionsController/Service`   | Cung cấp language/category/tag cho form                 |
-| `BlogownerPostsController/Service`     | Quản lý bài, gửi duyệt và bản dịch                      |
-| `BlogownerMediaController/Service`     | Thêm/xóa media của bài                                  |
-| `BlogownerPostHelperService`           | Ownership, state transition, upload/rollback dùng chung |
-| `TranslationService`                   | Adapter tích hợp LibreTranslate                         |
+| Thành phần | Trách nhiệm |
+|---|---|
+| `BlogownerDashboardController/Service` | Thống kê bài viết và tương tác của owner |
+| `BlogownerOptionsController/Service` | Cung cấp language/category/tag cho form |
+| `BlogownerPostsController/Service` | Quản lý bài, gửi duyệt và bản dịch |
+| `BlogownerMediaController/Service` | Thêm/xóa media của bài |
+| `BlogownerPostHelperService` | Ownership, state transition, upload/rollback dùng chung |
+| `TranslationService` | Adapter tích hợp LibreTranslate |
 
 Toàn bộ controller Blog Owner áp dụng:
 
@@ -150,15 +134,15 @@ Helper `findOwnedPost()` phân biệt rõ:
 
 Đã chuẩn hóa state transition phía Blog Owner:
 
-| Thao tác               | Trước            | Sau                                           |
-| ---------------------- | ---------------- | --------------------------------------------- |
-| Tạo nháp               | —                | `DRAFT`                                       |
-| Tạo và gửi duyệt ngay  | —                | Tạo `DRAFT`, upload xong mới `PENDING_REVIEW` |
-| Sửa bài nháp           | `DRAFT`          | `DRAFT`                                       |
-| Sửa bài bị từ chối     | `REJECT`         | `DRAFT`                                       |
-| Sửa bài đã xuất bản    | `PUBLISH`        | `PENDING_REVIEW`                              |
-| Sửa bài đang chờ duyệt | `PENDING_REVIEW` | Bị chặn                                       |
-| Submit                 | `DRAFT`          | `PENDING_REVIEW`                              |
+| Thao tác | Trước | Sau |
+|---|---|---|
+| Tạo nháp | — | `DRAFT` |
+| Tạo và gửi duyệt ngay | — | Tạo `DRAFT`, upload xong mới `PENDING_REVIEW` |
+| Sửa bài nháp | `DRAFT` | `DRAFT` |
+| Sửa bài bị từ chối | `REJECT` | `DRAFT` |
+| Sửa bài đã xuất bản | `PUBLISH` | `PENDING_REVIEW` |
+| Sửa bài đang chờ duyệt | `PENDING_REVIEW` | Bị chặn |
+| Submit | `DRAFT` | `PENDING_REVIEW` |
 
 Các bảo vệ đã bổ sung:
 
@@ -251,20 +235,20 @@ Quy tắc nhóm bản dịch:
 
 ## 4. Danh sách API Blog Owner đã triển khai
 
-| Mã  | Method | Endpoint                                          | Chức năng                      |
-| --- | ------ | ------------------------------------------------- | ------------------------------ |
-| B01 | GET    | `/api/v1/blog-owner/dashboard`                    | Dashboard của owner            |
-| B02 | GET    | `/api/v1/blog-owner/options`                      | Language/category/tag cho form |
-| B03 | GET    | `/api/v1/blog-owner/posts`                        | Danh sách bài của owner        |
-| B04 | GET    | `/api/v1/blog-owner/posts/:id`                    | Chi tiết bài và nhóm dịch      |
-| B05 | POST   | `/api/v1/blog-owner/posts`                        | Tạo bài                        |
-| B06 | PATCH  | `/api/v1/blog-owner/posts/:id`                    | Chỉnh sửa bài                  |
-| B07 | DELETE | `/api/v1/blog-owner/posts/:id`                    | Soft-delete bài                |
-| B08 | POST   | `/api/v1/blog-owner/posts/:id/submit`             | Gửi Moderator duyệt            |
-| B09 | POST   | `/api/v1/blog-owner/posts/:id/translate-preview`  | Preview dịch tự động           |
-| B10 | POST   | `/api/v1/blog-owner/posts/:id/translations`       | Tạo/restore bản dịch           |
-| B11 | POST   | `/api/v1/blog-owner/posts/:postId/media`          | Upload media                   |
-| B12 | DELETE | `/api/v1/blog-owner/posts/:postId/media/:mediaId` | Xóa media                      |
+| Mã | Method | Endpoint | Chức năng |
+|---|---|---|---|
+| B01 | GET | `/api/v1/blog-owner/dashboard` | Dashboard của owner |
+| B02 | GET | `/api/v1/blog-owner/options` | Language/category/tag cho form |
+| B03 | GET | `/api/v1/blog-owner/posts` | Danh sách bài của owner |
+| B04 | GET | `/api/v1/blog-owner/posts/:id` | Chi tiết bài và nhóm dịch |
+| B05 | POST | `/api/v1/blog-owner/posts` | Tạo bài |
+| B06 | PATCH | `/api/v1/blog-owner/posts/:id` | Chỉnh sửa bài |
+| B07 | DELETE | `/api/v1/blog-owner/posts/:id` | Soft-delete bài |
+| B08 | POST | `/api/v1/blog-owner/posts/:id/submit` | Gửi Moderator duyệt |
+| B09 | POST | `/api/v1/blog-owner/posts/:id/translate-preview` | Preview dịch tự động |
+| B10 | POST | `/api/v1/blog-owner/posts/:id/translations` | Tạo/restore bản dịch |
+| B11 | POST | `/api/v1/blog-owner/posts/:postId/media` | Upload media |
+| B12 | DELETE | `/api/v1/blog-owner/posts/:postId/media/:mediaId` | Xóa media |
 
 Chi tiết request/response được mô tả trong `BLOGOWNER_API_DOCUMENTATION.md`.
 
@@ -274,16 +258,16 @@ Chi tiết request/response được mô tả trong `BLOGOWNER_API_DOCUMENTATION
 
 Đã xây dựng hoặc bổ sung unit test cho:
 
-| File test                                           | Phạm vi                                                                 |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
-| `blogowner-api.module.spec.ts`                      | Module khởi tạo đúng dependency                                         |
-| `blogowner-dashboard.service.spec.ts`               | Thống kê, top post và dữ liệu 7 ngày                                    |
-| `blogowner-options.service.spec.ts`                 | Language/category/tag active và thứ tự default language                 |
-| `blogowner-post-helper.service.spec.ts`             | Ownership, state helper, rollback upload nhiều media                    |
-| `blogowner-posts.service.spec.ts`                   | Create/update/submit/translation/thumbnail rollback và state transition |
-| `blogowner-media.service.spec.ts`                   | Upload/xóa media theo từng trạng thái                                   |
-| `translation.service.spec.ts`                       | LibreTranslate success, normalize code và toàn bộ failure path          |
-| `libs/core/src/modules/posts/posts.service.spec.ts` | Validation language/category/tag dùng chung                             |
+| File test | Phạm vi |
+|---|---|
+| `blogowner-api.module.spec.ts` | Module khởi tạo đúng dependency |
+| `blogowner-dashboard.service.spec.ts` | Thống kê, top post và dữ liệu 7 ngày |
+| `blogowner-options.service.spec.ts` | Language/category/tag active và thứ tự default language |
+| `blogowner-post-helper.service.spec.ts` | Ownership, state helper, rollback upload nhiều media |
+| `blogowner-posts.service.spec.ts` | Create/update/submit/translation/thumbnail rollback và state transition |
+| `blogowner-media.service.spec.ts` | Upload/xóa media theo từng trạng thái |
+| `translation.service.spec.ts` | LibreTranslate success, normalize code và toàn bộ failure path |
+| `libs/core/src/modules/posts/posts.service.spec.ts` | Validation language/category/tag dùng chung |
 
 Các nhóm kiểm tra đã được xác nhận pass:
 
@@ -325,221 +309,34 @@ Bản dịch không sao chép category ID của bài nguồn. Backend tìm categ
 
 ## 7. Kết quả bàn giao Blog Owner
 
-| Hạng mục                  | Trạng thái                       |
-| ------------------------- | -------------------------------- |
-| Controller và phân quyền  | Hoàn thành                       |
-| Dashboard                 | Hoàn thành                       |
-| Post options              | Hoàn thành                       |
-| CRUD bài viết             | Hoàn thành                       |
-| Workflow gửi duyệt        | Hoàn thành                       |
-| Media/thumbnail           | Hoàn thành                       |
-| Bản dịch đa ngôn ngữ      | Hoàn thành                       |
-| LibreTranslate            | Hoàn thành                       |
-| Validation core liên quan | Hoàn thành                       |
-| Unit test và build        | Pass                             |
-| API documentation         | `BLOGOWNER_API_DOCUMENTATION.md` |
+| Hạng mục | Trạng thái |
+|---|---|
+| Controller và phân quyền | Hoàn thành |
+| Dashboard | Hoàn thành |
+| Post options | Hoàn thành |
+| CRUD bài viết | Hoàn thành |
+| Workflow gửi duyệt | Hoàn thành |
+| Media/thumbnail | Hoàn thành |
+| Bản dịch đa ngôn ngữ | Hoàn thành |
+| LibreTranslate | Hoàn thành |
+| Validation core liên quan | Hoàn thành |
+| Unit test và build | Pass |
+| API documentation | `BLOGOWNER_API_DOCUMENTATION.md` |
 
 **Kết luận:** phần backend **Blog Owner đã hoàn thành** theo phạm vi hiện tại.
 
 ---
 
-## 8. Công việc được phân trong `src/moderator`
+## 8. Phần Moderator sẽ bổ sung sau
 
-Phạm vi Moderator hiện tại của Sơn gồm đúng ba nhóm chức năng dưới đây. Các nhóm này sử dụng controller prefix `/api/v1/moderator` và yêu cầu access token có role `CONTENT_MODERATOR`.
+Phiên bản tài liệu này chưa ghi nhận công việc trong `src/moderator` để tránh mô tả trước khi code và test hoàn tất.
 
-### 8.1. Xây dựng module và bảo vệ phân quyền Moderator
+Sau khi hoàn thành Moderator, tài liệu sẽ được cập nhật thêm các nhóm dự kiến:
 
-Trách nhiệm chung:
-
-- Tổ chức controller, service, DTO và entity response riêng trong `src/moderator`.
-- Áp dụng `JwtAuthGuard`, `RolesGuard` và `@Roles(UserRole.CONTENT_MODERATOR)`.
-- Lấy Moderator hiện tại từ JWT để ghi `reviewedById`.
-- Dùng `ParseIntPipe` cho path ID và validation DTO cho query/body.
-- Không cho token `NORMAL`, `BLOG_OWNER` hoặc role khác truy cập endpoint Moderator.
-- Chuẩn hóa pagination với `page`, `limit`, `items` và `meta`.
-- Sử dụng soft-delete thay vì xóa vật lý đối với nội dung vi phạm.
-
-### 8.2. Dashboard Moderator
-
-Phụ trách endpoint:
-
-```http
-GET /api/v1/moderator/dashboard
-```
-
-Nội dung thực hiện:
-
-- Thống kê số bài `PENDING_REVIEW`.
-- Thống kê report bài viết và report bình luận đang `PENDING`.
-- Tính tổng report đang chờ.
-- Thống kê số Category Group đang hoạt động để phục vụ màn hình tổng quan.
-- Tính số bài và report đã xử lý trong ngày.
-- Thống kê report theo trạng thái.
-- Thống kê report theo nguyên nhân.
-- Trả biểu đồ report trong 7 ngày gần nhất theo lịch Việt Nam.
-- Luôn trả đủ 7 ngày, kể cả ngày không phát sinh report.
-- Bảo đảm các tổng hợp:
-  - `pendingReports = pendingPostReports + pendingCommentReports`;
-  - `processedToday = processedPostsToday + processedReportsToday`;
-  - `totalReports = postReports + commentReports` theo từng ngày.
-
-### 8.3. Kiểm duyệt bài viết
-
-Phụ trách bốn endpoint:
-
-| Mã  | Method | Endpoint                                  | Chức năng                              |
-| --- | ------ | ----------------------------------------- | -------------------------------------- |
-| M02 | GET    | `/api/v1/moderator/posts`                 | Lấy danh sách bài được phép kiểm duyệt |
-| M03 | GET    | `/api/v1/moderator/posts/:postId`         | Xem chi tiết bài                       |
-| M04 | POST   | `/api/v1/moderator/posts/:postId/approve` | Duyệt bài                              |
-| M05 | POST   | `/api/v1/moderator/posts/:postId/reject`  | Từ chối bài                            |
-
-Trách nhiệm nghiệp vụ:
-
-- Mặc định danh sách chỉ lấy bài `PENDING_REVIEW`.
-- Cho phép Moderator lọc các trạng thái `PENDING_REVIEW`, `PUBLISH` và `REJECT`.
-- Không cho Moderator xem bài `DRAFT`; API chi tiết trả `404` để che bài chưa gửi duyệt.
-- Hỗ trợ search, filter theo language, category, author, tag và pagination.
-- Với bài chờ duyệt, sắp xếp bài chờ lâu nhất trước.
-- Trả đủ author, language, category, tag và media để Moderator đánh giá nội dung.
-- Xem chi tiết không làm tăng `viewCount`.
-
-Luồng duyệt:
-
-```text
-PENDING_REVIEW -> PUBLISH
-```
-
-Khi approve:
-
-- ghi `reviewedById` bằng Moderator hiện tại;
-- ghi `reviewedAt`;
-- xóa `rejectionReason`;
-- đặt `publishedAt` khi xuất bản lần đầu;
-- giữ `publishedAt` cũ nếu bài từng được xuất bản rồi gửi duyệt lại.
-
-Luồng từ chối:
-
-```text
-PENDING_REVIEW -> REJECT
-```
-
-Khi reject:
-
-- bắt buộc `rejectionReason`;
-- trim nội dung và giới hạn tối đa 2000 ký tự;
-- ghi Moderator và thời gian xử lý;
-- giữ lý do từ chối để Blog Owner xem và chỉnh sửa bài.
-
-Bảo vệ đồng thời:
-
-- Chỉ cập nhật khi record vẫn còn `PENDING_REVIEW`.
-- Khi hai Moderator cùng xử lý một bài, Moderator xử lý sau nhận `409 Conflict`.
-- Không cho approve/reject lại bài đã được xử lý.
-
-### 8.4. Xử lý báo cáo bài viết và bình luận
-
-Phụ trách bốn endpoint:
-
-| Mã  | Method | Endpoint                                      | Chức năng            |
-| --- | ------ | --------------------------------------------- | -------------------- |
-| M06 | GET    | `/api/v1/moderator/reports`                   | Lấy danh sách report |
-| M07 | GET    | `/api/v1/moderator/reports/:reportId`         | Xem chi tiết report  |
-| M08 | POST   | `/api/v1/moderator/reports/:reportId/resolve` | Xác nhận report đúng |
-| M09 | POST   | `/api/v1/moderator/reports/:reportId/reject`  | Bác bỏ report        |
-
-Trách nhiệm nghiệp vụ:
-
-- Mặc định danh sách chỉ lấy report `PENDING`.
-- Lọc theo `targetType`, `status`, `reason`, `reporterId`, `postId`, `commentId`.
-- Trả ngữ cảnh của bài viết hoặc bình luận bị báo cáo.
-- Với report bình luận, trả cả bài chứa bình luận và bình luận cha khi có.
-- Trả `reviewedBy`, `reviewedAt` và `resolutionNote` cho report đã xử lý.
-
-Khi resolve report:
-
-```text
-PENDING -> RESOLVED
-```
-
-- Bắt buộc `resolutionNote`, trim và giới hạn tối đa 1000 ký tự.
-- Soft-delete bài viết nếu `targetType=POST`.
-- Soft-delete bình luận nếu `targetType=COMMENT`.
-- Chuyển các report `PENDING` khác cùng target sang `RESOLVED`.
-- Ghi cùng Moderator, thời gian và ghi chú xử lý.
-- Thực hiện trong transaction; nếu không soft-delete được target thì rollback toàn bộ.
-
-Khi reject report:
-
-```text
-PENDING -> REJECTED
-```
-
-- Ghi Moderator, thời gian và `resolutionNote`.
-- Không soft-delete bài viết hoặc bình luận.
-- Không tự động thay đổi các report khác cùng target.
-
-Bảo vệ đồng thời:
-
-- Chỉ report `PENDING` mới được xử lý.
-- Report đã `RESOLVED` hoặc `REJECTED` không được xử lý lần hai.
-- Target đã bị xóa/ẩn hoặc Moderator khác đã claim record trả `409 Conflict`.
-
-### 8.5. Danh sách API Moderator được phân công
-
-| Mã  | Nhóm chức năng      | Method | Endpoint                                      |
-| --- | ------------------- | ------ | --------------------------------------------- |
-| M01 | Dashboard Moderator | GET    | `/api/v1/moderator/dashboard`                 |
-| M02 | Kiểm duyệt bài viết | GET    | `/api/v1/moderator/posts`                     |
-| M03 | Kiểm duyệt bài viết | GET    | `/api/v1/moderator/posts/:postId`             |
-| M04 | Kiểm duyệt bài viết | POST   | `/api/v1/moderator/posts/:postId/approve`     |
-| M05 | Kiểm duyệt bài viết | POST   | `/api/v1/moderator/posts/:postId/reject`      |
-| M06 | Xử lý báo cáo       | GET    | `/api/v1/moderator/reports`                   |
-| M07 | Xử lý báo cáo       | GET    | `/api/v1/moderator/reports/:reportId`         |
-| M08 | Xử lý báo cáo       | POST   | `/api/v1/moderator/reports/:reportId/resolve` |
-| M09 | Xử lý báo cáo       | POST   | `/api/v1/moderator/reports/:reportId/reject`  |
-
-Chi tiết request, response, validation và luồng test được mô tả trong `MODERATOR_API_DOCUMENTATION.md`.
-
-### 8.6. Unit test và kiểm thử Moderator
-
-Trong source hiện có các nhóm test cho ba chức năng được phân công:
-
-| File test                                | Phạm vi                                          | Số test case trong source |
-| ---------------------------------------- | ------------------------------------------------ | ------------------------: |
-| `moderator-dashboard.controller.spec.ts` | Controller Dashboard                             |                         2 |
-| `moderator-dashboard.service.spec.ts`    | Logic Dashboard                                  |                         4 |
-| `moderator-posts.controller.spec.ts`     | Controller kiểm duyệt bài                        |                         5 |
-| `moderator-posts.service.spec.ts`        | Danh sách, chi tiết, approve/reject, concurrency |                        10 |
-| `moderator-reports.controller.spec.ts`   | Controller report                                |                         5 |
-| `moderator-reports.service.spec.ts`      | Danh sách, chi tiết, resolve/reject, transaction |                        10 |
-| **Tổng**                                 |                                                  |                    **36** |
-
-Lệnh kiểm tra:
-
-```powershell
-npm test -- src/moderator/controllers/moderator-dashboard.controller.spec.ts --runInBand
-npm test -- src/moderator/services/moderator-dashboard.service.spec.ts --runInBand
-npm test -- src/moderator/controllers/moderator-posts.controller.spec.ts --runInBand
-npm test -- src/moderator/services/moderator-posts.service.spec.ts --runInBand
-npm test -- src/moderator/controllers/moderator-reports.controller.spec.ts --runInBand
-npm test -- src/moderator/services/moderator-reports.service.spec.ts --runInBand
-npm run build
-```
-
-Trạng thái được ghi nhận tại thời điểm cập nhật:
-
-- Source của ba nhóm chức năng đã có.
-- Tài liệu `MODERATOR_API_DOCUMENTATION.md` đã được tạo.
-- Unit test đã có trong source nhưng cần chạy lại trên môi trường dự án để xác nhận kết quả cuối cùng.
-- Kiểm thử API thực tế bằng Postman đang được thực hiện theo từng luồng; không ghi nhận toàn bộ Moderator là hoàn thành trước khi các luồng được xác nhận pass.
-
-### 8.7. Phần không thuộc phân công Moderator hiện tại
-
-Các hạng mục sau không nằm trong phạm vi 9 endpoint của tài liệu Moderator hiện tại:
-
-- CRUD Category Group đa ngôn ngữ.
-- Endpoint Moderator options/languages riêng.
-- Gửi notification cho Blog Owner sau approve/reject.
-- Bảng audit lưu lịch sử kiểm duyệt nhiều lần.
-- Khôi phục bài viết hoặc bình luận sau khi resolve report.
+- Dashboard Moderator.
+- Options/ngôn ngữ phục vụ màn hình kiểm duyệt.
+- Category và Category Group.
+- Danh sách bài chờ duyệt, approve/reject và xử lý concurrency.
+- Report bài viết/bình luận.
+- Quy tắc soft-delete và kiểm tra bài active.
+- Unit test, Postman và tài liệu `MODERATOR_API_DOCUMENTATION.md`.

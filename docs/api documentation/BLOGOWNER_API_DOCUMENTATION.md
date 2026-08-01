@@ -444,21 +444,19 @@ Authorization: Bearer <ACCESS_TOKEN>
 
 #### Frontend phải gửi
 
-| Vị trí | Field          | Kiểu         | Bắt buộc | Backend xử lý                                                        |
-| ------ | -------------- | ------------ | -------- | -------------------------------------------------------------------- |
-| Query  | `search`       | string       | Không    | Tìm theo tiêu đề, không phân biệt hoa thường.                        |
-| Query  | `categoryId`   | integer      | Không    | Lọc bài có category này.                                             |
-| Query  | `languageId`   | integer      | Không    | Lọc theo ngôn ngữ.                                                   |
-| Query  | `parentPostId` | integer      | Không    | Lọc các bản dịch có parent cụ thể.                                   |
-| Query  | `status`       | `PostStatus` | Không    | Lọc theo trạng thái.                                                 |
-| Query  | `tagId`        | integer      | Không    | Lọc theo tag ID.                                                     |
-| Query  | `tagName`      | string       | Không    | Lọc theo tên tag; chỉ dùng khi không gửi `tagId`.                    |
-| Query  | `page`         | integer      | Không    | Mặc định 1.                                                          |
-| Query  | `limit`        | integer      | Không    | Mặc định 10; tối đa 50.                                              |
-| Query  | `lang`         | string       | Không    | DTO hiện chấp nhận nhưng truy vấn Blog Owner chưa áp dụng field này. |
-| Query  | `sortBy`       | string       | Không    | DTO hiện chấp nhận nhưng service vẫn cố định sort `updatedAt desc`.  |
-| Query  | `sortOrder`    | `asc`/`desc` | Không    | Chưa thay đổi sort cố định.                                          |
-| Query  | `order`        | `asc`/`desc` | Không    | Chưa thay đổi sort cố định.                                          |
+| Vị trí | Field          | Kiểu         | Bắt buộc | Backend xử lý                                     |
+| ------ | -------------- | ------------ | -------- | ------------------------------------------------- |
+| Query  | `search`       | string       | Không    | Tìm theo tiêu đề, không phân biệt hoa thường.     |
+| Query  | `categoryId`   | integer      | Không    | Lọc bài có category này.                          |
+| Query  | `languageId`   | integer      | Không    | Lọc theo ngôn ngữ.                                |
+| Query  | `parentPostId` | integer      | Không    | Lọc các bản dịch có parent cụ thể.                |
+| Query  | `status`       | `PostStatus` | Không    | Lọc theo trạng thái.                              |
+| Query  | `tagId`        | integer      | Không    | Lọc theo tag ID.                                  |
+| Query  | `tagName`      | string       | Không    | Lọc theo tên tag; chỉ dùng khi không gửi `tagId`. |
+| Query  | `page`         | integer      | Không    | Mặc định 1.                                       |
+| Query  | `limit`        | integer      | Không    | Mặc định 10; tối đa 50.                           |
+
+|
 
 `authorId` và `bookmarkedByUserId` không thuộc DTO Blog Owner; gửi hai field này sẽ trả `400`.
 
@@ -1098,6 +1096,7 @@ Content-Type: application/json
 - Nếu nhóm bài đã có phiên bản active của ngôn ngữ đích, trả `409 Conflict`.
 - Nếu một Category Group của bài nguồn chưa có category ở ngôn ngữ đích, trả `400`.
 - `title` và `content` được gửi trong cùng một batch với `format=html`.
+- LibreTranslate chạy trên máy cá nhân, Khi deploy có thể cài LibreTranslate trên VPS rồi đổi TRANSLATE_API_URL sang IP hoặc domain của server
 
 ### B10 — POST /api/v1/blog-owner/posts/:id/translations
 
