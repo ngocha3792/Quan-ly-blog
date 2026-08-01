@@ -56,6 +56,12 @@ const BLOGOWNER_POST_INCLUDE = {
     },
   },
 
+  _count: {
+    select: {
+      postLikes: true,
+    },
+  },
+
   language: true,
 
   postCategories: {

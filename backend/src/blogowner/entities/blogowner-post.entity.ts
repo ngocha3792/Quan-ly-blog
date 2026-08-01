@@ -1,13 +1,14 @@
 import { Exclude, Type } from 'class-transformer';
-import { MediaEntity, PostEntity } from '@app/core';
 import { PostStatus } from '@prisma/client';
+
+import {
+  MediaEntity,
+  PostEntity,
+} from '@app/core';
+
 /**
- * Entity trả dữ liệu riêng cho Blog Owner.
- *
- * Kế thừa PostEntity (đã mở sẵn mọi thứ) và bổ sung/ẩn:
- * - Tự động được xem reviewedAt và rejectionReason từ class cha.
- * - ẨN reviewedById và deletedAt.
- * - Trả danh sách media của bài viết.
+ * Thông tin tóm tắt của một phiên bản ngôn ngữ
+ * trong cùng nhóm bài viết.
  */
 export type BlogownerTranslationSummary = {
   id: number;
@@ -24,12 +25,40 @@ export type BlogownerTranslationSummary = {
     flag: string | null;
   };
 };
+
+type BlogownerPostCount = {
+  postLikes: number;
+};
+
+/**
+ * Entity trả dữ liệu riêng cho Blog Owner.
+ *
+ * Kế thừa PostEntity và bổ sung/ẩn:
+ * - được xem reviewedAt và rejectionReason;
+ * - ẩn reviewedById và deletedAt;
+ * - chuyển _count.postLikes thành likeCount;
+ * - đặt likeCount ngay sau viewCount trong JSON;
+ * - trả danh sách media;
+ * - trả các phiên bản ngôn ngữ cùng nhóm.
+ */
 export class BlogownerPostEntity extends PostEntity {
   @Exclude()
   declare reviewedById: number | null;
 
   @Exclude()
   declare deletedAt: Date | null;
+
+  /**
+   * Dữ liệu đếm quan hệ nội bộ do Prisma trả về.
+   * Chỉ dùng để tạo likeCount, không trả trực tiếp ra API.
+   */
+  @Exclude()
+  declare _count?: BlogownerPostCount;
+
+  /**
+   * Tổng lượt thích của bài viết.
+   */
+  likeCount!: number;
 
   @Type(() => MediaEntity)
   media?: MediaEntity[];
@@ -40,15 +69,74 @@ export class BlogownerPostEntity extends PostEntity {
    */
   translations?: BlogownerTranslationSummary[];
 
-  constructor(partial: Partial<BlogownerPostEntity>) {
-    super(partial);
+  constructor(
+    partial: Partial<BlogownerPostEntity>,
+  ) {
+    const {
+      _count,
+      likeCount: providedLikeCount,
 
-    if (partial.media) {
-      this.media = partial.media.map((item) =>
-        item instanceof MediaEntity ? item : new MediaEntity(item),
+      id,
+      title,
+      thumbnailUrl,
+      content,
+      status,
+      viewCount,
+
+      media,
+      translations,
+
+      ...remainingData
+    } = partial;
+
+    const likeCount =
+      providedLikeCount ??
+      _count?.postLikes ??
+      0;
+
+    /**
+     * Chủ động sắp xếp property trước khi PostEntity
+     * gọi Object.assign().
+     *
+     * Nhờ vậy JSON trả về có thứ tự:
+     * status -> viewCount -> likeCount -> publishedAt.
+     */
+    const orderedPartial: Partial<BlogownerPostEntity> = {
+      id,
+      title,
+      thumbnailUrl,
+      content,
+      status,
+      viewCount,
+      likeCount,
+
+      ...remainingData,
+
+      media,
+      translations,
+    };
+
+    super(orderedPartial);
+
+    /**
+     * Với cấu hình class fields của TypeScript,
+     * property của class con có thể được khởi tạo lại
+     * sau khi super() hoàn tất.
+     *
+     * Gán lại để bảo đảm giá trị luôn chính xác,
+     * nhưng không làm thay đổi vị trí property.
+     */
+    this.likeCount = likeCount;
+
+    if (media) {
+      this.media = media.map(
+        (item) =>
+          item instanceof MediaEntity
+            ? item
+            : new MediaEntity(item),
       );
     }
 
-    this.translations = partial.translations;
+    this.translations = translations;
   }
 }
