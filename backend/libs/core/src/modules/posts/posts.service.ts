@@ -16,10 +16,9 @@ export class PostsService {
   async create(authorId: number, createPostDto: CreatePostDto) {
     const { categoryIds, tagIds, tagNames, ...postData } = createPostDto;
 
-    const finalCategoryIds = await this.validateCategories(
-      categoryIds,
-      postData.languageId,
-    );
+    await this.validateLanguage(postData.languageId,);
+
+    const finalCategoryIds = await this.validateCategories(categoryIds,postData.languageId,);
 
     const finalTagIds = await this.resolveTags(tagIds, tagNames);
 
@@ -209,6 +208,8 @@ export class PostsService {
 
     const { categoryIds, tagIds, tagNames, ...postData } = updatePostDto;
 
+    if (postData.languageId !== undefined) {await this.validateLanguage(postData.languageId,);}
+
     if (postData.languageId !== undefined && categoryIds === undefined) {
       throw new BadRequestException(
         'Khi đổi ngôn ngữ bài viết, bạn phải gửi lại categoryIds phù hợp với ngôn ngữ mới.',
@@ -300,6 +301,29 @@ export class PostsService {
     return new PostEntity(restoredPost);
   }
 
+  private async validateLanguage(
+  languageId: number,
+): Promise<void> {
+  const language =
+    await this.prisma.language.findFirst({
+      where: {
+        id: languageId,
+        deletedAt: null,
+        isActive: true,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  if (!language) {
+    throw new BadRequestException(
+      'Ngôn ngữ không tồn tại, đã bị xóa hoặc đang bị vô hiệu hóa.',
+    );
+  }
+}
+
   private async validateCategories(
     categoryIds: number[],
     languageId: number,
@@ -310,75 +334,181 @@ export class PostsService {
       throw new BadRequestException('Bài viết phải có ít nhất một danh mục.');
     }
 
-    const categories = await this.prisma.category.findMany({
-      where: {
-        id: {
-          in: uniqueCategoryIds,
-        },
-        languageId,
+    const categories =
+  await this.prisma.category.findMany({
+    where: {
+      id: {
+        in: uniqueCategoryIds,
+      },
+
+      languageId,
+      deletedAt: null,
+
+      language: {
+        deletedAt: null,
+        isActive: true,
+      },
+
+      categoryGroup: {
         deletedAt: null,
       },
-      select: {
-        id: true,
-      },
-    });
+    },
+
+    select: {
+      id: true,
+    },
+  });
 
     if (categories.length !== uniqueCategoryIds.length) {
-      throw new BadRequestException(
-        'Có danh mục không tồn tại, đã bị xóa hoặc không cùng ngôn ngữ với bài viết.',
-      );
+      throw new BadRequestException('Có danh mục không tồn tại, đã bị xóa, thuộc nhóm đã bị xóa hoặc không cùng ngôn ngữ với bài viết.');
     }
 
     return uniqueCategoryIds;
   }
 
   private async resolveTags(
-    tagIds?: number[],
-    tagNames?: string[],
-  ): Promise<number[]> {
-    const resolvedTagIds = new Set<number>(tagIds ?? []);
+  tagIds?: number[],
+  tagNames?: string[],
+): Promise<number[]> {
+  const resolvedTagIds = new Set<number>();
 
-    if (tagNames && tagNames.length > 0) {
-      const normalizedNames = Array.from(
-        new Set(
-          tagNames.map((name) => name.trim()).filter((name) => name.length > 0),
-        ),
+  /**
+   * Validate các tag ID mà client gửi lên.
+   */
+  const uniqueTagIds = Array.from(
+    new Set(tagIds ?? []),
+  );
+
+  if (uniqueTagIds.length > 0) {
+    const activeTagsById =
+      await this.prisma.tag.findMany({
+        where: {
+          id: {
+            in: uniqueTagIds,
+          },
+
+          deletedAt: null,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    /**
+     * Nếu số tag tìm được khác số ID đã gửi,
+     * có ít nhất một tag không tồn tại hoặc đã bị xóa.
+     */
+    if (
+      activeTagsById.length !== uniqueTagIds.length
+    ) {
+      throw new BadRequestException(
+        'Có thẻ không tồn tại hoặc đã bị xóa.',
       );
-
-      if (normalizedNames.length > 0) {
-        const existingTags = await this.prisma.tag.findMany({
-          where: {
-            name: {
-              in: normalizedNames,
-            },
-          },
-        });
-
-        const existingTagNames = new Set(existingTags.map((tag) => tag.name));
-
-        const newTagNames = normalizedNames.filter(
-          (name) => !existingTagNames.has(name),
-        );
-
-        if (newTagNames.length > 0) {
-          await this.prisma.tag.createMany({
-            data: newTagNames.map((name) => ({ name })),
-            skipDuplicates: true,
-          });
-        }
-
-        const allTags = await this.prisma.tag.findMany({
-          where: {
-            name: {
-              in: normalizedNames,
-            },
-          },
-        });
-
-        allTags.forEach((tag) => resolvedTagIds.add(tag.id));
-      }
     }
 
+    for (const tag of activeTagsById) {
+      resolvedTagIds.add(tag.id);
+    }
+  }
+
+  /**
+   * Chuẩn hóa tên tag:
+   * - trim khoảng trắng;
+   * - bỏ tên rỗng;
+   * - bỏ tên trùng nhau.
+   */
+  const normalizedNames = Array.from(
+    new Set(
+      (tagNames ?? [])
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0),
+    ),
+  );
+
+  if (normalizedNames.length === 0) {
     return Array.from(resolvedTagIds);
   }
+
+  /**
+   * Tìm cả tag active và tag đã soft-delete.
+   *
+   * Phải tìm tag đã xóa vì Tag.name có unique constraint.
+   * Nếu bỏ qua, createMany có thể đụng lỗi unique.
+   */
+  const existingTags =
+    await this.prisma.tag.findMany({
+      where: {
+        name: {
+          in: normalizedNames,
+        },
+      },
+
+      select: {
+        id: true,
+        name: true,
+        deletedAt: true,
+      },
+    });
+
+  const deletedTags = existingTags.filter(
+    (tag) => tag.deletedAt !== null,
+  );
+
+  if (deletedTags.length > 0) {
+    throw new BadRequestException(
+      `Không thể sử dụng thẻ đã bị xóa: ${deletedTags
+        .map((tag) => tag.name)
+        .join(', ')}.`,
+    );
+  }
+
+  const existingTagNames = new Set(
+    existingTags.map((tag) => tag.name),
+  );
+
+  const newTagNames = normalizedNames.filter(
+    (name) => !existingTagNames.has(name),
+  );
+
+  /**
+   * Chỉ tạo những tên tag hoàn toàn chưa tồn tại.
+   */
+  if (newTagNames.length > 0) {
+    await this.prisma.tag.createMany({
+      data: newTagNames.map((name) => ({
+        name,
+      })),
+
+      skipDuplicates: true,
+    });
+  }
+
+  /**
+   * Query lại để lấy ID của:
+   * - tag active đã tồn tại;
+   * - tag vừa được tạo.
+   */
+  const activeTagsByName =
+    await this.prisma.tag.findMany({
+      where: {
+        name: {
+          in: normalizedNames,
+        },
+
+        deletedAt: null,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  for (const tag of activeTagsByName) {
+    resolvedTagIds.add(tag.id);
+  }
+
+  return Array.from(resolvedTagIds);
+}
+  
 }

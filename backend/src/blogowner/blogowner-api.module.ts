@@ -17,8 +17,8 @@ import { BlogownerMediaService } from './services/blogowner-media.service';
 import { BlogownerOptionsService } from './services/blogowner-options.service';
 import { BlogownerPostHelperService } from './services/blogowner-post-helper.service';
 import { BlogownerPostsService } from './services/blogowner-posts.service';
-// import { GoogleTranslateService } from './services/translation.service';
 import { TranslationService } from './services/translation.service';
+
 @Module({
   imports: [
     AuthsModule,
@@ -26,19 +26,20 @@ import { TranslationService } from './services/translation.service';
     MediaModule,
     CloudinaryModule,
   ],
+
   controllers: [
     BlogownerPostsController,
     BlogownerOptionsController,
     BlogownerDashboardController,
     BlogownerMediaController,
   ],
+
   providers: [
     BlogownerPostHelperService,
     BlogownerPostsService,
     BlogownerOptionsService,
     BlogownerDashboardService,
     BlogownerMediaService,
-    // GoogleTranslateService,
     TranslationService,
   ],
 })

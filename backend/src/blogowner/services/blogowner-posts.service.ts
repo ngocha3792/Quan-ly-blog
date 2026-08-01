@@ -722,13 +722,27 @@ async translatePreview(
         deletedAt: null,
       },
       include: {
-        postCategories: {
-          include: {
-            category: true,
-          },
-        },
-        postTags: true,
+  postCategories: {
+    include: {
+      category: true,
+    },
+  },
+
+  /**
+   * Chỉ sao chép những tag chưa bị soft-delete.
+   */
+  postTags: {
+    where: {
+      tag: {
+        deletedAt: null,
       },
+    },
+
+    select: {
+      tagId: true,
+    },
+  },
+},
     });
 
     if (!sourcePost) {

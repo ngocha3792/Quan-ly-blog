@@ -167,15 +167,66 @@ export class BlogownerPostHelperService {
    * Upload danh sách media files đi kèm bài viết.
    */
   async uploadMediaFiles(
-    postId: number,
-    files?: Express.Multer.File[],
-  ): Promise<void> {
-    if (files && files.length > 0) {
-      for (const file of files) {
-        await this.mediaService.uploadMedia(postId, file);
+  postId: number,
+  files?: Express.Multer.File[],
+): Promise<void> {
+  if (!files || files.length === 0) {
+    return;
+  }
+
+  /**
+   * Lưu ID của những media đã upload thành công.
+   *
+   * Nếu một file phía sau thất bại, các media đã upload
+   * trước đó sẽ được rollback để tránh dữ liệu dở dang.
+   */
+  const uploadedMediaIds: number[] = [];
+
+  try {
+    for (const file of files) {
+      const uploadedMedia =
+        await this.mediaService.uploadMedia(
+          postId,
+          file,
+        );
+
+      uploadedMediaIds.push(
+        uploadedMedia.id,
+      );
+    }
+  } catch (error: unknown) {
+    /**
+     * Rollback theo thứ tự ngược lại:
+     *
+     * media 1 ✅
+     * media 2 ✅
+     * media 3 ❌
+     *
+     * rollback:
+     * media 2 → media 1
+     */
+    for (
+      let index = uploadedMediaIds.length - 1;
+      index >= 0;
+      index -= 1
+    ) {
+      try {
+        await this.mediaService.deleteMedia(
+          uploadedMediaIds[index],
+        );
+      } catch {
+        /**
+         * Không ghi đè lỗi upload ban đầu.
+         *
+         * Nếu cleanup một media thất bại, vẫn tiếp tục
+         * cleanup các media còn lại.
+         */
       }
     }
+
+    throw error;
   }
+}
 
   /**
    * Xóa thumbnail cũ trên Cloudinary sau khi cập nhật thumbnail mới.

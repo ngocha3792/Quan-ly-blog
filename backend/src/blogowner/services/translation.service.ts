@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -8,7 +9,9 @@ import { ConfigService } from '@nestjs/config';
 type LibreTranslateResponse = {
   translatedText: string | string[];
 };
-
+type LibreTranslateErrorResponse = {
+  error?: string;
+};
 type TranslatePostInput = {
   title: string;
   content: string;
@@ -21,6 +24,35 @@ export class TranslationService {
   constructor(
     private readonly configService: ConfigService,
   ) {}
+
+  private normalizeLanguageCode(
+  languageCode: string,
+): string {
+  const normalizedCode =
+    languageCode.trim().toLowerCase();
+
+  const languageCodeAliases: Record<
+    string,
+    string
+  > = {
+    'zh-cn': 'zh',
+    'zh-hans': 'zh',
+
+    'zh-tw': 'zt',
+    'zh-hant': 'zt',
+
+    /**
+     * Trong dữ liệu dự án hiện tại,
+     * IN đang được dùng cho Hindi.
+     */
+    in: 'hi',
+  };
+
+  return (
+    languageCodeAliases[normalizedCode] ??
+    normalizedCode
+  );
+}
 
   async translatePost(
     input: TranslatePostInput,
@@ -39,48 +71,83 @@ export class TranslationService {
       );
     }
 
+    const sourceLanguageCode =
+  this.normalizeLanguageCode(
+    input.sourceLanguageCode,
+  );
+
+  
+  const targetLanguageCode =
+  this.normalizeLanguageCode(
+    input.targetLanguageCode,
+  );
+
+  if (
+  sourceLanguageCode ===
+  targetLanguageCode
+) {
+  throw new BadRequestException(
+    'Ngôn ngữ nguồn và ngôn ngữ đích phải khác nhau.',
+  );
+}
     const url = `${baseUrl.replace(/\/$/, '')}/translate`;
 
-    let response: Response;
+  let response: Response;
+
+try {
+  response = await fetch(url, {
+    method: 'POST',
+
+    headers: {
+      'Content-Type': 'application/json',
+    },
+
+    body: JSON.stringify({
+      q: [
+        input.title,
+        input.content,
+      ],
+
+      source: sourceLanguageCode,
+      target: targetLanguageCode,
+      format: 'html',
+    }),
+  });
+} catch {
+  throw new BadGatewayException(
+    'Không thể kết nối tới dịch vụ dịch tự động.',
+  );
+}
+
+if (!response.ok) {
+  if (response.status === 400) {
+    let errorData:
+      | LibreTranslateErrorResponse
+      | undefined;
 
     try {
-      response = await fetch(url, {
-        method: 'POST',
-
-        headers: {
-          'Content-Type':
-            'application/json',
-        },
-
-        body: JSON.stringify({
-          q: [
-            input.title,
-            input.content,
-          ],
-
-          source:
-            input.sourceLanguageCode,
-
-          target:
-            input.targetLanguageCode,
-
-          format: 'html',
-        }),
-      });
+      errorData =
+        (await response.json()) as
+          LibreTranslateErrorResponse;
     } catch {
-      throw new BadGatewayException(
-        'Không thể kết nối tới dịch vụ dịch tự động.',
-      );
+      errorData = undefined;
     }
 
-    if (!response.ok) {
-      throw new BadGatewayException(
-        'Dịch vụ dịch tự động không thể xử lý yêu cầu.',
-      );
-    }
+    throw new BadRequestException(
+      errorData?.error
+        ? `Không thể dịch bài viết: ${errorData.error}`
+        : 'Cặp ngôn ngữ không được dịch vụ dịch tự động hỗ trợ hoặc yêu cầu dịch không hợp lệ.',
+    );
+  }
 
-    const result =
-      (await response.json()) as LibreTranslateResponse;
+  throw new BadGatewayException(
+    'Dịch vụ dịch tự động không thể xử lý yêu cầu.',
+  );
+}
+
+const result =
+  (await response.json()) as
+    LibreTranslateResponse;
 
     if (
       !Array.isArray(
