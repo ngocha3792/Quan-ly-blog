@@ -40,12 +40,6 @@ export class TranslationService {
 
     'zh-tw': 'zt',
     'zh-hant': 'zt',
-
-    /**
-     * Trong dữ liệu dự án hiện tại,
-     * IN đang được dùng cho Hindi.
-     */
-    in: 'hi',
   };
 
   return (
@@ -145,27 +139,34 @@ if (!response.ok) {
   );
 }
 
-const result =
-  (await response.json()) as
-    LibreTranslateResponse;
+let result: LibreTranslateResponse;
 
-    if (
-      !Array.isArray(
-        result.translatedText,
-      ) ||
-      result.translatedText.length < 2
-    ) {
-      throw new BadGatewayException(
-        'Dịch vụ dịch tự động trả về dữ liệu không hợp lệ.',
-      );
-    }
+try {
+  result =
+    (await response.json()) as
+      LibreTranslateResponse;
+} catch {
+  throw new BadGatewayException(
+    'Dịch vụ dịch tự động trả về dữ liệu không hợp lệ.',
+  );
+}
 
-    return {
-      title:
-        result.translatedText[0],
+if (
+  !Array.isArray(result.translatedText) ||
+  result.translatedText.length < 2 ||
+  typeof result.translatedText[0] !==
+    'string' ||
+  typeof result.translatedText[1] !==
+    'string'
+) {
+  throw new BadGatewayException(
+    'Dịch vụ dịch tự động trả về dữ liệu không hợp lệ.',
+  );
+}
 
-      content:
-        result.translatedText[1],
-    };
+return {
+  title: result.translatedText[0],
+  content: result.translatedText[1],
+};
   }
 }

@@ -428,6 +428,145 @@ describe('BlogownerPostsService', () => {
     );
   });
 
+  it('should delete newly uploaded thumbnail when saving its URL fails during post creation', async () => {
+  const thumbnailFile = {
+    mimetype: 'image/png',
+    buffer: Buffer.from(
+      'fake-thumbnail',
+    ),
+    originalname:
+      'create-thumbnail.png',
+  } as Express.Multer.File;
+
+  const uploadedThumbnailUrl =
+    'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/30/thumbnail/create-thumbnail.png';
+
+  const databaseError =
+    new Error(
+      'Database update failed',
+    );
+
+  /**
+   * Post đã được tạo dưới trạng thái DRAFT.
+   */
+  mockPostsService.create
+    .mockResolvedValue({
+      id: 30,
+    });
+
+  /**
+   * Thumbnail upload lên Cloudinary thành công.
+   */
+  mockCloudinaryService.uploadFile
+    .mockResolvedValue({
+      secure_url:
+        uploadedThumbnailUrl,
+
+      public_id:
+        'nestjs_blog/posts/30/thumbnail/create-thumbnail',
+    });
+
+  /**
+   * Nhưng database không lưu được thumbnailUrl.
+   */
+  mockPrismaService.post.update
+    .mockRejectedValueOnce(
+      databaseError,
+    );
+
+  await expect(
+    service.create(
+      3,
+      {
+        title:
+          'Post with thumbnail',
+        content:
+          'Post content',
+        languageId: 4,
+        categoryIds: [13],
+        submitForReview: false,
+      },
+      thumbnailFile,
+    ),
+  ).rejects.toBe(databaseError);
+
+  /**
+   * Bài viết luôn được tạo DRAFT trước.
+   */
+  expect(
+    mockPostsService.create,
+  ).toHaveBeenCalledWith(
+    3,
+    {
+      title:
+        'Post with thumbnail',
+      content:
+        'Post content',
+      languageId: 4,
+      categoryIds: [13],
+      status:
+        PostStatus.DRAFT,
+    },
+  );
+
+  /**
+   * Thumbnail phải được upload đúng thư mục bài viết.
+   */
+  expect(
+    mockCloudinaryService.uploadFile,
+  ).toHaveBeenCalledWith(
+    thumbnailFile,
+    'nestjs_blog/posts/30/thumbnail',
+  );
+
+  /**
+   * Backend đã cố lưu URL thumbnail vào database.
+   */
+  expect(
+    mockPrismaService.post.update,
+  ).toHaveBeenCalledWith({
+    where: {
+      id: 30,
+    },
+
+    data: {
+      thumbnailUrl:
+        uploadedThumbnailUrl,
+    },
+  });
+
+  /**
+   * Khi database update thất bại,
+   * thumbnail vừa upload phải bị xóa.
+   */
+  expect(
+    mockCloudinaryService.deleteFile,
+  ).toHaveBeenCalledWith(
+    'nestjs_blog/posts/30/thumbnail/create-thumbnail',
+    'image',
+  );
+
+  /**
+   * Không được upload media hoặc đi tiếp tới findOne()
+   * sau khi lưu thumbnail thất bại.
+   */
+  expect(
+    mockHelper.uploadMediaFiles,
+  ).not.toHaveBeenCalled();
+
+  expect(
+    mockPrismaService.post.findFirst,
+  ).not.toHaveBeenCalled();
+
+  /**
+   * Lỗi database ban đầu phải được giữ nguyên,
+   * không bị lỗi cleanup ghi đè.
+   */
+  expect(
+    mockPrismaService.post.update,
+  ).toHaveBeenCalledTimes(1);
+});
+
   /**
    * TRANSLATION GROUP
    */

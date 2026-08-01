@@ -253,21 +253,45 @@ export class BlogownerPostsService {
     /**
      * Upload thumbnail trước.
      */
-    if (thumbnailFile) {
-      const uploadedResult = await this.helper.uploadThumbnail(
-        createdPost.id,
-        thumbnailFile,
-      );
+if (thumbnailFile) {
+  const uploadedResult =
+    await this.helper.uploadThumbnail(
+      createdPost.id,
+      thumbnailFile,
+    );
 
-      await this.prisma.post.update({
-        where: {
-          id: createdPost.id,
-        },
-        data: {
-          thumbnailUrl: uploadedResult.secure_url,
-        },
-      });
+  try {
+    await this.prisma.post.update({
+      where: {
+        id: createdPost.id,
+      },
+
+      data: {
+        thumbnailUrl:
+          uploadedResult.secure_url,
+      },
+    });
+  } catch (error: unknown) {
+    /**
+     * Thumbnail đã upload lên Cloudinary nhưng
+     * database không lưu được URL.
+     *
+     * Xóa thumbnail vừa upload để tránh file rác.
+     */
+    try {
+      await this.helper.deleteOldThumbnail(
+        uploadedResult.secure_url,
+      );
+    } catch {
+      /**
+       * Không ghi đè lỗi database ban đầu
+       * nếu cleanup Cloudinary thất bại.
+       */
     }
+
+    throw error;
+  }
+}
 
     /**
      * Upload toàn bộ media trước khi gửi Moderator duyệt.
