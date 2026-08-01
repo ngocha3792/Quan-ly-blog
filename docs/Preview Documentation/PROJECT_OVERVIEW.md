@@ -129,8 +129,8 @@ flowchart LR
 
     subgraph NestJS[Ứng dụng NestJS Modular Monolith]
         MW[Logger + Maintenance Middleware]
-        PIPE[Trim + Validation Pipes]
         GUARD[JWT + Roles Guards]
+        PIPE[Trim + Validation Pipes]
         API[Public / User / Blog Owner / Moderator / Admin Controllers]
         SERVICE[API Services]
         CORE[Core Domain Modules]
