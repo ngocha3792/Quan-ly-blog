@@ -24,13 +24,13 @@ export class AdminLanguagesController {
     private readonly adminLanguagesService: AdminLanguagesService,
   ) { }
 
-  @Roles(UserRole.SUPER_ADMIN, UserRole.CONTENT_MODERATOR)
+  @Roles(UserRole.SUPER_ADMIN)
   @Get()
   findAll() {
     return this.adminLanguagesService.findAllLanguages();
   }
 
-  @Roles(UserRole.SUPER_ADMIN, UserRole.CONTENT_MODERATOR)
+  @Roles(UserRole.SUPER_ADMIN)
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.adminLanguagesService.findOneLanguage(id);

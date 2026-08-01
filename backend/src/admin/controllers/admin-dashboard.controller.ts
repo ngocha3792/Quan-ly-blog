@@ -15,9 +15,9 @@ import { AdminDashboardService } from '../services/admin-dashboard.service';
 export class AdminDashboardController {
   constructor(
     private readonly adminDashboardService: AdminDashboardService,
-  ) {}
+  ) { }
 
-  @Roles(UserRole.SUPER_ADMIN, UserRole.CONTENT_MODERATOR)
+  @Roles(UserRole.SUPER_ADMIN)
   @Get()
   getDashboard() {
     return this.adminDashboardService.getDashboard();

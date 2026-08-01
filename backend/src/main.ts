@@ -18,8 +18,13 @@ async function bootstrap() {
   // Cấu hình CORS để Frontend (hoặc Mobile) có thể gọi API
   const frontendUrl =
     configService.get<string>('app.frontendUrl') || 'http://localhost:4200';
+  const allowedOrigins = frontendUrl
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: frontendUrl,
+    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
     credentials: true,
   });
 

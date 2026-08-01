@@ -57,8 +57,11 @@ describe('UsersPublicService', () => {
   });
 
   describe('getTopAuthors', () => {
-    it('should return empty array if no follows found', async () => {
+    it('should return fallback active authors if no follows found', async () => {
       prisma.userFollow.groupBy.mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValueOnce([
+        { id: 10, username: 'defaultAuthor', avatarUrl: 'url10', bio: 'bio10' },
+      ]);
 
       const result = await service.getTopAuthors(5);
 
@@ -68,7 +71,32 @@ describe('UsersPublicService', () => {
         orderBy: { _count: { followingId: 'desc' } },
         take: 5,
       });
-      expect(result).toEqual([]);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          status: UserStatus.ACTIVE,
+          role: UserRole.BLOG_OWNER,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          username: true,
+          avatarUrl: true,
+          bio: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 5,
+      });
+      expect(result).toEqual([
+        {
+          id: 10,
+          username: 'defaultAuthor',
+          avatarUrl: 'url10',
+          bio: 'bio10',
+          followerCount: 0,
+        },
+      ]);
     });
 
     it('should return top authors mapped with user details', async () => {
