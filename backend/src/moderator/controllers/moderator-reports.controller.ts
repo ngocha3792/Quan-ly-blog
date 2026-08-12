@@ -22,7 +22,7 @@ import {
   RolesGuard,
 } from '@app/core';
 import type {
-  JwtPayload,
+  AuthenticatedUser,
   PaginationParams,
 } from '@app/core';
 
@@ -82,12 +82,12 @@ export class ModeratorReportsController {
   @Post(':reportId/resolve')
   @HttpCode(HttpStatus.OK)
   resolve(
-    @CurrentUser() moderator: JwtPayload,
+    @CurrentUser() moderator: AuthenticatedUser,
     @Param('reportId', ParseIntPipe) reportId: number,
     @Body() dto: ResolveModeratorReportDto,
   ) {
     return this.moderatorReportsService.resolve(
-      Number(moderator.id),
+      moderator.id,
       reportId,
       dto,
     );
@@ -103,12 +103,12 @@ export class ModeratorReportsController {
   @Post(':reportId/reject')
   @HttpCode(HttpStatus.OK)
   reject(
-    @CurrentUser() moderator: JwtPayload,
+    @CurrentUser() moderator: AuthenticatedUser,
     @Param('reportId', ParseIntPipe) reportId: number,
     @Body() dto: RejectModeratorReportDto,
   ) {
     return this.moderatorReportsService.reject(
-      Number(moderator.id),
+      moderator.id,
       reportId,
       dto,
     );

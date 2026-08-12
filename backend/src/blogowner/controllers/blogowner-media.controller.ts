@@ -24,8 +24,7 @@ import {
   Roles,
   RolesGuard,
 } from '@app/core';
-
-import type { JwtPayload } from '@app/core';
+import type { AuthenticatedUser } from '@app/core';
 
 import { BlogownerMediaService } from '../services/blogowner-media.service';
 
@@ -52,12 +51,12 @@ export class BlogownerMediaController {
   }),
 )
 upload(
-  @CurrentUser() user: JwtPayload,
+  @CurrentUser() user: AuthenticatedUser,
   @Param('postId', ParseIntPipe) postId: number,
   @UploadedFile() file: Express.Multer.File,
 ) {
   return this.blogownerMediaService.upload(
-    Number(user.id),
+    user.id,
     postId,
     file,
   );
@@ -70,12 +69,12 @@ upload(
    */
   @Delete(':postId/media/:mediaId')
   remove(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('postId', ParseIntPipe) postId: number,
     @Param('mediaId', ParseIntPipe) mediaId: number,
   ) {
     return this.blogownerMediaService.remove(
-      Number(user.id),
+      user.id,
       postId,
       mediaId,
     );

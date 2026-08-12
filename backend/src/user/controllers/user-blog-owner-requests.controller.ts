@@ -22,7 +22,7 @@ import {
   Roles,
   RolesGuard,
 } from '@app/core';
-import type { JwtPayload, PaginationParams } from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 
 import { UserBlogOwnerRequestsService } from '../services/user-blog-owner-requests.service';
 
@@ -42,10 +42,10 @@ export class UserBlogOwnerRequestsController {
    */
   @Post()
   create(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateBlogOwnerRequestDto,
   ) {
-    return this.userBlogOwnerRequestsService.create(Number(user.id), dto);
+    return this.userBlogOwnerRequestsService.create(user.id, dto);
   }
 
   /**
@@ -55,12 +55,12 @@ export class UserBlogOwnerRequestsController {
    */
   @Get()
   findAll(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() query: GetBlogOwnerRequestsDto,
     @Pagination() paginationParams: PaginationParams,
   ) {
     return this.userBlogOwnerRequestsService.findAll(
-      Number(user.id),
+      user.id,
       query,
       paginationParams,
     );
@@ -73,10 +73,10 @@ export class UserBlogOwnerRequestsController {
    */
   @Get(':id')
   findOne(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.userBlogOwnerRequestsService.findOne(Number(user.id), id);
+    return this.userBlogOwnerRequestsService.findOne(user.id, id);
   }
 
   /**
@@ -86,9 +86,9 @@ export class UserBlogOwnerRequestsController {
    */
   @Delete(':id')
   remove(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.userBlogOwnerRequestsService.remove(Number(user.id), id);
+    return this.userBlogOwnerRequestsService.remove(user.id, id);
   }
 }

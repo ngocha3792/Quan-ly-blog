@@ -657,11 +657,6 @@ describe('PostsService', () => {
     });
 
     it('should apply various filters including tagName', async () => {
-      mockPrismaService.tag.findFirst
-        .mockResolvedValueOnce({
-          id: 99,
-        });
-
       mockPrismaService.post.findMany
         .mockResolvedValueOnce([
           {
@@ -698,7 +693,12 @@ describe('PostsService', () => {
 
           postTags: {
             some: {
-              tagId: 99,
+              tag: {
+                is: {
+                  name: 'tag',
+                  deletedAt: null,
+                },
+              },
             },
           },
 
@@ -718,10 +718,7 @@ describe('PostsService', () => {
       });
     });
 
-    it('should handle tagName not found by setting impossible condition', async () => {
-      mockPrismaService.tag.findFirst
-        .mockResolvedValueOnce(null);
-
+    it('should filter by tagName relation filter', async () => {
       mockPrismaService.post.findMany
         .mockResolvedValueOnce([]);
 
@@ -745,7 +742,16 @@ describe('PostsService', () => {
         prisma.post.findMany,
       ).toHaveBeenCalledWith({
         where: expect.objectContaining({
-          id: -1,
+          postTags: {
+            some: {
+              tag: {
+                is: {
+                  name: 'missing',
+                  deletedAt: null,
+                },
+              },
+            },
+          },
         }),
 
         skip: 0,

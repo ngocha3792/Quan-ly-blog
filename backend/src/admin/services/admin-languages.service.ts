@@ -17,14 +17,17 @@ export class AdminLanguagesService {
   async createLanguage(
     dto: CreateAdminLanguageDto,
   ): Promise<AdminLanguageEntity> {
-    if (dto.isDefault) {
-      await this.prisma.language.updateMany({
-        where: { isDefault: true },
-        data: { isDefault: false },
-      });
-    }
+    const language = await this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault === true) {
+        await tx.language.updateMany({
+          where: { isDefault: true },
+          data: { isDefault: false },
+        });
+      }
 
-    const language = await this.languagesService.create(dto);
+      return this.languagesService.create(dto, tx);
+    });
+
     return new AdminLanguageEntity(language);
   }
 
@@ -51,14 +54,17 @@ export class AdminLanguagesService {
     id: number,
     dto: UpdateAdminLanguageDto,
   ): Promise<AdminLanguageEntity> {
-    if (dto.isDefault) {
-      await this.prisma.language.updateMany({
-        where: { id: { not: id }, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault === true) {
+        await tx.language.updateMany({
+          where: { id: { not: id }, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
 
-    const updated = await this.languagesService.update(id, dto);
+      return this.languagesService.update(id, dto, tx);
+    });
+
     return new AdminLanguageEntity(updated);
   }
 

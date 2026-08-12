@@ -21,8 +21,15 @@ export class UserProfileService {
   async getProfile(userId: number): Promise<UserProfileEntity> {
     const userData = await this.usersService.findById(userId, {
       following: {
-        include: {
-          follower: true,
+        select: {
+          follower: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              bio: true,
+            },
+          },
         },
       },
     });
@@ -39,35 +46,68 @@ export class UserProfileService {
   ): Promise<UserProfileEntity> {
     const dto = { ...updateProfileDto };
 
-    if (file) {
-      const user = await this.usersService.findById(userId);
-      if (!user) {
-        throw new UserNotFoundException(userId.toString());
-      }
-
-      if (!file.mimetype.startsWith('image/')) {
-        throw new BadRequestException('Chỉ hỗ trợ tải lên file ảnh');
-      }
-
-      try {
-        // Xóa ảnh cũ trên Cloudinary nếu có
-        await this.deleteOldAvatar(user.avatarUrl);
-
-        // Upload ảnh mới lên Cloudinary
-        const uploadedResult = await this.cloudinary.uploadFile(
-          file,
-          `nestjs_blog/users/${userId}/avatar`,
-        );
-
-        dto.avatarUrl = uploadedResult.secure_url;
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : 'Lỗi không xác định';
-        throw new BadRequestException(`Lỗi khi upload avatar: ${message}`);
-      }
+    // Không upload avatar -> giữ nguyên flow cũ
+    if (!file) {
+      const updatedUser = await this.usersService.update(userId, dto);
+      return new UserProfileEntity(updatedUser);
     }
 
-    const updatedUser = await this.usersService.update(userId, dto);
+    // 1. Lấy user hiện tại để giữ avatar cũ
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new UserNotFoundException(userId.toString());
+    }
+
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Chỉ hỗ trợ tải lên file ảnh');
+    }
+
+    // 2. Upload ảnh mới TRƯỚC
+    let uploadedResult;
+
+    try {
+      uploadedResult = await this.cloudinary.uploadFile(
+        file,
+        `nestjs_blog/users/${userId}/avatar`,
+      );
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Lỗi không xác định';
+
+      throw new BadRequestException(
+        `Lỗi khi upload avatar: ${message}`,
+      );
+    }
+
+    dto.avatarUrl = uploadedResult.secure_url;
+
+    // 3. Update DB
+    let updatedUser;
+
+    try {
+      updatedUser = await this.usersService.update(userId, dto);
+    } catch (error) {
+      // DB update fail -> xóa ảnh vừa upload để tránh orphan file
+      try {
+        if (uploadedResult.public_id) {
+          await this.cloudinary.deleteFile(
+            uploadedResult.public_id,
+            'image',
+          );
+        }
+      } catch {
+        // Cleanup fail không được che mất lỗi DB gốc
+      }
+
+      throw error;
+    }
+
+    // 4. DB đã update thành công -> lúc này mới xóa avatar cũ
+    if (user.avatarUrl) {
+      await this.deleteOldAvatar(user.avatarUrl);
+    }
+
     return new UserProfileEntity(updatedUser);
   }
 
@@ -77,11 +117,12 @@ export class UserProfileService {
       throw new UserNotFoundException(userId.toString());
     }
 
+    const removedUser = await this.usersService.remove(userId);
+
     if (user.avatarUrl) {
       await this.deleteOldAvatar(user.avatarUrl);
     }
 
-    const removedUser = await this.usersService.remove(userId);
     return new UserProfileEntity(removedUser);
   }
 

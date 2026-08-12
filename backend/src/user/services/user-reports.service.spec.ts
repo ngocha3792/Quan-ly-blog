@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  Prisma,
   ReportReason,
   ReportStatus,
   ReportTargetType,
@@ -116,6 +117,31 @@ describe('UserReportsService', () => {
       expect(reportsService.create).not.toHaveBeenCalled();
     });
 
+    it('should throw ExistActionNotAllowedException on concurrent post report (P2002)', async () => {
+      mockPrismaService.post.findFirst.mockResolvedValueOnce({
+        id: 1,
+        authorId: 3,
+      });
+
+      mockPrismaService.report.findFirst.mockResolvedValueOnce(null);
+
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
+      );
+
+      reportsService.create.mockRejectedValueOnce(error);
+
+      await expect(
+        service.reportPost(4, 1, {
+          reason: ReportReason.SPAM,
+        }),
+      ).rejects.toThrow(ExistActionNotAllowedException);
+    });
+
     it('should create a post report', async () => {
       mockPrismaService.post.findFirst.mockResolvedValueOnce({
         id: 1,
@@ -200,6 +226,32 @@ describe('UserReportsService', () => {
       ).rejects.toThrow(ExistActionNotAllowedException);
 
       expect(reportsService.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw ExistActionNotAllowedException on concurrent comment report (P2002)', async () => {
+      mockPrismaService.comment.findFirst.mockResolvedValueOnce({
+        id: 1,
+        userId: 4,
+        postId: 1,
+      });
+
+      mockPrismaService.report.findFirst.mockResolvedValueOnce(null);
+
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
+      );
+
+      reportsService.create.mockRejectedValueOnce(error);
+
+      await expect(
+        service.reportComment(3, 1, {
+          reason: ReportReason.HARASSMENT,
+        }),
+      ).rejects.toThrow(ExistActionNotAllowedException);
     });
 
     it('should create a comment report', async () => {

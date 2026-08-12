@@ -5,16 +5,25 @@ Nhờ có TypeScript, chúng ta không phải code "mù" (kiểu dữ liệu any
 Lưu ý quan trọng: Đừng nhầm lẫn Interface với DTO (Data Transfer Object). DTO dùng để chứa và validate dữ liệu đầu vào của API (ví dụ: CreatePostDto), thường nằm trong từng module riêng biệt. Còn Interface ở thư mục common chỉ dùng để khai báo kiểu dáng cho các thành phần cốt lõi của kiến trúc.
 */
 
-import { Request } from 'express';
+import type { Request } from 'express';
+import type { UserRole } from '@prisma/client';
 
-// Hình dáng của User sau khi được JwtAuthGuard giải mã
-export interface JwtPayload {
-  id: number | string;
-  role: string;
+/**
+ * User đã được JwtAuthGuard xác thực và gắn vào request.
+ *
+ * Đây KHÔNG phải Prisma User.
+ */
+export interface AuthenticatedUser {
+  id: number;
+  role: UserRole;
   email: string;
 }
 
-// Mở rộng Request mặc định của Express, nhét thêm cục user vào
+/**
+ * Giữ alias cũ để không phải sửa toàn bộ code ngay lập tức.
+ */
+export type JwtPayload = AuthenticatedUser;
+
 export interface AuthenticatedRequest extends Request {
-  user: JwtPayload;
+  user: AuthenticatedUser;
 }

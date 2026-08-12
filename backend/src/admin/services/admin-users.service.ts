@@ -63,7 +63,11 @@ export class AdminUsersService {
             _count: {
               select: {
                 postLikes: true,
-                comments: true,
+                comments: {
+                  where: {
+                    deletedAt: null,
+                  },
+                },
               },
             },
           },
@@ -86,8 +90,7 @@ export class AdminUsersService {
     adminId: number,
     lockUserDto: LockUserDto,
   ): Promise<AdminUserEntity> {
-    const numericAdminId = Number(adminId);
-    if (userId === numericAdminId) {
+    if (userId === adminId) {
       throw new SelfActionNotAllowedException('khóa tài khoản');
     }
 
@@ -104,7 +107,7 @@ export class AdminUsersService {
         data: {
           status: UserStatus.LOCKED,
           lockedAt: new Date(),
-          lockedById: numericAdminId,
+          lockedById: adminId,
           lockReason: lockUserDto.reason,
         },
       }),
@@ -121,8 +124,8 @@ export class AdminUsersService {
   /**
    * Mở khóa tài khoản người dùng.
    */
-  async unlockUser(userId: number, adminId?: number): Promise<AdminUserEntity> {
-    if (adminId && userId === Number(adminId)) {
+  async unlockUser(userId: number, adminId: number): Promise<AdminUserEntity> {
+    if (userId === adminId) {
       throw new SelfActionNotAllowedException('mở khóa tài khoản');
     }
 
@@ -154,8 +157,7 @@ export class AdminUsersService {
     adminId: number,
     changeUserRoleDto: ChangeUserRoleDto,
   ): Promise<AdminUserEntity> {
-    const numericAdminId = Number(adminId);
-    if (userId === numericAdminId) {
+    if (userId === adminId) {
       throw new SelfActionNotAllowedException('thay đổi vai trò');
     }
 
@@ -201,8 +203,7 @@ export class AdminUsersService {
    * Xóa tài khoản người dùng bởi Admin.
    */
   async removeUser(userId: number, adminId: number) {
-    const numericAdminId = Number(adminId);
-    if (userId === numericAdminId) {
+    if (userId === adminId) {
       throw new SelfActionNotAllowedException('xóa tài khoản');
     }
 

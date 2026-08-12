@@ -123,25 +123,21 @@ export class PostsService {
 
     if (tagId) {
       where.postTags = {
-        some: { tagId },
+        some: {
+          tagId,
+        },
       };
     } else if (tagName) {
-      const tag = await this.prisma.tag.findFirst({
-        where: {
-          name: tagName,
-          deletedAt: null,
-        },
-      });
-
-      if (tag) {
-        where.postTags = {
-          some: {
-            tagId: tag.id,
+      where.postTags = {
+        some: {
+          tag: {
+            is: {
+              name: tagName,
+              deletedAt: null,
+            },
           },
-        };
-      } else {
-        where.id = -1;
-      }
+        },
+      };
     }
 
     if (bookmarkedByUserId) {

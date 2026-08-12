@@ -177,48 +177,90 @@ export class PostsPublicService {
 
   /**
    * Chống trùng lặp lượt xem (Deduplicate) theo bài viết và IP/user trong khoảng thời gian quy định (5 phút).
+   * Sử dụng Serializable transaction + retry khi gặp xung đột ghi (P2034) để chống race condition.
    */
   private async recordViewWithDeduplication(
     postId: number,
     viewerKey: string,
   ): Promise<void> {
-    const DEDUPLICATION_WINDOW_MINUTES = 5;
-    const since = new Date(
-      Date.now() - DEDUPLICATION_WINDOW_MINUTES * 60 * 1000,
-    );
+    const maxRetries = 3;
 
-    // Kiểm tra xem viewerKey (IP/user) đã được ghi nhận lượt xem cho bài viết này trong vòng 5 phút qua chưa
-    const existingLog = await this.prisma.postViewLog.findFirst({
-      where: {
-        postId,
-        viewerKey,
-        viewedAt: {
-          gte: since,
-        },
-      },
-    });
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        await this.prisma.$transaction(
+          async (tx) => {
+            const viewedAfter = new Date(
+              Date.now() - 5 * 60 * 1000,
+            );
 
-    // Nếu đã xem trong khoảng thời gian chống trùng lặp -> Bỏ qua không tăng viewCount và không ghi log mới
-    if (existingLog) {
-      return;
+            const existingView = await tx.postViewLog.findFirst({
+              where: {
+                postId,
+                viewerKey,
+                viewedAt: {
+                  gte: viewedAfter,
+                },
+              },
+              select: {
+                id: true,
+              },
+            });
+
+            if (existingView) return;
+
+            await tx.postViewLog.create({
+              data: {
+                postId,
+                viewerKey,
+              },
+            });
+
+            await tx.post.update({
+              where: { id: postId },
+              data: {
+                viewCount: {
+                  increment: 1,
+                },
+              },
+            });
+          },
+          {
+            isolationLevel:
+              Prisma.TransactionIsolationLevel.Serializable,
+          },
+        );
+
+        return;
+      } catch (error) {
+        const canRetry =
+          this.isTransactionConflict(error) &&
+          attempt < maxRetries - 1;
+
+        if (canRetry) {
+          continue;
+        }
+
+        throw error;
+      }
     }
-
-    await Promise.all([
-      this.postsService.incrementViewCount(postId),
-      this.prisma.postViewLog.create({
-        data: {
-          postId,
-          viewerKey,
-        },
-      }),
-    ]);
   }
 
-  async getTopPosts(limit: number, langCode: string | null) {
+  private isTransactionConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034'
+    );
+  }
+
+  async getTopPosts(
+    limit: number,
+    langCode: string | null,
+  ) {
     let languageCondition = Prisma.empty;
 
     if (langCode) {
-      const languageId = await this.languagesService.getIdByCode(langCode);
+      const languageId =
+        await this.languagesService.getIdByCode(langCode);
 
       if (languageId) {
         languageCondition = Prisma.sql`
@@ -227,59 +269,100 @@ export class PostsPublicService {
       }
     }
 
-    const topPostsIdsRaw = await this.prisma.$queryRaw<{ id: number }[]>`
-      SELECT p.id
-      FROM posts p
-      WHERE p.status = 'PUBLISH'
-        AND p.deleted_at IS NULL
-        ${languageCondition}
-      ORDER BY (
-        (
-          (0.05 * p.view_count) +
-          (
-            2 * (
-              SELECT COUNT(*)
-              FROM post_likes pl
-              WHERE pl.post_id = p.id
-            )
-          ) +
-          (
-            5 * (
-              SELECT COUNT(*)
-              FROM comments c
-              WHERE c.post_id = p.id
-                AND c.deleted_at IS NULL
-            )
-          ) +
-          (
-            3 * (
-              SELECT COUNT(*)
-              FROM post_bookmarks pb
-              WHERE pb.post_id = p.id
-            )
-          )
-        ) / POWER(
-          CAST(
-            GREATEST(
-              EXTRACT(
-                EPOCH FROM (
-                  NOW() - COALESCE(p.published_at, p.created_at)
-                )
-              ) / 3600.0,
-              0
-            ) + 2.0 AS FLOAT
-          ),
-          1.3
+    const topPostsIdsRaw =
+      await this.prisma.$queryRaw<{ id: number }[]>`
+        WITH candidate_posts AS (
+          SELECT
+            p.id,
+            p.view_count,
+            p.published_at,
+            p.created_at
+          FROM posts p
+          WHERE p.status = 'PUBLISH'
+            AND p.deleted_at IS NULL
+            ${languageCondition}
+        ),
+
+        like_counts AS (
+          SELECT
+            pl.post_id,
+            COUNT(*)::int AS like_count
+          FROM post_likes pl
+          INNER JOIN candidate_posts cp
+            ON cp.id = pl.post_id
+          GROUP BY pl.post_id
+        ),
+
+        comment_counts AS (
+          SELECT
+            c.post_id,
+            COUNT(*)::int AS comment_count
+          FROM comments c
+          INNER JOIN candidate_posts cp
+            ON cp.id = c.post_id
+          WHERE c.deleted_at IS NULL
+          GROUP BY c.post_id
+        ),
+
+        bookmark_counts AS (
+          SELECT
+            pb.post_id,
+            COUNT(*)::int AS bookmark_count
+          FROM post_bookmarks pb
+          INNER JOIN candidate_posts cp
+            ON cp.id = pb.post_id
+          GROUP BY pb.post_id
         )
-      ) DESC
-      LIMIT ${limit}
-    `;
+
+        SELECT p.id
+        FROM candidate_posts p
+
+        LEFT JOIN like_counts lc
+          ON lc.post_id = p.id
+
+        LEFT JOIN comment_counts cc
+          ON cc.post_id = p.id
+
+        LEFT JOIN bookmark_counts bc
+          ON bc.post_id = p.id
+
+        ORDER BY (
+          (
+            (0.05 * p.view_count) +
+            (2 * COALESCE(lc.like_count, 0)) +
+            (5 * COALESCE(cc.comment_count, 0)) +
+            (3 * COALESCE(bc.bookmark_count, 0))
+          )
+          /
+          POWER(
+            CAST(
+              GREATEST(
+                EXTRACT(
+                  EPOCH FROM (
+                    NOW() -
+                    COALESCE(
+                      p.published_at,
+                      p.created_at
+                    )
+                  )
+                ) / 3600.0,
+                0
+              ) + 2.0
+              AS FLOAT
+            ),
+            1.3
+          )
+        ) DESC
+
+        LIMIT ${limit}
+      `;
 
     if (topPostsIdsRaw.length === 0) {
       return [];
     }
 
-    const topPostIds = topPostsIdsRaw.map((record) => record.id);
+    const topPostIds =
+      topPostsIdsRaw.map((record) => record.id);
 
     const posts = await this.prisma.post.findMany({
       where: {
@@ -290,11 +373,21 @@ export class PostsPublicService {
       include: PUBLIC_POST_INCLUDE,
     });
 
+    const postMap = new Map(
+      posts.map((post) => [post.id, post]),
+    );
+
     const sortedPosts = topPostIds
-      .map((postId) => posts.find((post) => post.id === postId))
-      .filter((post): post is NonNullable<typeof post> => post !== undefined);
+      .map((postId) => postMap.get(postId))
+      .filter(
+        (
+          post,
+        ): post is (typeof posts)[number] =>
+          post !== undefined,
+      );
 
     return sortedPosts.map(
-      (post) => new PublicPostEntity(post),);
+      (post) => new PublicPostEntity(post),
+    );
   }
 }

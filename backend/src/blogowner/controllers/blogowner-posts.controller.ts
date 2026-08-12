@@ -27,7 +27,7 @@ import {
   Roles,
   RolesGuard,
 } from '@app/core';
-import type { JwtPayload, PaginationParams } from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 
 import {
   AutoTranslateBlogownerPostDto,
@@ -54,12 +54,12 @@ export class BlogownerPostsController {
    */
   @Get()
   findAll(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() query: GetBlogownerPostsDto,
     @Pagination() pagination: PaginationParams,
   ) {
     return this.blogownerPostsService.findAll(
-      Number(user.id),
+      user.id,
       query,
       pagination,
     );
@@ -72,10 +72,10 @@ export class BlogownerPostsController {
    */
   @Get(':id')
   findOne(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
   ) {
-    return this.blogownerPostsService.findOne(Number(user.id), postId);
+    return this.blogownerPostsService.findOne(user.id, postId);
   }
 
   /**
@@ -111,7 +111,7 @@ export class BlogownerPostsController {
     ),
   )
   create(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateBlogownerPostDto,
     @UploadedFiles() files?: Record<string, Express.Multer.File[]>,
   ) {
@@ -123,7 +123,7 @@ export class BlogownerPostsController {
     ].filter((f) => !thumbnailFile || f !== thumbnailFile);
 
     return this.blogownerPostsService.create(
-      Number(user.id),
+      user.id,
       dto,
       thumbnailFile,
       mediaFiles.length > 0 ? mediaFiles : undefined,
@@ -153,7 +153,7 @@ export class BlogownerPostsController {
     ),
   )
   update(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
     @Body() dto: UpdateBlogownerPostDto,
     @UploadedFiles() files?: Record<string, Express.Multer.File[]>,
@@ -166,7 +166,7 @@ export class BlogownerPostsController {
     ].filter((f) => !thumbnailFile || f !== thumbnailFile);
 
     return this.blogownerPostsService.update(
-      Number(user.id),
+      user.id,
       postId,
       dto,
       thumbnailFile,
@@ -181,10 +181,10 @@ export class BlogownerPostsController {
    */
   @Delete(':id')
   remove(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
   ) {
-    return this.blogownerPostsService.remove(Number(user.id), postId);
+    return this.blogownerPostsService.remove(user.id, postId);
   }
 
   /**
@@ -195,10 +195,10 @@ export class BlogownerPostsController {
   @Post(':id/submit')
   @HttpCode(HttpStatus.OK)
   submitForReview(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
   ) {
-    return this.blogownerPostsService.submitForReview(Number(user.id), postId);
+    return this.blogownerPostsService.submitForReview(user.id, postId);
   }
 
   /**
@@ -211,14 +211,14 @@ export class BlogownerPostsController {
 @Post(':id/translate-preview')
 @HttpCode(HttpStatus.OK)
 translatePreview(
-  @CurrentUser() user: JwtPayload,
+  @CurrentUser() user: AuthenticatedUser,
   @Param('id', ParseIntPipe)
   sourcePostId: number,
   @Body()
   dto: AutoTranslateBlogownerPostDto,
 ) {
   return this.blogownerPostsService.translatePreview(
-    Number(user.id),
+    user.id,
     sourcePostId,
     dto,
   );
@@ -232,12 +232,12 @@ translatePreview(
    */
   @Post(':id/translations')
   translate(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) sourcePostId: number,
     @Body() dto: TranslateBlogownerPostDto,
   ) {
     return this.blogownerPostsService.translate(
-      Number(user.id),
+      user.id,
       sourcePostId,
       dto,
     );

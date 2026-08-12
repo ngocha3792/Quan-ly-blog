@@ -7,9 +7,9 @@ import {
 import {
   JwtAuthGuard,
   RolesGuard,
+  AuthenticatedUser,
 } from '@app/core';
 import type {
-  JwtPayload,
   PaginationParams,
 } from '@app/core';
 
@@ -26,8 +26,8 @@ describe('ModeratorPostsController', () => {
     reject: jest.Mock;
   };
 
-  const moderator: JwtPayload = {
-    id: '2',
+  const moderator: AuthenticatedUser = {
+    id: 2,
     role: UserRole.CONTENT_MODERATOR,
     email: 'mod@system.local',
   };

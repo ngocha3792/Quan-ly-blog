@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   PostStatus,
+  Prisma,
   ReportStatus,
   ReportTargetType,
 } from '@prisma/client';
@@ -85,10 +86,23 @@ export class UserReportsService {
       description: dto.description,
     };
 
-    return this.reportsService.create(
-      reporterId,
-      createReportDto,
-    );
+    try {
+      return await this.reportsService.create(
+        reporterId,
+        createReportDto,
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ExistActionNotAllowedException(
+          'report',
+          `bài viết có ID ${postId}`,
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -159,9 +173,22 @@ export class UserReportsService {
       description: dto.description,
     };
 
-    return this.reportsService.create(
-      reporterId,
-      createReportDto,
-    );
+    try {
+      return await this.reportsService.create(
+        reporterId,
+        createReportDto,
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ExistActionNotAllowedException(
+          'report',
+          `bình luận có ID ${commentId}`,
+        );
+      }
+      throw error;
+    }
   }
 }

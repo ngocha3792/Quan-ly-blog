@@ -14,7 +14,7 @@ import {
   CurrentUser,
   Pagination,
 } from '@app/core';
-import type { JwtPayload, PaginationParams } from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 import { UserFollowService } from '../services/user-follow.service';
 
 @Controller('user/follow')
@@ -25,18 +25,18 @@ export class UserFollowController {
 
   @Get('followers')
   async getMyFollowers(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.userFollowService.getFollowers(Number(user.id), pagination);
+    return this.userFollowService.getFollowers(user.id, pagination);
   }
 
   @Get('following')
   async getMyFollowing(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.userFollowService.getFollowing(Number(user.id), pagination);
+    return this.userFollowService.getFollowing(user.id, pagination);
   }
 
   @Get(':id/followers')
@@ -57,17 +57,17 @@ export class UserFollowController {
 
   @Post(':id')
   async followUser(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) followingId: number,
   ) {
-    return this.userFollowService.followUser(Number(user.id), followingId);
+    return this.userFollowService.followUser(user.id, followingId);
   }
 
   @Delete(':id')
   async unfollowUser(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) followingId: number,
   ) {
-    return this.userFollowService.unfollowUser(Number(user.id), followingId);
+    return this.userFollowService.unfollowUser(user.id, followingId);
   }
 }

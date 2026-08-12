@@ -10,7 +10,7 @@ import {
   ClassSerializerInterceptor,
   UseGuards,
 } from '@nestjs/common';
-import { UserRole, type User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import {
   GetBlogOwnerRequestsDto,
   Pagination,
@@ -19,7 +19,7 @@ import {
   JwtAuthGuard,
   RolesGuard,
 } from '@app/core';
-import type { PaginationParams } from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 import { AdminRequestsService } from '../services/admin-requests.service';
 import { ReviewBlogOwnerRequestDto } from '../dto';
 
@@ -42,7 +42,7 @@ export class AdminRequestsController {
   @Patch(':id')
   reviewRequest(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() adminUser: User,
+    @CurrentUser() adminUser: AuthenticatedUser,
     @Body() reviewDto: ReviewBlogOwnerRequestDto,
   ) {
     return this.adminRequestsService.reviewRequest(id, adminUser.id, reviewDto);

@@ -5,7 +5,7 @@ import {
   BlogOwnerRequestNotFoundException,
   ExistActionNotAllowedException,
 } from '@app/core/common/exceptions';
-import { BlogOwnerRequestStatus } from '@prisma/client';
+import { BlogOwnerRequestStatus, Prisma } from '@prisma/client';
 
 describe('BlogOwnerRequestsService', () => {
   let service: BlogOwnerRequestsService;
@@ -55,6 +55,24 @@ describe('BlogOwnerRequestsService', () => {
         id: 1,
         status: BlogOwnerRequestStatus.PENDING,
       });
+
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        ExistActionNotAllowedException,
+      );
+    });
+
+    it('should throw ExistActionNotAllowedException on concurrent create race condition (P2002)', async () => {
+      mockPrismaService.blogOwnerRequest.findFirst.mockResolvedValueOnce(null);
+
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
+      );
+
+      mockPrismaService.blogOwnerRequest.create.mockRejectedValueOnce(error);
 
       await expect(service.create(userId, createDto)).rejects.toThrow(
         ExistActionNotAllowedException,

@@ -57,17 +57,16 @@ export class UserCommentsService {
     return this.commentsService.create(userId, createCommentDto);
   }
 
-  async update(commentId: number, userId: number, dto: UpdateCommentDto) {
-    const existingComment = await this.prisma.comment.findUnique({
-      where: { id: commentId },
-      select: { content: true },
-    });
-
-    if (existingComment && existingComment.content.trim() === dto.content.trim()) {
-      throw new BadRequestException('Nội dung bình luận không có sự thay đổi.');
-    }
-
-    return this.commentsService.update(commentId, userId, dto);
+  async update(
+    commentId: number,
+    userId: number,
+    dto: UpdateCommentDto,
+  ) {
+    return this.commentsService.update(
+      commentId,
+      userId,
+      dto,
+    );
   }
 
   remove(commentId: number, userId: number) {

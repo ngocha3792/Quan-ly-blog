@@ -188,6 +188,15 @@ export class CommentsService {
       throw new NotCommentOwnerException();
     }
 
+    if (
+      comment.content.trim() ===
+      updateCommentDto.content.trim()
+    ) {
+      throw new BadRequestException(
+        'Nội dung bình luận không có sự thay đổi.',
+      );
+    }
+
     const updatedComment = await this.prisma.comment.update({
       where: {
         id,

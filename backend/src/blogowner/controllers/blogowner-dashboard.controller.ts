@@ -11,8 +11,7 @@ import {
   Roles,
   RolesGuard,
 } from '@app/core';
-
-import type { JwtPayload } from '@app/core';
+import type { AuthenticatedUser } from '@app/core';
 
 import { BlogownerDashboardService } from '../services/blogowner-dashboard.service';
 
@@ -30,10 +29,10 @@ export class BlogownerDashboardController {
    */
   @Get()
   getDashboard(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.blogownerDashboardService.getDashboard(
-      Number(user.id),
+      user.id,
     );
   }
 }

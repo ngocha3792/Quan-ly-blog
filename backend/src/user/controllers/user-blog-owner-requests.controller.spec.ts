@@ -1,8 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { UserRole } from '@prisma/client';
 
-import { JwtAuthGuard, RolesGuard } from '@app/core';
-import type { JwtPayload } from '@app/core';
+import { JwtAuthGuard, RolesGuard, AuthenticatedUser } from '@app/core';
 
 import { UserBlogOwnerRequestsService } from '../services/user-blog-owner-requests.service';
 import { UserBlogOwnerRequestsController } from './user-blog-owner-requests.controller';
@@ -16,8 +15,8 @@ describe('UserBlogOwnerRequestsController', () => {
     remove: jest.Mock;
   };
 
-  const currentUser: JwtPayload = {
-    id: '1',
+  const currentUser: AuthenticatedUser = {
+    id: 1,
     role: UserRole.NORMAL,
     email: 'test@example.com',
   };

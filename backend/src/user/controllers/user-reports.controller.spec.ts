@@ -7,8 +7,8 @@ import {
 import {
   JwtAuthGuard,
   RolesGuard,
+  AuthenticatedUser,
 } from '@app/core';
-import type { JwtPayload } from '@app/core';
 
 import { UserReportsService } from '../services/user-reports.service';
 import { UserReportsController } from './user-reports.controller';
@@ -21,8 +21,8 @@ describe('UserReportsController', () => {
     reportComment: jest.Mock;
   };
 
-  const currentUser: JwtPayload = {
-    id: '4',
+  const currentUser: AuthenticatedUser = {
+    id: 4,
     role: UserRole.NORMAL,
     email: 'user@system.local',
   };

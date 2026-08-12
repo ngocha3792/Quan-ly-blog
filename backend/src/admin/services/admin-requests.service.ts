@@ -44,7 +44,6 @@ export class AdminRequestsService {
       );
     }
 
-    const numericReviewerId = Number(reviewerId);
     const rejectionReason =
       reviewDto.status === BlogOwnerRequestStatus.APPROVED
         ? null
@@ -61,7 +60,7 @@ export class AdminRequestsService {
         data: {
           status: reviewDto.status,
           rejectionReason,
-          reviewedById: numericReviewerId,
+          reviewedById: reviewerId,
           reviewedAt: new Date(),
         },
       });

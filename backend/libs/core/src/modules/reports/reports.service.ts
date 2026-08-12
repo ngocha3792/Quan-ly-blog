@@ -4,21 +4,35 @@ import { CreateReportDto, UpdateReportDto, GetReportsDto } from './dto';
 import { ReportEntity } from './entities/report.entity';
 import { PaginationParams, PaginatedResult } from '@app/core/common/interfaces';
 import { Prisma, ReportStatus, ReportTargetType } from '@prisma/client';
-import { ReportNotFoundException } from '@app/core/common/exceptions';
+import { ExistActionNotAllowedException, ReportNotFoundException } from '@app/core/common/exceptions';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(reporterId: number, createReportDto: CreateReportDto) {
-    const report = await this.prisma.report.create({
-      data: {
-        ...createReportDto,
-        reporterId,
-      },
-    });
+    try {
+      const report = await this.prisma.report.create({
+        data: {
+          ...createReportDto,
+          reporterId,
+        },
+      });
 
-    return new ReportEntity(report);
+      return new ReportEntity(report);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const targetDesc =
+          createReportDto.targetType === ReportTargetType.POST
+            ? `bài viết có ID ${createReportDto.postId}`
+            : `bình luận có ID ${createReportDto.commentId}`;
+        throw new ExistActionNotAllowedException('report', targetDesc);
+      }
+      throw error;
+    }
   }
 
   async findAll(
@@ -28,8 +42,8 @@ export class ReportsService {
     orderBy:
       | Prisma.ReportOrderByWithRelationInput
       | Prisma.ReportOrderByWithRelationInput[] = {
-      createdAt: 'desc',
-    },
+        createdAt: 'desc',
+      },
   ): Promise<PaginatedResult<ReportEntity>> {
     const { targetType, status, reason, reporterId, postId, commentId } = query;
     const { skip, take, page } = paginationParams;

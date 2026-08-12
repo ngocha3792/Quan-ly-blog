@@ -12,7 +12,7 @@ import {
   ClassSerializerInterceptor,
   UseGuards,
 } from '@nestjs/common';
-import { UserRole, type User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 import {
   UsersService,
@@ -24,7 +24,7 @@ import {
   JwtAuthGuard,
   RolesGuard,
 } from '@app/core';
-import type { PaginationParams } from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 import { AdminUsersService } from '../services/admin-users.service';
 import { CreateModeratorDto, LockUserDto, ChangeUserRoleDto } from '../dto';
 
@@ -71,7 +71,7 @@ export class AdminUsersController {
   @Patch(':id/lock')
   lockUser(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() adminUser: User,
+    @CurrentUser() adminUser: AuthenticatedUser,
     @Body() lockUserDto: LockUserDto,
   ) {
     return this.adminUsersService.lockUser(id, adminUser.id, lockUserDto);
@@ -81,7 +81,7 @@ export class AdminUsersController {
   @Patch(':id/unlock')
   unlockUser(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() adminUser: User,
+    @CurrentUser() adminUser: AuthenticatedUser,
   ) {
     return this.adminUsersService.unlockUser(id, adminUser.id);
   }
@@ -90,7 +90,7 @@ export class AdminUsersController {
   @Patch(':id/role')
   changeRole(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() adminUser: User,
+    @CurrentUser() adminUser: AuthenticatedUser,
     @Body() changeUserRoleDto: ChangeUserRoleDto,
   ) {
     return this.adminUsersService.changeRole(
@@ -104,7 +104,7 @@ export class AdminUsersController {
   @Delete(':id')
   remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() adminUser: User,
+    @CurrentUser() adminUser: AuthenticatedUser,
   ) {
     return this.adminUsersService.removeUser(id, adminUser.id);
   }

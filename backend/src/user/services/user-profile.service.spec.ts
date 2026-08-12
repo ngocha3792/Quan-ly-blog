@@ -60,7 +60,18 @@ describe('UserProfileService', () => {
       const result = await service.getProfile(1);
 
       expect(usersService.findById).toHaveBeenCalledWith(1, {
-        following: { include: { follower: true } },
+        following: {
+          select: {
+            follower: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+                bio: true,
+              },
+            },
+          },
+        },
       });
       expect(result.id).toBe(1);
     });
@@ -123,6 +134,117 @@ describe('UserProfileService', () => {
       });
       expect(result.avatarUrl).toBe(
         'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+      );
+    });
+
+    it('should keep old avatar when new avatar upload fails', async () => {
+      const mockFile = {
+        buffer: Buffer.from('test'),
+        mimetype: 'image/png',
+        originalname: 'test.png',
+      } as Express.Multer.File;
+
+      usersService.findById.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
+      });
+
+      cloudinaryService.uploadFile.mockRejectedValueOnce(
+        new Error('Cloudinary error'),
+      );
+
+      await expect(
+        service.updateProfile(1, {}, mockFile),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(cloudinaryService.deleteFile).not.toHaveBeenCalled();
+      expect(usersService.update).not.toHaveBeenCalled();
+    });
+
+    it('should cleanup new avatar when database update fails', async () => {
+      const mockFile = {
+        buffer: Buffer.from('test'),
+        mimetype: 'image/png',
+        originalname: 'test.png',
+      } as Express.Multer.File;
+
+      usersService.findById.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
+      });
+
+      cloudinaryService.uploadFile.mockResolvedValueOnce({
+        secure_url:
+          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+        public_id: 'nestjs_blog/users/1/avatar/new_avatar',
+      } as any);
+
+      usersService.update.mockRejectedValueOnce(
+        new Error('Database error'),
+      );
+
+      await expect(
+        service.updateProfile(1, {}, mockFile),
+      ).rejects.toThrow('Database error');
+
+      // Ảnh mới phải được cleanup
+      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
+        'nestjs_blog/users/1/avatar/new_avatar',
+        'image',
+      );
+
+      // DB được gọi với URL mới
+      expect(usersService.update).toHaveBeenCalledWith(1, {
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+      });
+
+      // Quan trọng: old_avatar không bị xóa
+      expect(cloudinaryService.deleteFile).not.toHaveBeenCalledWith(
+        'old_avatar',
+        'image',
+      );
+    });
+
+    it('should update database before deleting old avatar', async () => {
+      const mockFile = {
+        buffer: Buffer.from('test'),
+        mimetype: 'image/png',
+        originalname: 'test.png',
+      } as Express.Multer.File;
+
+      usersService.findById.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
+      });
+
+      cloudinaryService.uploadFile.mockResolvedValueOnce({
+        secure_url:
+          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+        public_id: 'nestjs_blog/users/1/avatar/new_avatar',
+      } as any);
+
+      usersService.update.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+      });
+
+      await service.updateProfile(1, {}, mockFile);
+
+      const updateOrder =
+        usersService.update.mock.invocationCallOrder[0];
+      const deleteOrder =
+        cloudinaryService.deleteFile.mock.invocationCallOrder[0];
+
+      expect(updateOrder).toBeLessThan(deleteOrder);
+
+      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
+        'old_avatar',
+        'image',
       );
     });
   });

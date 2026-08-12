@@ -20,7 +20,7 @@ import {
   RolesGuard,
 } from '@app/core';
 import type {
-  JwtPayload,
+  AuthenticatedUser,
   PaginationParams,
 } from '@app/core';
 
@@ -80,11 +80,11 @@ export class ModeratorPostsController {
    */
   @Post(':postId/approve')
   approve(
-    @CurrentUser() moderator: JwtPayload,
+    @CurrentUser() moderator: AuthenticatedUser,
     @Param('postId', ParseIntPipe) postId: number,
   ) {
     return this.moderatorPostsService.approve(
-      Number(moderator.id),
+      moderator.id,
       postId,
     );
   }
@@ -98,12 +98,12 @@ export class ModeratorPostsController {
    */
   @Post(':postId/reject')
   reject(
-    @CurrentUser() moderator: JwtPayload,
+    @CurrentUser() moderator: AuthenticatedUser,
     @Param('postId', ParseIntPipe) postId: number,
     @Body() dto: RejectModeratorPostDto,
   ) {
     return this.moderatorPostsService.reject(
-      Number(moderator.id),
+      moderator.id,
       postId,
       dto,
     );

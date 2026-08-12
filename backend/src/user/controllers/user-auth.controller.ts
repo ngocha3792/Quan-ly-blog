@@ -17,7 +17,7 @@ import {
   CurrentUser,
   JwtAuthGuard,
 } from '@app/core';
-import type { JwtPayload } from '@app/core';
+import type { AuthenticatedUser } from '@app/core';
 
 @Controller('auth')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -43,9 +43,8 @@ export class UserAuthController {
   @Post('logout-all')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  logoutAll(@CurrentUser() user: JwtPayload) {
-    const userId = Number(user.id);
-    return this.authsService.logoutAll(userId);
+  logoutAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.authsService.logoutAll(user.id);
   }
 }
 

@@ -13,6 +13,11 @@ import {
 import { PaginationParams, PaginatedResult } from '@app/core/common/interfaces';
 import { Prisma, UserRole, UserStatus } from '@prisma/client';
 
+type UpdateUserInput = Pick<
+  UpdateUserDto,
+  'password' | 'bio' | 'avatarUrl'
+>;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -67,7 +72,7 @@ export class UsersService {
     });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(id: number, updateUserDto: UpdateUserInput): Promise<UserEntity> {
     // 1. Kiểm tra xem user có tồn tại (và chưa bị xóa) không
     const user = await this.findById(id);
     if (!user) {
@@ -76,13 +81,13 @@ export class UsersService {
 
     // 2. Rút trích dữ liệu từ DTO (Lúc này chắc chắn không có email/username)
     const { password, bio, avatarUrl } = updateUserDto;
-    const dataToUpdate: any = {};
+    const dataToUpdate: Prisma.UserUpdateInput = {};
 
     if (bio !== undefined) dataToUpdate.bio = bio;
     if (avatarUrl !== undefined) dataToUpdate.avatarUrl = avatarUrl;
 
     // 3. Nếu người dùng muốn đổi mật khẩu -> Băm mật khẩu mới
-    if (password) {
+    if (password !== undefined) {
       dataToUpdate.passwordHash = await this.bcryptUtil.hashPassword(password);
     }
 

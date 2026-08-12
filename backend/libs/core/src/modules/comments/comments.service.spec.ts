@@ -346,6 +346,64 @@ describe('CommentsService', () => {
       expect(prisma.comment.update).not.toHaveBeenCalled();
     });
 
+    it('should check ownership before checking unchanged content', async () => {
+      const comment = {
+        id: 10,
+        userId: 1,
+        postId: 1,
+        parentId: null,
+        content: 'Secret content',
+        deletedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.comment.findFirst.mockResolvedValueOnce(comment);
+
+      await expect(
+        service.update(
+          10,
+          999, // user khác
+          {
+            content: 'Secret content',
+          },
+        ),
+      ).rejects.toThrow(NotCommentOwnerException);
+
+      expect(
+        prisma.comment.update,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should reject unchanged content after ownership is verified', async () => {
+      const comment = {
+        id: 10,
+        userId: 1,
+        postId: 1,
+        parentId: null,
+        content: 'Hello world',
+        deletedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.comment.findFirst.mockResolvedValueOnce(comment);
+
+      await expect(
+        service.update(10, 1, {
+          content: '  Hello world  ',
+        }),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Nội dung bình luận không có sự thay đổi.',
+        ),
+      );
+
+      expect(
+        prisma.comment.update,
+      ).not.toHaveBeenCalled();
+    });
+
     it('should update only content if user is the owner', async () => {
       mockPrismaService.comment.findFirst.mockResolvedValueOnce({
         id: 1,

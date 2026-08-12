@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostsPublicService } from './posts-public.service';
 import { PrismaService, PostsService, LanguagesService } from '@app/core';
-import { PostStatus } from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
 
 describe('PostsPublicService', () => {
   let service: PostsPublicService;
@@ -9,11 +9,13 @@ describe('PostsPublicService', () => {
   const mockPrismaService = {
     post: {
       findFirst: jest.fn(),
+      update: jest.fn(),
     },
     postViewLog: {
       findFirst: jest.fn(),
       create: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   const mockPostsService = {
@@ -27,6 +29,13 @@ describe('PostsPublicService', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+
+    mockPrismaService.$transaction.mockImplementation(async (cb) => {
+      if (typeof cb === 'function') {
+        return cb(mockPrismaService);
+      }
+      return cb;
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,8 +64,8 @@ describe('PostsPublicService', () => {
     it('should return post and record view if not viewed within 5 minutes', async () => {
       mockPostsService.findOne.mockResolvedValueOnce(mockPost);
       mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
-      mockPostsService.incrementViewCount.mockResolvedValueOnce({ id: 1, viewCount: 1 });
       mockPrismaService.postViewLog.create.mockResolvedValueOnce({ id: 100 });
+      mockPrismaService.post.update.mockResolvedValueOnce({ id: 1, viewCount: 1 });
 
       const result = await service.findOne(1, null, '127.0.0.1');
 
@@ -73,13 +82,19 @@ describe('PostsPublicService', () => {
             gte: expect.any(Date),
           },
         },
+        select: {
+          id: true,
+        },
       });
-      expect(mockPostsService.incrementViewCount).toHaveBeenCalledWith(1);
       expect(mockPrismaService.postViewLog.create).toHaveBeenCalledWith({
         data: {
           postId: 1,
           viewerKey: '127.0.0.1',
         },
+      });
+      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { viewCount: { increment: 1 } },
       });
     });
 
@@ -87,9 +102,6 @@ describe('PostsPublicService', () => {
       mockPostsService.findOne.mockResolvedValueOnce(mockPost);
       mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce({
         id: 99,
-        postId: 1,
-        viewerKey: '127.0.0.1',
-        viewedAt: new Date(),
       });
 
       const result = await service.findOne(1, null, '127.0.0.1');
@@ -100,8 +112,30 @@ describe('PostsPublicService', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPrismaService.postViewLog.findFirst).toHaveBeenCalled();
-      expect(mockPostsService.incrementViewCount).not.toHaveBeenCalled();
       expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recordViewWithDeduplication', () => {
+    it('should retry when transaction has write conflict (P2034)', async () => {
+      const conflictError = new Prisma.PrismaClientKnownRequestError(
+        'Transaction conflict',
+        {
+          code: 'P2034',
+          clientVersion: 'test',
+        },
+      );
+
+      mockPrismaService.$transaction
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce(undefined);
+
+      await expect(
+        (service as any).recordViewWithDeduplication(1, 'viewer-1'),
+      ).resolves.toBeUndefined();
+
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(2);
     });
   });
 });

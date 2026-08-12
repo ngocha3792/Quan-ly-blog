@@ -14,7 +14,7 @@ import {
   CurrentUser,
   Pagination,
 } from '@app/core';
-import type { JwtPayload, PaginationParams } from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 import { PostInteractionService } from '../services/post-interaction.service';
 
 @Controller('user/posts')
@@ -27,55 +27,55 @@ export class UserPostsController {
 
   @Get('bookmarks')
   async getBookmarkedPosts(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Pagination() pagination: PaginationParams,
   ) {
     return this.postInteractionService.getBookmarkedPosts(
-      Number(user.id),
+      user.id,
       pagination,
     );
   }
 
   @Get('likes')
   async getLikedPosts(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Pagination() pagination: PaginationParams,
   ) {
     return this.postInteractionService.getLikedPosts(
-      Number(user.id),
+      user.id,
       pagination,
     );
   }
 
   @Post(':id/bookmark')
   async bookmarkPost(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
   ) {
-    return this.postInteractionService.bookmarkPost(Number(user.id), postId);
+    return this.postInteractionService.bookmarkPost(user.id, postId);
   }
 
   @Delete(':id/bookmark')
   async unbookmarkPost(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
   ) {
-    return this.postInteractionService.unbookmarkPost(Number(user.id), postId);
+    return this.postInteractionService.unbookmarkPost(user.id, postId);
   }
 
   @Post(':id/like')
   async likePost(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
   ) {
-    return this.postInteractionService.likePost(Number(user.id), postId);
+    return this.postInteractionService.likePost(user.id, postId);
   }
 
   @Delete(':id/like')
   async unlikePost(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) postId: number,
   ) {
-    return this.postInteractionService.unlikePost(Number(user.id), postId);
+    return this.postInteractionService.unlikePost(user.id, postId);
   }
 }

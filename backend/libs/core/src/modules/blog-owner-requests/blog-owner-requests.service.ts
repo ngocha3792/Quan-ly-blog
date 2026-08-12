@@ -33,15 +33,28 @@ export class BlogOwnerRequestsService {
       );
     }
 
-    const request = await this.prisma.blogOwnerRequest.create({
-      data: {
-        ...createDto,
-        userId,
-        status: BlogOwnerRequestStatus.PENDING, // Luôn mặc định là PENDING khi vừa tạo
-      },
-    });
+    try {
+      const request = await this.prisma.blogOwnerRequest.create({
+        data: {
+          ...createDto,
+          userId,
+          status: BlogOwnerRequestStatus.PENDING, // Luôn mặc định là PENDING khi vừa tạo
+        },
+      });
 
-    return new BlogOwnerRequestEntity(request);
+      return new BlogOwnerRequestEntity(request);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ExistActionNotAllowedException(
+          'gửi yêu cầu (bạn đang có một yêu cầu chờ duyệt)',
+          userId.toString(),
+        );
+      }
+      throw error;
+    }
   }
 
   async findAll(

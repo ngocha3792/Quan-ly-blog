@@ -16,7 +16,7 @@ import {
   JwtAuthGuard,
   CurrentUser,
 } from '@app/core';
-import type { JwtPayload } from '@app/core';
+import type { AuthenticatedUser } from '@app/core';
 import { UpdateProfileDto } from '../dto';
 import { UserProfileService } from '../services/user-profile.service';
 
@@ -27,8 +27,8 @@ export class UserProfileController {
   constructor(private readonly userProfileService: UserProfileService) {}
 
   @Get()
-  async getProfile(@CurrentUser() user: JwtPayload) {
-    return this.userProfileService.getProfile(Number(user.id));
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.userProfileService.getProfile(user.id);
   }
 
   @Patch()
@@ -40,20 +40,20 @@ export class UserProfileController {
     }),
   )
   async updateProfile(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() updateProfileDto: UpdateProfileDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.userProfileService.updateProfile(
-      Number(user.id),
+      user.id,
       updateProfileDto,
       file,
     );
   }
 
   @Delete()
-  async removeProfile(@CurrentUser() user: JwtPayload) {
-    return this.userProfileService.removeProfile(Number(user.id));
+  async removeProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.userProfileService.removeProfile(user.id);
   }
 
   @Post('avatar')
@@ -65,9 +65,9 @@ export class UserProfileController {
     }),
   )
   async uploadAvatar(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.userProfileService.uploadAvatar(Number(user.id), file);
+    return this.userProfileService.uploadAvatar(user.id, file);
   }
 }

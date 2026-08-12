@@ -68,8 +68,8 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     // 5. Nếu qua ải thành công, gắn thông tin cập nhật mới nhất từ DB vào Request
-    request['user'] = {
-      id: user.id.toString(),
+    request.user = {
+      id: user.id,
       role: user.role,
       email: user.email,
     };

@@ -19,7 +19,7 @@ import {
   RolesGuard,
   UpdateCommentDto,
 } from '@app/core';
-import type { JwtPayload } from '@app/core';
+import type { AuthenticatedUser } from '@app/core';
 
 import { CreateUserCommentDto } from '../dto';
 import { UserCommentsService } from '../services/user-comments.service';
@@ -38,12 +38,12 @@ export class UserCommentsController {
    */
   @Post('posts/:postId/comments')
   create(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('postId', ParseIntPipe) postId: number,
     @Body() dto: CreateUserCommentDto,
   ) {
     return this.userCommentsService.create(
-      Number(user.id),
+      user.id,
       postId,
       dto,
     );
@@ -56,13 +56,13 @@ export class UserCommentsController {
    */
   @Patch('comments/:commentId')
   update(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('commentId', ParseIntPipe) commentId: number,
     @Body() dto: UpdateCommentDto,
   ) {
     return this.userCommentsService.update(
       commentId,
-      Number(user.id),
+      user.id,
       dto,
     );
   }
@@ -74,12 +74,12 @@ export class UserCommentsController {
    */
   @Delete('comments/:commentId')
   remove(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('commentId', ParseIntPipe) commentId: number,
   ) {
     return this.userCommentsService.remove(
       commentId,
-      Number(user.id),
+      user.id,
     );
   }
 }

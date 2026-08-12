@@ -16,12 +16,14 @@ import { PublicTagsController } from './controllers/public-tags.controller';
 import { PublicCategoriesController } from './controllers/public-categories.controller';
 import { PublicAuthorsController } from './controllers/public-authors.controller';
 import { PublicCommentsController } from './controllers/public-comments.controller';
+import { PublicLanguagesController } from './controllers/public-languages.controller';
 
 import { PostsPublicService } from './services/posts-public.service';
 import { TagsPublicService } from './services/tags-public.service';
 import { CategoriesPublicService } from './services/categories-public.service';
 import { UsersPublicService } from './services/users-public.service';
 import { CommentsPublicService } from './services/comments-public.service';
+import { LanguagesPublicService } from './services/languages-public.service';
 
 @Module({
   imports: [
@@ -41,6 +43,7 @@ import { CommentsPublicService } from './services/comments-public.service';
     PublicCategoriesController,
     PublicAuthorsController,
     PublicCommentsController,
+    PublicLanguagesController,
   ],
 
   providers: [
@@ -49,6 +52,7 @@ import { CommentsPublicService } from './services/comments-public.service';
     CategoriesPublicService,
     UsersPublicService,
     CommentsPublicService,
+    LanguagesPublicService,
   ],
 })
 export class PublicApiModule {}

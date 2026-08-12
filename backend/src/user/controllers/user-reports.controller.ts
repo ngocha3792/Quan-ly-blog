@@ -16,7 +16,7 @@ import {
   Roles,
   RolesGuard,
 } from '@app/core';
-import type { JwtPayload } from '@app/core';
+import type { AuthenticatedUser } from '@app/core';
 
 import { CreateUserReportDto } from '../dto';
 import { UserReportsService } from '../services/user-reports.service';
@@ -36,12 +36,12 @@ export class UserReportsController {
    */
   @Post('posts/:postId/reports')
   async reportPost(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('postId', ParseIntPipe) postId: number,
     @Body() dto: CreateUserReportDto,
   ) {
     const report = await this.userReportsService.reportPost(
-      Number(user.id),
+      user.id,
       postId,
       dto,
     );
@@ -53,12 +53,12 @@ export class UserReportsController {
    */
   @Post('comments/:commentId/reports')
   async reportComment(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('commentId', ParseIntPipe) commentId: number,
     @Body() dto: CreateUserReportDto,
   ) {
     const report = await this.userReportsService.reportComment(
-      Number(user.id),
+      user.id,
       commentId,
       dto,
     );

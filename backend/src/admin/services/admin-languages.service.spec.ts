@@ -10,6 +10,7 @@ describe('AdminLanguagesService', () => {
     language: {
       updateMany: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   const mockLanguagesService = {
@@ -22,6 +23,13 @@ describe('AdminLanguagesService', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+
+    mockPrismaService.$transaction.mockImplementation(async (cb) => {
+      if (typeof cb === 'function') {
+        return cb(mockPrismaService);
+      }
+      return cb;
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -73,7 +81,7 @@ describe('AdminLanguagesService', () => {
         where: { isDefault: true },
         data: { isDefault: false },
       });
-      expect(mockLanguagesService.create).toHaveBeenCalledWith(dto);
+      expect(mockLanguagesService.create).toHaveBeenCalledWith(dto, expect.anything());
       expect(result).toBeInstanceOf(AdminLanguageEntity);
       expect(result.code).toBe('ja');
     });
@@ -152,7 +160,7 @@ describe('AdminLanguagesService', () => {
         where: { id: { not: 2 }, isDefault: true },
         data: { isDefault: false },
       });
-      expect(mockLanguagesService.update).toHaveBeenCalledWith(2, dto);
+      expect(mockLanguagesService.update).toHaveBeenCalledWith(2, dto, expect.anything());
       expect(result).toBeInstanceOf(AdminLanguageEntity);
     });
   });
