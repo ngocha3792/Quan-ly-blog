@@ -86,7 +86,7 @@ export class UserCommentsService {
          *
          * vẫn chạy song song vì lock key khác nhau.
          */
-        await tx.$queryRaw`
+        await tx.$executeRaw`
           SELECT pg_advisory_xact_lock(
             ${COMMENT_RATE_LIMIT_LOCK_NAMESPACE},
             ${userId}

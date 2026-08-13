@@ -27,7 +27,7 @@ describe(
       UserCommentsService;
 
     const tx = {
-      $queryRaw: jest.fn(),
+      $executeRaw: jest.fn(),
 
       comment: {
         findMany: jest.fn(),
@@ -58,8 +58,8 @@ describe(
             callback(tx),
         );
 
-      tx.$queryRaw
-        .mockResolvedValue([]);
+      tx.$executeRaw
+        .mockResolvedValue(1);
 
       const module:
         TestingModule =
@@ -122,7 +122,7 @@ describe(
           );
 
           expect(
-            tx.$queryRaw,
+            tx.$executeRaw,
           ).toHaveBeenCalledTimes(
             1,
           );
