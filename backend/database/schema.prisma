@@ -73,6 +73,7 @@ model User {
   status       UserStatus @default(ACTIVE)
   bio          String?    @db.Text
   avatarUrl    String?    @map("avatar_url")
+  avatarPublicId String?  @map("avatar_public_id") @db.VarChar(255)
 
   lockedAt   DateTime? @map("locked_at")
   lockedById Int?      @map("locked_by")
@@ -341,6 +342,7 @@ model Comment {
   @@index([userId])
   @@index([parentId])
   @@index([createdAt])
+  @@index([userId, createdAt], map: "comments_user_created_at_idx")
   @@map("comments")
 }
 

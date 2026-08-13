@@ -1,19 +1,63 @@
-import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { RouterModule } from '@nestjs/core';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+} from '@nestjs/common';
 
-import { AdminApiModule } from './admin/admin-api.module';
-import { BlogownerApiModule } from './blogowner/blogowner-api.module';
-import { ModeratorApiModule } from './moderator/moderator-api.module';
-import { PublicApiModule } from './public/public-api.module';
-import { UserApiModule } from './user/user-api.module';
+import {
+  ConfigModule,
+} from '@nestjs/config';
 
-import { LoggerMiddleware } from '@app/core/common/middlewares/logger.middleware';
-import { MaintenanceMiddleware } from '@app/core/common/middlewares/maintenance.middleware';
+import {
+  APP_GUARD,
+} from '@nestjs/core';
+
+import {
+  ScheduleModule,
+} from '@nestjs/schedule';
+
+import {
+  ThrottlerGuard,
+  ThrottlerModule,
+} from '@nestjs/throttler';
+
+import {
+  AdminApiModule,
+} from './admin/admin-api.module';
+
+import {
+  BlogownerApiModule,
+} from './blogowner/blogowner-api.module';
+
+import {
+  ModeratorApiModule,
+} from './moderator/moderator-api.module';
+
+import {
+  PublicApiModule,
+} from './public/public-api.module';
+
+import {
+  UserApiModule,
+} from './user/user-api.module';
+
+import {
+  LoggerMiddleware,
+} from '@app/core/common/middlewares/logger.middleware';
+
+import {
+  MaintenanceMiddleware,
+} from '@app/core/common/middlewares/maintenance.middleware';
+
 import configs from '@app/core/config';
-import { ScheduleModule } from '@nestjs/schedule';
-import { CleanupModule } from '@app/core/modules/cleanup/cleanup.module';
-import { PrismaModule } from '@app/core/core/prisma/prisma.module';
+
+import {
+  CleanupModule,
+} from '@app/core/modules/cleanup/cleanup.module';
+
+import {
+  PrismaModule,
+} from '@app/core/core/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -22,7 +66,22 @@ import { PrismaModule } from '@app/core/core/prisma/prisma.module';
       envFilePath: '.env',
       load: configs,
     }),
+
+    /**
+     * Global coarse rate limit.
+     *
+     * Route nhạy cảm sẽ override
+     * bằng @Throttle().
+     */
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 300,
+      },
+    ]),
+
     PrismaModule,
+
     AdminApiModule,
     BlogownerApiModule,
     ModeratorApiModule,
@@ -30,12 +89,31 @@ import { PrismaModule } from '@app/core/core/prisma/prisma.module';
     UserApiModule,
 
     ScheduleModule.forRoot(),
+
     CleanupModule,
   ],
+
+  providers: [
+    /**
+     * Apply throttling cho toàn API.
+     */
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    // Áp dụng Logger và Maintenance middleware cho toàn bộ các route
-    consumer.apply(LoggerMiddleware, MaintenanceMiddleware).forRoutes('*');
+export class AppModule
+  implements NestModule
+{
+  configure(
+    consumer: MiddlewareConsumer,
+  ) {
+    consumer
+      .apply(
+        LoggerMiddleware,
+        MaintenanceMiddleware,
+      )
+      .forRoutes('*');
   }
 }

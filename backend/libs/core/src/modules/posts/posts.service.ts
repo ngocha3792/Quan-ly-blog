@@ -71,6 +71,7 @@ export class PostsService {
       | Prisma.PostOrderByWithRelationInput[] = {
       createdAt: 'desc',
     },
+    additionalWhere?: Prisma.PostWhereInput,
   ): Promise<PaginatedResult<PostEntity>> {
     const {
       search,
@@ -89,6 +90,10 @@ export class PostsService {
     const where: Prisma.PostWhereInput = {
       deletedAt: null,
     };
+
+    if (additionalWhere) {
+      where.AND = [additionalWhere];
+    }
 
     if (search) {
       where.title = {
@@ -171,11 +176,20 @@ export class PostsService {
     };
   }
 
-  async findOne(id: number, include?: Prisma.PostInclude) {
+  async findOne(
+    id: number,
+    include?: Prisma.PostInclude,
+    additionalWhere?: Prisma.PostWhereInput,
+  ) {
     const post = await this.prisma.post.findFirst({
       where: {
         id,
         deletedAt: null,
+        ...(additionalWhere
+          ? {
+              AND: [additionalWhere],
+            }
+          : {}),
       },
       include,
     });

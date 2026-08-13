@@ -8,35 +8,99 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 
-import { Public, GetCommentsDto } from '@app/core';
-import type { PaginationParams } from '@app/core';
-import { Pagination } from '@app/core/common/decorators';
+import {
+  GetCommentsDto,
+  Public,
+} from '@app/core';
 
-import { CommentsPublicService } from '../services/comments-public.service';
+import type {
+  PaginationParams,
+} from '@app/core';
 
-@Controller('/posts/:postId/comments')
-@UseInterceptors(ClassSerializerInterceptor)
+import {
+  Pagination,
+} from '@app/core/common/decorators';
+
+import {
+  GetCommentRepliesDto,
+} from '../dto';
+
+import {
+  CommentsPublicService,
+} from '../services/comments-public.service';
+
+@Controller(
+  '/posts/:postId/comments',
+)
+@UseInterceptors(
+  ClassSerializerInterceptor,
+)
 export class PublicCommentsController {
   constructor(
-    private readonly commentsPublicService: CommentsPublicService,
+    private readonly commentsPublicService:
+      CommentsPublicService,
   ) {}
 
   /**
-   * GET /api/v1/posts/:postId/comments
+   * GET
+   * /api/v1/posts/:postId/comments
    *
-   * Khách chưa đăng nhập vẫn xem được.
+   * Root comments dùng page pagination.
+   * Mỗi root chỉ có vài replies preview.
    */
   @Public()
   @Get()
   findAllByPost(
-    @Param('postId', ParseIntPipe) postId: number,
-    @Query() query: GetCommentsDto,
-    @Pagination() paginationParams: PaginationParams,
+    @Param(
+      'postId',
+      ParseIntPipe,
+    )
+    postId: number,
+
+    @Query()
+    query: GetCommentsDto,
+
+    @Pagination()
+    paginationParams:
+      PaginationParams,
   ) {
-    return this.commentsPublicService.findAllByPost(
-      postId,
-      query,
-      paginationParams,
-    );
+    return this.commentsPublicService
+      .findAllByPost(
+        postId,
+        query,
+        paginationParams,
+      );
+  }
+
+  /**
+   * GET
+   * /api/v1/posts/:postId/comments/:commentId/replies
+   *
+   * Replies dùng cursor pagination.
+   */
+  @Public()
+  @Get(':commentId/replies')
+  findRepliesByComment(
+    @Param(
+      'postId',
+      ParseIntPipe,
+    )
+    postId: number,
+
+    @Param(
+      'commentId',
+      ParseIntPipe,
+    )
+    commentId: number,
+
+    @Query()
+    query: GetCommentRepliesDto,
+  ) {
+    return this.commentsPublicService
+      .findRepliesByComment(
+        postId,
+        commentId,
+        query,
+      );
   }
 }

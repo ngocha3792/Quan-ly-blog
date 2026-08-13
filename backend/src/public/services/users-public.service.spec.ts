@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import { UserNotFoundException } from '@app/core';
+import { UserNotFoundException, LanguagesService } from '@app/core';
 import { UsersPublicService } from './users-public.service';
 import { PostsPublicService } from './posts-public.service';
 import { UserRole, UserStatus } from '@prisma/client';
@@ -19,6 +19,9 @@ describe('UsersPublicService', () => {
   let postsPublicService: {
     findAll: jest.Mock;
   };
+  let languagesService: {
+    getActiveIdByCode: jest.Mock;
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -35,6 +38,10 @@ describe('UsersPublicService', () => {
       findAll: jest.fn(),
     };
 
+    languagesService = {
+      getActiveIdByCode: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersPublicService,
@@ -45,6 +52,10 @@ describe('UsersPublicService', () => {
         {
           provide: PostsPublicService,
           useValue: postsPublicService,
+        },
+        {
+          provide: LanguagesService,
+          useValue: languagesService,
         },
       ],
     }).compile();

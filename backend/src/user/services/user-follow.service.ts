@@ -1,92 +1,105 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma, UserStatus } from '@prisma/client';
+
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import { UserStatus } from '@prisma/client';
 import {
   SelfActionNotAllowedException,
-  ExistActionNotAllowedException,
   UserNotFoundException,
 } from '@app/core/common/exceptions';
-import type { PaginationParams, PaginatedResult } from '@app/core';
+
+import type {
+  PaginationParams,
+  PaginatedResult,
+} from '@app/core';
+
 import { UserFollowSummaryEntity } from '../entities';
 
 @Injectable()
 export class UserFollowService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async followUser(followerId: number, followingId: number) {
+  async followUser(
+    followerId: number,
+    followingId: number,
+  ) {
     if (followerId === followingId) {
       throw new SelfActionNotAllowedException('follow');
     }
 
-    const followingUser = await this.prisma.user.findFirst({
-      where: {
-        id: followingId,
-        deletedAt: null,
-        status: UserStatus.ACTIVE,
-      },
-    });
+    const followingUser =
+      await this.prisma.user.findFirst({
+        where: {
+          id: followingId,
+          deletedAt: null,
+          status: UserStatus.ACTIVE,
+        },
+        select: {
+          id: true,
+        },
+      });
 
     if (!followingUser) {
-      throw new UserNotFoundException(followingId.toString());
-    }
-
-    const existingFollow = await this.prisma.userFollow.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId,
-        },
-      },
-    });
-
-    if (existingFollow) {
-      throw new ExistActionNotAllowedException(
-        'follow',
+      throw new UserNotFoundException(
         followingId.toString(),
       );
     }
 
-    const userFollow = await this.prisma.userFollow.create({
-      data: {
+    const where = {
+      followerId_followingId: {
+        followerId,
+        followingId,
+      },
+    };
+
+    try {
+      return await this.prisma.userFollow.upsert({
+        where,
+        update: {},
+        create: {
+          followerId,
+          followingId,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof
+          Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existingFollow =
+          await this.prisma.userFollow.findUnique({
+            where,
+          });
+
+        if (existingFollow) {
+          return existingFollow;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  async unfollowUser(
+    followerId: number,
+    followingId: number,
+  ) {
+    if (followerId === followingId) {
+      throw new SelfActionNotAllowedException(
+        'unfollow',
+      );
+    }
+
+    await this.prisma.userFollow.deleteMany({
+      where: {
         followerId,
         followingId,
       },
     });
 
-    return userFollow;
-  }
-
-  async unfollowUser(followerId: number, followingId: number) {
-    if (followerId === followingId) {
-      throw new SelfActionNotAllowedException('unfollow');
-    }
-
-    const existingFollow = await this.prisma.userFollow.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId,
-        },
-      },
-    });
-
-    if (!existingFollow) {
-      throw new ExistActionNotAllowedException(
-        'unfollow',
-        followerId.toString(),
-      );
-    }
-
-    await this.prisma.userFollow.delete({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId,
-        },
-      },
-    });
-
-    return { message: 'Đã bỏ follow thành công' };
+    return {
+      message: 'Đã bỏ follow thành công',
+    };
   }
 
   async getFollowerCount(userId: number): Promise<number> {

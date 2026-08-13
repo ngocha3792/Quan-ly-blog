@@ -15,8 +15,17 @@ import { Prisma, UserRole, UserStatus } from '@prisma/client';
 
 type UpdateUserInput = Pick<
   UpdateUserDto,
-  'password' | 'bio' | 'avatarUrl'
->;
+  'password' | 'bio'
+> & {
+  /**
+   * Hai field này là internal input.
+   *
+   * UserProfileDto không expose avatarUrl/publicId
+   * trực tiếp cho client.
+   */
+  avatarUrl?: string | null;
+  avatarPublicId?: string | null;
+};
 
 @Injectable()
 export class UsersService {
@@ -79,12 +88,30 @@ export class UsersService {
       throw new UserNotFoundException(id.toString());
     }
 
-    // 2. Rút trích dữ liệu từ DTO (Lúc này chắc chắn không có email/username)
-    const { password, bio, avatarUrl } = updateUserDto;
+    // 2. Rút trích dữ liệu từ DTO
+    const {
+      password,
+      bio,
+      avatarUrl,
+      avatarPublicId,
+    } = updateUserDto;
     const dataToUpdate: Prisma.UserUpdateInput = {};
 
-    if (bio !== undefined) dataToUpdate.bio = bio;
-    if (avatarUrl !== undefined) dataToUpdate.avatarUrl = avatarUrl;
+    if (bio !== undefined) {
+      dataToUpdate.bio = bio;
+    }
+
+    if (avatarUrl !== undefined) {
+      dataToUpdate.avatarUrl =
+        avatarUrl;
+    }
+
+    if (
+      avatarPublicId !== undefined
+    ) {
+      (dataToUpdate as any).avatarPublicId =
+        avatarPublicId;
+    }
 
     // 3. Nếu người dùng muốn đổi mật khẩu -> Băm mật khẩu mới
     if (password !== undefined) {

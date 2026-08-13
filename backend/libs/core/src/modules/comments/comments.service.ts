@@ -22,7 +22,12 @@ import { CommentEntity } from './entities/comment.entity';
 export class CommentsService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async create(userId: number, createCommentDto: CreateCommentDto) {
+  async create(
+    userId: number,
+    createCommentDto: CreateCommentDto,
+
+    prisma: Prisma.TransactionClient = this.prisma,
+  ) {
     const {
       postId,
       parentId: requestedParentId,
@@ -31,19 +36,21 @@ export class CommentsService {
 
     /**
      * Chỉ được bình luận bài:
-     * - Đang PUBLISH.
-     * - Chưa bị xóa mềm.
+     * - PUBLISH
+     * - chưa soft delete
      */
-    const post = await this.prisma.post.findFirst({
-      where: {
-        id: postId,
-        status: PostStatus.PUBLISH,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const post =
+      await prisma.post.findFirst({
+        where: {
+          id: postId,
+          status: PostStatus.PUBLISH,
+          deletedAt: null,
+        },
+
+        select: {
+          id: true,
+        },
+      });
 
     if (!post) {
       throw new BadRequestException(
@@ -51,23 +58,26 @@ export class CommentsService {
       );
     }
 
-    let parentId: number | null = requestedParentId ?? null;
+    let parentId: number | null =
+      requestedParentId ?? null;
 
     if (
       requestedParentId !== undefined &&
       requestedParentId !== null
     ) {
-      const parentComment = await this.prisma.comment.findFirst({
-        where: {
-          id: requestedParentId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          postId: true,
-          parentId: true,
-        },
-      });
+      const parentComment =
+        await prisma.comment.findFirst({
+          where: {
+            id: requestedParentId,
+            deletedAt: null,
+          },
+
+          select: {
+            id: true,
+            postId: true,
+            parentId: true,
+          },
+        });
 
       if (!parentComment) {
         throw new CommentNotFoundException(
@@ -75,40 +85,44 @@ export class CommentsService {
         );
       }
 
-      /**
-       * Không cho lấy comment của bài A
-       * làm comment cha trong bài B.
-       */
-      if (parentComment.postId !== postId) {
+      if (
+        parentComment.postId !== postId
+      ) {
         throw new BadRequestException(
           'Bình luận cha không thuộc bài viết này.',
         );
       }
 
       /**
-       * Chỉ hỗ trợ tối đa hai cấp:
+       * Chỉ hỗ trợ 2 cấp:
        *
-       * Comment gốc
+       * Root
        * └── Reply
        *
-       * Khi reply vào một reply, hệ thống đưa comment mới
-       * về cùng comment gốc.
+       * Reply vào Reply
+       * => gắn về Root.
        */
-      if (parentComment.parentId !== null) {
-        parentId = parentComment.parentId;
+      if (
+        parentComment.parentId !== null
+      ) {
+        parentId =
+          parentComment.parentId;
       }
     }
 
-    const comment = await this.prisma.comment.create({
-      data: {
-        postId,
-        userId,
-        parentId,
-        content,
-      },
-    });
+    const comment =
+      await prisma.comment.create({
+        data: {
+          postId,
+          userId,
+          parentId,
+          content,
+        },
+      });
 
-    return new CommentEntity(comment);
+    return new CommentEntity(
+      comment,
+    );
   }
 
   async findAll(

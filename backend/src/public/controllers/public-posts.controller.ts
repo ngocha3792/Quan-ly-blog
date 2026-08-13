@@ -7,6 +7,7 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   Ip,
+  Headers,
 } from '@nestjs/common';
 import { Public, GetPostsDto, LangCode } from '@app/core';
 import type { PaginationParams } from '@app/core';
@@ -45,14 +46,23 @@ export class PublicPostsController {
   @Public()
   @Get(':id')
   async findOne(
-    @Param('id', ParseIntPipe) id: number,
-    @LangCode() langCode: string | null,
-    @Ip() viewerIp: string,
+    @Param('id', ParseIntPipe)
+    id: number,
+
+    @LangCode()
+    langCode: string | null,
+
+    @Ip()
+    viewerIp: string,
+
+    @Headers('user-agent')
+    userAgent?: string,
   ) {
     return this.postsPublicService.findOne(
       id,
       langCode,
       viewerIp || null,
+      userAgent || null,
     );
   }
 }

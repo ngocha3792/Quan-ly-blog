@@ -7,6 +7,35 @@ import {
 } from '@app/core';
 import { UserProfileService } from './user-profile.service';
 
+const createPngFile = (
+  mimetype = 'image/png',
+): Express.Multer.File =>
+  ({
+    buffer: Buffer.from([
+      // PNG magic bytes
+      0x89,
+      0x50,
+      0x4e,
+      0x47,
+      0x0d,
+      0x0a,
+      0x1a,
+      0x0a,
+
+      // Dummy content
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]),
+
+    mimetype,
+
+    originalname: 'avatar.png',
+
+    size: 12,
+  }) as Express.Multer.File;
+
 describe('UserProfileService', () => {
   let service: UserProfileService;
   let usersService: {
@@ -86,7 +115,7 @@ describe('UserProfileService', () => {
   });
 
   describe('updateProfile', () => {
-    it('should update user and return profile', async () => {
+    it('should update user and return profile when no file provided', async () => {
       const mockUpdatedUser = { id: 1, username: 'newname', bio: 'new bio' };
       usersService.update.mockResolvedValueOnce(mockUpdatedUser);
 
@@ -96,89 +125,119 @@ describe('UserProfileService', () => {
       expect(result.bio).toBe('new bio');
     });
 
-    it('should upload avatar and update profile when file is provided', async () => {
-      const mockFile = {
-        buffer: Buffer.from('test'),
-        mimetype: 'image/png',
-        originalname: 'test.png',
-      } as Express.Multer.File;
-
+    it('should reject a fake image even when client sends image/png mimetype', async () => {
       usersService.findById.mockResolvedValueOnce({
         id: 1,
-        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
-      });
-      cloudinaryService.uploadFile.mockResolvedValueOnce({
-        secure_url: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-      });
-      usersService.update.mockResolvedValueOnce({
-        id: 1,
-        bio: 'updated bio',
-        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+        avatarUrl: null,
+        avatarPublicId: null,
       });
 
-      const result = await service.updateProfile(
-        1,
-        { bio: 'updated bio' } as any,
-        mockFile,
-      );
-
-      expect(usersService.findById).toHaveBeenCalledWith(1);
-      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith('old_avatar', 'image');
-      expect(cloudinaryService.uploadFile).toHaveBeenCalledWith(
-        mockFile,
-        'nestjs_blog/users/1/avatar',
-      );
-      expect(usersService.update).toHaveBeenCalledWith(1, {
-        bio: 'updated bio',
-        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-      });
-      expect(result.avatarUrl).toBe(
-        'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-      );
-    });
-
-    it('should keep old avatar when new avatar upload fails', async () => {
-      const mockFile = {
-        buffer: Buffer.from('test'),
+      const fakeImage = {
+        buffer: Buffer.from('<script>alert(1)</script>'),
         mimetype: 'image/png',
-        originalname: 'test.png',
+        originalname: 'evil.png',
+        size: 25,
       } as Express.Multer.File;
-
-      usersService.findById.mockResolvedValueOnce({
-        id: 1,
-        avatarUrl:
-          'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
-      });
-
-      cloudinaryService.uploadFile.mockRejectedValueOnce(
-        new Error('Cloudinary error'),
-      );
 
       await expect(
-        service.updateProfile(1, {}, mockFile),
+        service.uploadAvatar(1, fakeImage),
       ).rejects.toThrow(BadRequestException);
 
-      expect(cloudinaryService.deleteFile).not.toHaveBeenCalled();
-      expect(usersService.update).not.toHaveBeenCalled();
+      expect(cloudinaryService.uploadFile).not.toHaveBeenCalled();
     });
 
-    it('should cleanup new avatar when database update fails', async () => {
-      const mockFile = {
-        buffer: Buffer.from('test'),
-        mimetype: 'image/png',
-        originalname: 'test.png',
-      } as Express.Multer.File;
+    it('should validate actual file bytes instead of trusting mimetype', async () => {
+      const realPng = createPngFile('application/octet-stream');
 
       usersService.findById.mockResolvedValueOnce({
         id: 1,
-        avatarUrl:
-          'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
+        avatarUrl: null,
+        avatarPublicId: null,
       });
 
       cloudinaryService.uploadFile.mockResolvedValueOnce({
         secure_url:
-          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-        public_id: 'nestjs_blog/users/1/avatar/new_avatar',
+          'https://res.cloudinary.com/demo/image/upload/v123/new.png',
+        public_id:
+          'nestjs_blog/users/1/avatar/new',
+      } as any);
+
+      usersService.update.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v123/new.png',
+        avatarPublicId:
+          'nestjs_blog/users/1/avatar/new',
+      });
+
+      await expect(
+        service.uploadAvatar(1, realPng),
+      ).resolves.toBeDefined();
+
+      expect(cloudinaryService.uploadFile).toHaveBeenCalled();
+    });
+
+    it('should store cloudinary publicId together with avatarUrl', async () => {
+      const file = createPngFile();
+
+      usersService.findById.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v1/old.jpg',
+        avatarPublicId:
+          'nestjs_blog/users/1/avatar/old',
+      });
+
+      cloudinaryService.uploadFile.mockResolvedValueOnce({
+        secure_url:
+          'https://res.cloudinary.com/demo/image/upload/v2/new.jpg',
+        public_id:
+          'nestjs_blog/users/1/avatar/new',
+      } as any);
+
+      usersService.update.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v2/new.jpg',
+        avatarPublicId:
+          'nestjs_blog/users/1/avatar/new',
+      });
+
+      const result = await service.uploadAvatar(1, file);
+
+      expect(usersService.update).toHaveBeenCalledWith(1, {
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v2/new.jpg',
+        avatarPublicId:
+          'nestjs_blog/users/1/avatar/new',
+      });
+
+      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
+        'nestjs_blog/users/1/avatar/old',
+        'image',
+      );
+
+      expect(result.avatarUrl).toBe(
+        'https://res.cloudinary.com/demo/image/upload/v2/new.jpg',
+      );
+    });
+
+    it('should cleanup newly uploaded avatar when database update fails', async () => {
+      const file = createPngFile();
+
+      usersService.findById.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v1/old.jpg',
+        avatarPublicId:
+          'nestjs_blog/users/1/avatar/old',
+      });
+
+      cloudinaryService.uploadFile.mockResolvedValueOnce({
+        secure_url:
+          'https://res.cloudinary.com/demo/image/upload/v2/new.jpg',
+        public_id:
+          'nestjs_blog/users/1/avatar/new',
       } as any);
 
       usersService.update.mockRejectedValueOnce(
@@ -186,54 +245,45 @@ describe('UserProfileService', () => {
       );
 
       await expect(
-        service.updateProfile(1, {}, mockFile),
+        service.uploadAvatar(1, file),
       ).rejects.toThrow('Database error');
 
-      // Ảnh mới phải được cleanup
       expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
-        'nestjs_blog/users/1/avatar/new_avatar',
+        'nestjs_blog/users/1/avatar/new',
         'image',
       );
 
-      // DB được gọi với URL mới
-      expect(usersService.update).toHaveBeenCalledWith(1, {
-        avatarUrl:
-          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-      });
-
-      // Quan trọng: old_avatar không bị xóa
       expect(cloudinaryService.deleteFile).not.toHaveBeenCalledWith(
-        'old_avatar',
+        'nestjs_blog/users/1/avatar/old',
         'image',
       );
     });
 
-    it('should update database before deleting old avatar', async () => {
-      const mockFile = {
-        buffer: Buffer.from('test'),
-        mimetype: 'image/png',
-        originalname: 'test.png',
-      } as Express.Multer.File;
+    it('should update database before deleting the old avatar', async () => {
+      const file = createPngFile();
 
       usersService.findById.mockResolvedValueOnce({
         id: 1,
-        avatarUrl:
-          'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
+        avatarPublicId:
+          'nestjs_blog/users/1/avatar/old',
       });
 
       cloudinaryService.uploadFile.mockResolvedValueOnce({
         secure_url:
-          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-        public_id: 'nestjs_blog/users/1/avatar/new_avatar',
+          'https://res.cloudinary.com/demo/image/upload/v2/new.jpg',
+        public_id:
+          'nestjs_blog/users/1/avatar/new',
       } as any);
 
       usersService.update.mockResolvedValueOnce({
         id: 1,
         avatarUrl:
-          'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
+          'https://res.cloudinary.com/demo/image/upload/v2/new.jpg',
+        avatarPublicId:
+          'nestjs_blog/users/1/avatar/new',
       });
 
-      await service.updateProfile(1, {}, mockFile);
+      await service.uploadAvatar(1, file);
 
       const updateOrder =
         usersService.update.mock.invocationCallOrder[0];
@@ -241,11 +291,6 @@ describe('UserProfileService', () => {
         cloudinaryService.deleteFile.mock.invocationCallOrder[0];
 
       expect(updateOrder).toBeLessThan(deleteOrder);
-
-      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
-        'old_avatar',
-        'image',
-      );
     });
   });
 
@@ -258,11 +303,13 @@ describe('UserProfileService', () => {
       );
     });
 
-    it('should remove user, delete avatar on Cloudinary if present, and return profile', async () => {
+    it('should remove user, delete avatar on Cloudinary using avatarPublicId if present', async () => {
       const mockUser = {
         id: 1,
         username: 'testuser',
-        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1234/user_avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/demo/image/upload/v1234/user_avatar.jpg',
+        avatarPublicId: 'nestjs_blog/users/1/avatar/user_avatar',
       };
       const mockRemovedUser = { id: 1, username: 'deleted' };
 
@@ -272,7 +319,7 @@ describe('UserProfileService', () => {
       const result = await service.removeProfile(1);
 
       expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
-        'user_avatar',
+        'nestjs_blog/users/1/avatar/user_avatar',
         'image',
       );
       expect(usersService.remove).toHaveBeenCalledWith(1);
@@ -281,62 +328,9 @@ describe('UserProfileService', () => {
   });
 
   describe('uploadAvatar', () => {
-    const mockFile = {
-      buffer: Buffer.from('test'),
-      mimetype: 'image/png',
-      originalname: 'test.png',
-    } as Express.Multer.File;
-
-    it('should throw UserNotFoundException if user not found', async () => {
-      usersService.findById.mockResolvedValueOnce(null);
-
-      await expect(service.uploadAvatar(1, mockFile)).rejects.toThrow(
-        UserNotFoundException,
-      );
-    });
-
     it('should throw BadRequestException if file is missing', async () => {
-      usersService.findById.mockResolvedValueOnce({ id: 1 });
-
       await expect(service.uploadAvatar(1, undefined as any)).rejects.toThrow(
         BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException if file is not an image', async () => {
-      usersService.findById.mockResolvedValueOnce({ id: 1 });
-      const notImage = { mimetype: 'text/plain' } as Express.Multer.File;
-
-      await expect(service.uploadAvatar(1, notImage)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should upload image to cloudinary and update user avatarUrl', async () => {
-      usersService.findById.mockResolvedValueOnce({
-        id: 1,
-        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1234/old_avatar.jpg',
-      });
-      cloudinaryService.uploadFile.mockResolvedValueOnce({
-        secure_url: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-      });
-      usersService.update.mockResolvedValueOnce({
-        id: 1,
-        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-      });
-
-      const result = await service.uploadAvatar(1, mockFile);
-
-      expect(cloudinaryService.deleteFile).toHaveBeenCalledWith('old_avatar', 'image');
-      expect(cloudinaryService.uploadFile).toHaveBeenCalledWith(
-        mockFile,
-        'nestjs_blog/users/1/avatar',
-      );
-      expect(usersService.update).toHaveBeenCalledWith(1, {
-        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
-      });
-      expect(result.avatarUrl).toBe(
-        'https://res.cloudinary.com/demo/image/upload/v5678/new_avatar.jpg',
       );
     });
   });

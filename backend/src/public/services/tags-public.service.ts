@@ -24,15 +24,15 @@ export class TagsPublicService {
 
     if (langCode) {
       const languageId =
-        await this.languagesService.getIdByCode(
-          langCode,
-        );
+        await this.languagesService.getActiveIdByCode(langCode);
 
-      if (languageId) {
-        languageCondition = Prisma.sql`
-          AND p.language_id = ${languageId}
-        `;
+      if (!languageId) {
+        return [];
       }
+
+      languageCondition = Prisma.sql`
+        AND p.language_id = ${languageId}
+      `;
     }
 
     /**
@@ -53,6 +53,12 @@ export class TagsPublicService {
             p.view_count,
             p.created_at
           FROM posts p
+
+          INNER JOIN languages l
+            ON l.id = p.language_id
+            AND l.is_active = true
+            AND l.deleted_at IS NULL
+
           WHERE p.status = 'PUBLISH'
             AND p.deleted_at IS NULL
             ${languageCondition}

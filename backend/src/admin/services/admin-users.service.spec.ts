@@ -154,6 +154,127 @@ describe('AdminUsersService', () => {
     });
   });
 
+  describe('update', () => {
+    it('should update profile fields without revoking sessions when password is unchanged', async () => {
+      const existingUser = {
+        id: 2,
+        username: 'user2',
+        email: 'user2@example.com',
+        role: UserRole.NORMAL,
+        status: UserStatus.ACTIVE,
+      };
+
+      const updatedUser = {
+        ...existingUser,
+        bio: 'Updated bio',
+        avatarUrl: 'https://example.com/avatar.png',
+      };
+
+      mockUsersService.findById.mockResolvedValueOnce(existingUser);
+
+      mockPrismaService.user.update.mockResolvedValueOnce(updatedUser);
+
+      const result = await service.update(2, {
+        bio: 'Updated bio',
+        avatarUrl: 'https://example.com/avatar.png',
+      });
+
+      expect(result).toBeInstanceOf(AdminUserEntity);
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: {
+          id: 2,
+        },
+        data: {
+          bio: 'Updated bio',
+          avatarUrl: 'https://example.com/avatar.png',
+        },
+      });
+
+      expect(mockBcryptUtil.hashPassword).not.toHaveBeenCalled();
+
+      expect(
+        mockPrismaService.userSession.updateMany,
+      ).not.toHaveBeenCalled();
+
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should update password and revoke active sessions in the same transaction', async () => {
+      const existingUser = {
+        id: 2,
+        username: 'user2',
+        email: 'user2@example.com',
+        role: UserRole.NORMAL,
+        status: UserStatus.ACTIVE,
+      };
+
+      const updatedUser = {
+        ...existingUser,
+        passwordHash: 'hashed_new_password',
+      };
+
+      mockUsersService.findById.mockResolvedValueOnce(existingUser);
+
+      mockBcryptUtil.hashPassword.mockResolvedValueOnce(
+        'hashed_new_password',
+      );
+
+      mockPrismaService.user.update.mockResolvedValueOnce(updatedUser);
+
+      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({
+        count: 3,
+      });
+
+      const result = await service.update(2, {
+        password: 'newPassword123',
+      });
+
+      expect(result).toBeInstanceOf(AdminUserEntity);
+
+      expect(mockBcryptUtil.hashPassword).toHaveBeenCalledWith(
+        'newPassword123',
+      );
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: {
+          id: 2,
+        },
+        data: {
+          passwordHash: 'hashed_new_password',
+        },
+      });
+
+      expect(
+        mockPrismaService.userSession.updateMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          userId: 2,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: expect.any(Date),
+        },
+      });
+
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw UserNotFoundException when target user does not exist', async () => {
+      mockUsersService.findById.mockResolvedValueOnce(null);
+
+      await expect(
+        service.update(999, {
+          bio: 'Updated bio',
+        }),
+      ).rejects.toThrow(UserNotFoundException);
+
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
+
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
   describe('lockUser', () => {
     it('should throw SelfActionNotAllowedException if admin tries to lock self', async () => {
       await expect(service.lockUser(1, 1, { reason: 'Test' })).rejects.toThrow(

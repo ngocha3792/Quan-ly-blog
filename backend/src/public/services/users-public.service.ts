@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import { PostStatus, UserStatus, UserRole } from '@prisma/client';
-import { UserNotFoundException, GetPostsDto } from '@app/core';
+import { PostStatus, UserStatus, UserRole, Prisma } from '@prisma/client';
+import {
+  UserNotFoundException,
+  GetPostsDto,
+  LanguagesService,
+} from '@app/core';
 import type { PaginationParams } from '@app/core';
 import { PostsPublicService } from './posts-public.service';
 
@@ -10,6 +14,7 @@ export class UsersPublicService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly postsPublicService: PostsPublicService,
+    private readonly languagesService: LanguagesService,
   ) {}
 
   async getAuthorInfo(
@@ -75,13 +80,26 @@ export class UsersPublicService {
     limit: number = 10,
     langCode: string | null = null,
   ) {
-    let languageUserFilter: { posts: { some: { language: { code: string }; status: PostStatus; deletedAt: null } } } | {} = {};
+    let languageUserFilter: Prisma.UserWhereInput = {};
 
     if (langCode) {
+      const languageId =
+        await this.languagesService.getActiveIdByCode(langCode);
+
+      if (!languageId) {
+        return [];
+      }
+
       languageUserFilter = {
         posts: {
           some: {
-            language: { code: langCode },
+            languageId,
+            language: {
+              is: {
+                isActive: true,
+                deletedAt: null,
+              },
+            },
             status: PostStatus.PUBLISH,
             deletedAt: null,
           },
@@ -89,7 +107,7 @@ export class UsersPublicService {
       };
     }
 
-    const whereAuthorCondition = {
+    const whereAuthorCondition: Prisma.UserWhereInput = {
       status: UserStatus.ACTIVE,
       role: UserRole.BLOG_OWNER,
       deletedAt: null,
@@ -191,4 +209,3 @@ export class UsersPublicService {
     return [...topAuthors, ...fallbackAuthors];
   }
 }
-

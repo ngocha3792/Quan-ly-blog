@@ -39,6 +39,7 @@ export class CategoriesService {
     query: GetCategoriesDto,
     paginationParams: PaginationParams,
     include?: Prisma.CategoryInclude,
+    additionalWhere?: Prisma.CategoryWhereInput,
   ): Promise<PaginatedResult<CategoryEntity>> {
     const { search, languageId } = query;
     const { skip, take, page } = paginationParams;
@@ -46,6 +47,10 @@ export class CategoriesService {
     const where: Prisma.CategoryWhereInput = {
       deletedAt: null,
     };
+
+    if (additionalWhere) {
+      where.AND = [additionalWhere];
+    }
 
     if (search) {
       where.name = { contains: search, mode: 'insensitive' };

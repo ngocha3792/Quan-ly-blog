@@ -28,6 +28,41 @@ export class LanguagesService {
   }
 
   /**
+   * Resolve language code dành cho Public API.
+   *
+   * Chỉ trả về language khi:
+   * - tồn tại
+   * - đang active
+   * - chưa bị soft delete
+   *
+   * Không thay thế getIdByCode() vì Admin/Core có thể
+   * vẫn cần truy cập language inactive.
+   */
+  async getActiveIdByCode(
+    langCode: string | null,
+    prisma: Prisma.TransactionClient = this.prisma,
+  ): Promise<number | undefined> {
+    const normalizedCode = langCode?.trim().toLowerCase();
+
+    if (!normalizedCode) {
+      return undefined;
+    }
+
+    const language = await prisma.language.findFirst({
+      where: {
+        code: normalizedCode,
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return language?.id;
+  }
+
+  /**
    * Lấy tất cả ngôn ngữ có thể sử dụng ở public.
    */
   async findAllActive(prisma: Prisma.TransactionClient = this.prisma) {

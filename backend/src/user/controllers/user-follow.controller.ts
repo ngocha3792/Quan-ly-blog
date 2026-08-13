@@ -8,6 +8,8 @@ import {
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   JwtAuthGuard,
@@ -56,6 +58,7 @@ export class UserFollowController {
   }
 
   @Post(':id')
+  @HttpCode(HttpStatus.OK)
   async followUser(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) followingId: number,

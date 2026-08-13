@@ -15,8 +15,6 @@ import {
 import { UserRole } from '@prisma/client';
 
 import {
-  UsersService,
-  UpdateUserDto,
   GetUsersDto,
   Pagination,
   Roles,
@@ -26,7 +24,12 @@ import {
 } from '@app/core';
 import type { AuthenticatedUser, PaginationParams } from '@app/core';
 import { AdminUsersService } from '../services/admin-users.service';
-import { CreateModeratorDto, LockUserDto, ChangeUserRoleDto } from '../dto';
+import {
+  AdminUpdateUserDto,
+  ChangeUserRoleDto,
+  CreateModeratorDto,
+  LockUserDto,
+} from '../dto';
 
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,8 +37,7 @@ import { CreateModeratorDto, LockUserDto, ChangeUserRoleDto } from '../dto';
 export class AdminUsersController {
   constructor(
     private readonly adminUsersService: AdminUsersService,
-    private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   @Roles(UserRole.SUPER_ADMIN)
   @Get()
@@ -62,9 +64,9 @@ export class AdminUsersController {
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateUserDto: UpdateUserDto,
+    @Body() updateUserDto: AdminUpdateUserDto,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    return this.adminUsersService.update(id, updateUserDto);
   }
 
   @Roles(UserRole.SUPER_ADMIN)

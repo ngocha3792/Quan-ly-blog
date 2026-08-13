@@ -11,9 +11,14 @@ import {
   PaginatedResult,
   BcryptUtil,
 } from '@app/core';
-import { UserStatus, UserRole } from '@prisma/client';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
 import { AdminUserEntity } from '../entities';
-import { LockUserDto, ChangeUserRoleDto, CreateModeratorDto } from '../dto';
+import {
+  AdminUpdateUserDto,
+  ChangeUserRoleDto,
+  CreateModeratorDto,
+  LockUserDto,
+} from '../dto';
 
 @Injectable()
 export class AdminUsersService {
@@ -80,6 +85,83 @@ export class AdminUsersService {
     }
 
     return new AdminUserEntity(user);
+  }
+
+  /**
+   * Cập nhật thông tin user bởi Admin.
+   *
+   * role/status không xử lý tại đây để tránh bypass
+   * business rule ở changeRole(), lockUser(), unlockUser().
+   *
+   * Nếu password thay đổi:
+   * - hash password mới
+   * - update password
+   * - revoke tất cả session
+   *
+   * Update password + revoke session chạy cùng transaction.
+   */
+  async update(
+    userId: number,
+    updateUserDto: AdminUpdateUserDto,
+  ): Promise<AdminUserEntity> {
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new UserNotFoundException(userId.toString());
+    }
+
+    const { password, bio, avatarUrl } = updateUserDto;
+
+    const dataToUpdate: Prisma.UserUpdateInput = {};
+
+    if (bio !== undefined) {
+      dataToUpdate.bio = bio;
+    }
+
+    if (avatarUrl !== undefined) {
+      dataToUpdate.avatarUrl = avatarUrl;
+    }
+
+    // Không đổi password
+    // => không cần revoke session
+    if (password === undefined) {
+      const updatedUser = await this.prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: dataToUpdate,
+      });
+
+      return new AdminUserEntity(updatedUser);
+    }
+
+    // Admin reset password user
+    const passwordHash = await this.bcryptUtil.hashPassword(password);
+
+    dataToUpdate.passwordHash = passwordHash;
+
+    const revokedAt = new Date();
+
+    const [updatedUser] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: dataToUpdate,
+      }),
+
+      this.prisma.userSession.updateMany({
+        where: {
+          userId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt,
+        },
+      }),
+    ]);
+
+    return new AdminUserEntity(updatedUser);
   }
 
   /**

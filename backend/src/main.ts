@@ -11,6 +11,21 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  const trustProxyHops =
+    configService.get<number>(
+      'app.trustProxyHops',
+    ) || 0;
+
+  if (trustProxyHops > 0) {
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .set(
+        'trust proxy',
+        trustProxyHops,
+      );
+  }
+
   // Lấy Global Prefix từ cấu hình (env: API_PREFIX)
   const apiPrefix = configService.get<string>('app.apiPrefix') || 'api/v1';
   app.setGlobalPrefix(apiPrefix);

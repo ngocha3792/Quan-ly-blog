@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 
 import {
   CurrentUser,
@@ -37,6 +38,12 @@ export class UserCommentsController {
    * POST /api/v1/user/posts/:postId/comments
    */
   @Post('posts/:postId/comments')
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('postId', ParseIntPipe) postId: number,
