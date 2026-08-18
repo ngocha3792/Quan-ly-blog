@@ -209,6 +209,281 @@ describe('BlogownerPostsService', () => {
   });
 
   /**
+   * GROUPED POST LIST
+   */
+
+  it('should group root posts with their translations and aggregate view/like totals', async () => {
+    const rootUpdatedAt = new Date('2026-08-01T10:00:00.000Z');
+    const translationUpdatedAt = new Date('2026-08-03T10:00:00.000Z');
+    const secondRootUpdatedAt = new Date('2026-08-02T10:00:00.000Z');
+
+    mockPrismaService.post.findMany
+      .mockResolvedValueOnce([
+        { id: 101, parentPostId: null },
+        { id: 102, parentPostId: 101 },
+        { id: 201, parentPostId: null },
+      ])
+      .mockResolvedValueOnce([
+        { id: 101 },
+        { id: 201 },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 101,
+          parentPostId: null,
+          updatedAt: rootUpdatedAt,
+          viewCount: 100,
+          _count: { postLikes: 5 },
+        },
+        {
+          id: 102,
+          parentPostId: 101,
+          updatedAt: translationUpdatedAt,
+          viewCount: 20,
+          _count: { postLikes: 2 },
+        },
+        {
+          id: 201,
+          parentPostId: null,
+          updatedAt: secondRootUpdatedAt,
+          viewCount: 90,
+          _count: { postLikes: 10 },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 201,
+          title: 'Root B',
+          parentPostId: null,
+          status: PostStatus.DRAFT,
+          viewCount: 90,
+          updatedAt: secondRootUpdatedAt,
+          language: { code: 'vi' },
+          _count: { postLikes: 10 },
+        },
+        {
+          id: 102,
+          title: 'Root A English',
+          parentPostId: 101,
+          status: PostStatus.DRAFT,
+          viewCount: 20,
+          updatedAt: translationUpdatedAt,
+          language: { code: 'en' },
+          _count: { postLikes: 2 },
+        },
+        {
+          id: 101,
+          title: 'Root A',
+          parentPostId: null,
+          status: PostStatus.PUBLISH,
+          viewCount: 100,
+          updatedAt: rootUpdatedAt,
+          language: { code: 'vi' },
+          _count: { postLikes: 5 },
+        },
+      ]);
+
+    const result = await service.findAll(
+      3,
+      {},
+      {
+        skip: 0,
+        take: 10,
+        page: 1,
+      },
+    );
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0].root.id).toBe(101);
+    expect(result.items[0].translations.map((post) => post.id)).toEqual([102]);
+    expect(result.items[0].totals).toEqual({
+      views: 120,
+      likes: 7,
+    });
+    expect(result.items[0].latestUpdatedAt).toEqual(translationUpdatedAt);
+
+    expect(result.items[1].root.id).toBe(201);
+    expect(result.items[1].translations).toHaveLength(0);
+
+    expect(result.meta).toEqual({
+      totalItems: 2,
+      itemCount: 2,
+      itemsPerPage: 10,
+      totalPages: 1,
+      currentPage: 1,
+    });
+  });
+
+  it('should sort groups by total views and paginate by group', async () => {
+    const updatedAt = new Date('2026-08-01T10:00:00.000Z');
+
+    mockPrismaService.post.findMany
+      .mockResolvedValueOnce([
+        { id: 101, parentPostId: null },
+        { id: 102, parentPostId: 101 },
+        { id: 201, parentPostId: null },
+      ])
+      .mockResolvedValueOnce([
+        { id: 101 },
+        { id: 201 },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 101,
+          parentPostId: null,
+          updatedAt,
+          viewCount: 100,
+          _count: { postLikes: 1 },
+        },
+        {
+          id: 102,
+          parentPostId: 101,
+          updatedAt,
+          viewCount: 100,
+          _count: { postLikes: 1 },
+        },
+        {
+          id: 201,
+          parentPostId: null,
+          updatedAt,
+          viewCount: 150,
+          _count: { postLikes: 20 },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 201,
+          title: 'Root B',
+          parentPostId: null,
+          status: PostStatus.DRAFT,
+          viewCount: 150,
+          updatedAt,
+          language: { code: 'vi' },
+          _count: { postLikes: 20 },
+        },
+      ]);
+
+    const result = await service.findAll(
+      3,
+      {
+        sortBy: 'viewCount',
+        sortOrder: 'desc',
+      },
+      {
+        skip: 1,
+        take: 1,
+        page: 2,
+      },
+    );
+
+    /**
+     * Group 101 có 200 views, group 201 có 150 views.
+     * Page 2 / limit 1 phải trả group 201.
+     */
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].root.id).toBe(201);
+    expect(result.items[0].totals.views).toBe(150);
+    expect(result.meta.totalItems).toBe(2);
+    expect(result.meta.totalPages).toBe(2);
+    expect(result.meta.currentPage).toBe(2);
+  });
+
+  it('should use filters only to select matching groups and still return the full active group', async () => {
+    const updatedAt = new Date('2026-08-01T10:00:00.000Z');
+
+    mockPrismaService.post.findMany
+      .mockResolvedValueOnce([
+        /** Chỉ translation EN khớp status DRAFT. */
+        { id: 102, parentPostId: 101 },
+      ])
+      .mockResolvedValueOnce([
+        { id: 101 },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 101,
+          parentPostId: null,
+          updatedAt,
+          viewCount: 100,
+          _count: { postLikes: 5 },
+        },
+        {
+          id: 102,
+          parentPostId: 101,
+          updatedAt,
+          viewCount: 20,
+          _count: { postLikes: 2 },
+        },
+        {
+          id: 103,
+          parentPostId: 101,
+          updatedAt,
+          viewCount: 10,
+          _count: { postLikes: 1 },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 101,
+          title: 'Root',
+          parentPostId: null,
+          status: PostStatus.PUBLISH,
+          viewCount: 100,
+          updatedAt,
+          language: { code: 'vi' },
+          _count: { postLikes: 5 },
+        },
+        {
+          id: 102,
+          title: 'English draft',
+          parentPostId: 101,
+          status: PostStatus.DRAFT,
+          viewCount: 20,
+          updatedAt,
+          language: { code: 'en' },
+          _count: { postLikes: 2 },
+        },
+        {
+          id: 103,
+          title: 'French publish',
+          parentPostId: 101,
+          status: PostStatus.PUBLISH,
+          viewCount: 10,
+          updatedAt,
+          language: { code: 'fr' },
+          _count: { postLikes: 1 },
+        },
+      ]);
+
+    const result = await service.findAll(
+      3,
+      {
+        status: PostStatus.DRAFT,
+      },
+      {
+        skip: 0,
+        take: 10,
+        page: 1,
+      },
+    );
+
+    expect(
+      mockPrismaService.post.findMany.mock.calls[0][0].where,
+    ).toMatchObject({
+      authorId: 3,
+      deletedAt: null,
+      status: PostStatus.DRAFT,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].root.id).toBe(101);
+    expect(result.items[0].translations.map((post) => post.id)).toEqual([
+      102,
+      103,
+    ]);
+  });
+
+  /**
    * CREATE POST
    */
 
@@ -1812,4 +2087,400 @@ it('should reset review metadata before uploading media when editing a published
       PostStatus.PENDING_REVIEW,
     );
   });
+
+  /**
+   * SYNC ONE TRANSLATION FROM ROOT
+   */
+
+  it('should sync a published translation from root and move it to pending review without touching view/like fields', async () => {
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 514,
+      authorId: 3,
+      parentPostId: 513,
+      languageId: 27,
+      status: PostStatus.PUBLISH,
+      viewCount: 300,
+    });
+
+    mockHelper.getNextStatusOnEdit.mockReturnValue(
+      PostStatus.PENDING_REVIEW,
+    );
+
+    mockPrismaService.language.findFirst.mockResolvedValue({
+      id: 27,
+      code: 'en',
+      name: 'English',
+      flag: '🇬🇧',
+    });
+
+    mockPrismaService.post.findFirst.mockResolvedValue({
+      id: 513,
+      title: 'Kiến trúc Angular hiện đại',
+      content: '<p>Nội dung mới của bài gốc</p>',
+      thumbnailUrl: 'https://example.com/root.jpg',
+      language: {
+        id: 26,
+        code: 'vi',
+        name: 'Tiếng Việt',
+        flag: '🇻🇳',
+      },
+      postCategories: [
+        {
+          category: {
+            categoryGroupId: 10,
+          },
+        },
+        {
+          category: {
+            categoryGroupId: 15,
+          },
+        },
+      ],
+      postTags: [
+        { tagId: 46 },
+        { tagId: 53 },
+      ],
+    });
+
+    mockPrismaService.category.findMany.mockResolvedValue([
+      { id: 110, categoryGroupId: 10 },
+      { id: 115, categoryGroupId: 15 },
+    ]);
+
+    mockTranslationService.translatePost.mockResolvedValue({
+      title: 'Modern Angular Architecture',
+      content: '<p>New translated root content</p>',
+    });
+
+    mockPrismaService.post.update.mockResolvedValue({
+      id: 514,
+    });
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
+        id: 514,
+        title: 'Modern Angular Architecture',
+        status: PostStatus.PENDING_REVIEW,
+        viewCount: 300,
+      }),
+    );
+
+    const result = await service.syncFromRoot(3, 514);
+
+    expect(mockHelper.assertEditable).toHaveBeenCalledWith(
+      PostStatus.PUBLISH,
+    );
+
+    expect(mockTranslationService.translatePost).toHaveBeenCalledWith({
+      title: 'Kiến trúc Angular hiện đại',
+      content: '<p>Nội dung mới của bài gốc</p>',
+      sourceLanguageCode: 'vi',
+      targetLanguageCode: 'en',
+    });
+
+    expect(mockPrismaService.post.update).toHaveBeenCalledWith({
+      where: {
+        id: 514,
+      },
+      data: {
+        title: 'Modern Angular Architecture',
+        content: '<p>New translated root content</p>',
+        thumbnailUrl: 'https://example.com/root.jpg',
+        status: PostStatus.PENDING_REVIEW,
+        ...RESET_REVIEW_DATA,
+        postCategories: {
+          deleteMany: {},
+          create: [
+            { categoryId: 110 },
+            { categoryId: 115 },
+          ],
+        },
+        postTags: {
+          deleteMany: {},
+          create: [
+            { tagId: 46 },
+            { tagId: 53 },
+          ],
+        },
+      },
+    });
+
+    const updateData = mockPrismaService.post.update.mock.calls[0][0].data;
+    expect(updateData).not.toHaveProperty('viewCount');
+    expect(updateData).not.toHaveProperty('postLikes');
+    expect(updateData).not.toHaveProperty('media');
+
+    expect(service.findOne).toHaveBeenCalledWith(3, 514);
+    expect(result.status).toBe(PostStatus.PENDING_REVIEW);
+  });
+
+  it('should reject sync-from-root when the selected post is an original post', async () => {
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 513,
+      authorId: 3,
+      parentPostId: null,
+      languageId: 26,
+      status: PostStatus.DRAFT,
+    });
+
+    await expect(service.syncFromRoot(3, 513)).rejects.toThrow(
+      'Chỉ bản dịch mới có thể đồng bộ từ bài gốc.',
+    );
+
+    expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+  });
+
+  it('should not sync a translation that is pending review', async () => {
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 514,
+      authorId: 3,
+      parentPostId: 513,
+      languageId: 27,
+      status: PostStatus.PENDING_REVIEW,
+    });
+
+    mockHelper.assertEditable.mockImplementation(() => {
+      throw new BadRequestException(
+        'Bài viết đang chờ Moderator duyệt nên không thể chỉnh sửa.',
+      );
+    });
+
+    await expect(service.syncFromRoot(3, 514)).rejects.toThrow(
+      'Bài viết đang chờ Moderator duyệt nên không thể chỉnh sửa.',
+    );
+
+    expect(mockPrismaService.post.findFirst).not.toHaveBeenCalled();
+    expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+  });
+
+  it('should validate category mapping before calling the translation service', async () => {
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 514,
+      authorId: 3,
+      parentPostId: 513,
+      languageId: 27,
+      status: PostStatus.DRAFT,
+    });
+
+    mockPrismaService.language.findFirst.mockResolvedValue({
+      id: 27,
+      code: 'en',
+      name: 'English',
+      flag: '🇬🇧',
+    });
+
+    mockPrismaService.post.findFirst.mockResolvedValue({
+      id: 513,
+      title: 'Root',
+      content: '<p>Root content</p>',
+      thumbnailUrl: null,
+      language: {
+        id: 26,
+        code: 'vi',
+        name: 'Tiếng Việt',
+        flag: '🇻🇳',
+      },
+      postCategories: [
+        { category: { categoryGroupId: 10 } },
+        { category: { categoryGroupId: 15 } },
+      ],
+      postTags: [],
+    });
+
+    /** Chỉ map được một trong hai CategoryGroup. */
+    mockPrismaService.category.findMany.mockResolvedValue([
+      { id: 110, categoryGroupId: 10 },
+    ]);
+
+    await expect(service.syncFromRoot(3, 514)).rejects.toThrow(
+      'Một hoặc nhiều danh mục của bài gốc chưa có phiên bản trong ngôn ngữ của bản dịch.',
+    );
+
+    expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+  });
+
+
+  /**
+   * SYNC ALL TRANSLATIONS FROM ROOT
+   */
+
+  it('should sync all editable translations and skip pending-review translations', async () => {
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 513,
+      authorId: 3,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+    });
+
+    mockPrismaService.post.findMany.mockResolvedValue([
+      {
+        id: 514,
+        status: PostStatus.PUBLISH,
+        language: { code: 'en' },
+      },
+      {
+        id: 515,
+        status: PostStatus.PENDING_REVIEW,
+        language: { code: 'fr' },
+      },
+      {
+        id: 516,
+        status: PostStatus.DRAFT,
+        language: { code: 'ja' },
+      },
+    ]);
+
+    const syncOneSpy = jest
+      .spyOn(service, 'syncFromRoot')
+      .mockImplementation(async (_ownerId, translationId) => {
+        if (translationId === 514) {
+          return new BlogownerPostEntity({
+            id: 514,
+            status: PostStatus.PENDING_REVIEW,
+          });
+        }
+
+        return new BlogownerPostEntity({
+          id: 516,
+          status: PostStatus.DRAFT,
+        });
+      });
+
+    const result = await service.syncAllTranslations(3, 513);
+
+    expect(mockHelper.findOwnedPost).toHaveBeenCalledWith(3, 513);
+
+    expect(mockPrismaService.post.findMany).toHaveBeenCalledWith({
+      where: {
+        authorId: 3,
+        parentPostId: 513,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        status: true,
+        language: {
+          select: {
+            code: true,
+          },
+        },
+      },
+      orderBy: {
+        id: 'asc',
+      },
+    });
+
+    /** PENDING_REVIEW #515 phải bị bỏ qua hoàn toàn. */
+    expect(syncOneSpy).toHaveBeenCalledTimes(2);
+    expect(syncOneSpy).toHaveBeenNthCalledWith(1, 3, 514);
+    expect(syncOneSpy).toHaveBeenNthCalledWith(2, 3, 516);
+    expect(syncOneSpy).not.toHaveBeenCalledWith(3, 515);
+
+    expect(result).toEqual({
+      rootPostId: 513,
+      totalTranslations: 3,
+      synced: [
+        {
+          id: 514,
+          languageCode: 'en',
+          status: PostStatus.PENDING_REVIEW,
+        },
+        {
+          id: 516,
+          languageCode: 'ja',
+          status: PostStatus.DRAFT,
+        },
+      ],
+      skipped: [
+        {
+          id: 515,
+          languageCode: 'fr',
+          status: PostStatus.PENDING_REVIEW,
+          reason:
+            'Bản dịch đang chờ Moderator duyệt nên không được đồng bộ.',
+        },
+      ],
+      failed: [],
+    });
+  });
+
+  it('should continue syncing other translations when one translation fails', async () => {
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 513,
+      authorId: 3,
+      parentPostId: null,
+      status: PostStatus.DRAFT,
+    });
+
+    mockPrismaService.post.findMany.mockResolvedValue([
+      {
+        id: 514,
+        status: PostStatus.DRAFT,
+        language: { code: 'en' },
+      },
+      {
+        id: 516,
+        status: PostStatus.REJECT,
+        language: { code: 'ja' },
+      },
+    ]);
+
+    const syncOneSpy = jest
+      .spyOn(service, 'syncFromRoot')
+      .mockRejectedValueOnce(
+        new BadRequestException(
+          'Một hoặc nhiều danh mục của bài gốc chưa có phiên bản trong ngôn ngữ của bản dịch.',
+        ),
+      )
+      .mockResolvedValueOnce(
+        new BlogownerPostEntity({
+          id: 516,
+          status: PostStatus.DRAFT,
+        }),
+      );
+
+    const result = await service.syncAllTranslations(3, 513);
+
+    expect(syncOneSpy).toHaveBeenCalledTimes(2);
+
+    expect(result.synced).toEqual([
+      {
+        id: 516,
+        languageCode: 'ja',
+        status: PostStatus.DRAFT,
+      },
+    ]);
+
+    expect(result.failed).toEqual([
+      {
+        id: 514,
+        languageCode: 'en',
+        status: PostStatus.DRAFT,
+        reason:
+          'Một hoặc nhiều danh mục của bài gốc chưa có phiên bản trong ngôn ngữ của bản dịch.',
+      },
+    ]);
+  });
+
+  it('should reject sync-all-translations when the selected post is a translation', async () => {
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 514,
+      authorId: 3,
+      parentPostId: 513,
+      status: PostStatus.DRAFT,
+    });
+
+    await expect(
+      service.syncAllTranslations(3, 514),
+    ).rejects.toThrow(
+      'Chỉ bài gốc mới có thể đồng bộ tất cả bản dịch.',
+    );
+
+    expect(mockPrismaService.post.findMany).not.toHaveBeenCalled();
+    expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
+  });
+
 });

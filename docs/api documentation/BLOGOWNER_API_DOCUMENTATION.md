@@ -1029,6 +1029,8 @@ Authorization: Bearer <ACCESS_TOKEN>
 
 ### B09 — POST /api/v1/blog-owner/posts/:id/translate-preview
 
+<!-- libretranslate --host 127.0.0.1 --port 5000 --load-only vi,en -->
+
 **Dịch tự động title và content để xem trước; không ghi database**
 
 | Xác thực / phân quyền                                | HTTP thành công | Content-Type request |

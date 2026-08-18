@@ -30,6 +30,26 @@ type BlogownerPostCount = {
   postLikes: number;
 };
 
+export type BlogownerPostGroupTotals = {
+  views: number;
+  likes: number;
+};
+
+/**
+ * Một nhóm bài đa ngôn ngữ của Blog Owner.
+ *
+ * - root luôn là bài gốc (parentPostId = null);
+ * - translations chứa toàn bộ bản dịch active của root;
+ * - totals dùng để sắp xếp/hiển thị thống kê theo cả nhóm;
+ * - latestUpdatedAt là thời điểm chỉnh sửa mới nhất trong nhóm.
+ */
+export type BlogownerPostGroup = {
+  root: BlogownerPostEntity;
+  translations: BlogownerPostEntity[];
+  totals: BlogownerPostGroupTotals;
+  latestUpdatedAt: Date;
+};
+
 /**
  * Entity trả dữ liệu riêng cho Blog Owner.
  *
