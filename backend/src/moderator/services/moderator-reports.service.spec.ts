@@ -241,6 +241,25 @@ describe('ModeratorReportsService', () => {
       expect(result.targetType).toBe(
         ReportTargetType.POST,
       );
+      expect(
+        mockPrismaService.report.findUnique,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          include: expect.objectContaining({
+            comment: {
+              select: expect.objectContaining({
+                replies: expect.any(Object),
+                parent: {
+                  select: expect.objectContaining({
+                    replies: expect.any(Object),
+                  }),
+                },
+              }),
+            },
+          }),
+        }),
+      );
     });
   });
 

@@ -56,14 +56,34 @@ const REPORTED_POST_SELECT = {
  * Dùng để Moderator hiểu ngữ cảnh nếu comment bị report
  * là một reply.
  */
-const PARENT_COMMENT_SELECT = {
+const COMMENT_CONTEXT_ITEM_SELECT = {
   id: true,
+  postId: true,
   userId: true,
+  parentId: true,
   content: true,
   createdAt: true,
 
   user: {
     select: REPORT_USER_SELECT,
+  },
+} satisfies Prisma.CommentSelect;
+
+const PARENT_COMMENT_SELECT = {
+  ...COMMENT_CONTEXT_ITEM_SELECT,
+} satisfies Prisma.CommentSelect;
+
+const PARENT_COMMENT_DETAIL_SELECT = {
+  ...PARENT_COMMENT_SELECT,
+
+  replies: {
+    where: {
+      deletedAt: null,
+    },
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+    select: COMMENT_CONTEXT_ITEM_SELECT,
   },
 } satisfies Prisma.CommentSelect;
 
@@ -91,6 +111,24 @@ const REPORTED_COMMENT_SELECT = {
   },
 } satisfies Prisma.CommentSelect;
 
+const REPORTED_COMMENT_DETAIL_SELECT = {
+  ...REPORTED_COMMENT_SELECT,
+
+  parent: {
+    select: PARENT_COMMENT_DETAIL_SELECT,
+  },
+
+  replies: {
+    where: {
+      deletedAt: null,
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+    select: COMMENT_CONTEXT_ITEM_SELECT,
+  },
+} satisfies Prisma.CommentSelect;
+
 /**
  * Toàn bộ ngữ cảnh cần thiết cho Moderator xem report.
  */
@@ -109,6 +147,14 @@ const MODERATOR_REPORT_INCLUDE = {
 
   comment: {
     select: REPORTED_COMMENT_SELECT,
+  },
+} satisfies Prisma.ReportInclude;
+
+/** Ngữ cảnh đầy đủ chỉ tải khi Moderator mở màn hình chi tiết. */
+const MODERATOR_REPORT_DETAIL_INCLUDE = {
+  ...MODERATOR_REPORT_INCLUDE,
+  comment: {
+    select: REPORTED_COMMENT_DETAIL_SELECT,
   },
 } satisfies Prisma.ReportInclude;
 
@@ -179,7 +225,7 @@ export class ModeratorReportsService {
   ): Promise<ModeratorReportEntity> {
     const report = await this.reportsService.findOne(
       reportId,
-      MODERATOR_REPORT_INCLUDE,
+      MODERATOR_REPORT_DETAIL_INCLUDE,
     );
 
     return new ModeratorReportEntity(report);

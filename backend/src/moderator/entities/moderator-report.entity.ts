@@ -70,13 +70,30 @@ class ModeratorParentCommentEntity extends CommentEntity {
   @Exclude()
   declare deletedAt: Date | null;
 
-  @Exclude()
+  @Type(() => ModeratorContextReplyEntity)
   declare replies?: any[];
 
   @Type(() => ModeratorReportUserEntity)
   declare user?: any;
 
   constructor(partial: Partial<ModeratorParentCommentEntity>) {
+    super(partial);
+    Object.assign(this, partial);
+  }
+}
+
+/** Một phản hồi trong chuỗi hội thoại dùng làm ngữ cảnh kiểm duyệt. */
+class ModeratorContextReplyEntity extends CommentEntity {
+  @Exclude()
+  declare deletedAt: Date | null;
+
+  @Exclude()
+  declare replies?: any[];
+
+  @Type(() => ModeratorReportUserEntity)
+  declare user?: any;
+
+  constructor(partial: Partial<ModeratorContextReplyEntity>) {
     super(partial);
     Object.assign(this, partial);
   }
@@ -89,7 +106,7 @@ class ModeratorReportedCommentEntity extends CommentEntity {
   @Exclude()
   declare deletedAt: Date | null;
 
-  @Exclude()
+  @Type(() => ModeratorContextReplyEntity)
   declare replies?: any[];
 
   @Type(() => ModeratorReportUserEntity)
