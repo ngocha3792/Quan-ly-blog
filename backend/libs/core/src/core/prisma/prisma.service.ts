@@ -13,9 +13,13 @@ export class PrismaService
     // Lấy cấu hình URL và cờ log
     const url = configService.get<string>('database.url');
     const logQueries = configService.get<boolean>('database.logQueries');
+    const poolSize = configService.get<number>('database.poolSize') || 10;
 
     // Khởi tạo connection pool thông qua 'pg'
-    const pool = new Pool({ connectionString: url });
+    const pool = new Pool({
+      connectionString: url,
+      max: poolSize,
+    });
 
     // Tạo Prisma Adapter (Bắt buộc từ Prisma v7 đối với SQL DB)
     const adapter = new PrismaPg(pool);

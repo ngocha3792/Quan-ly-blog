@@ -6,24 +6,21 @@ import { PrismaClientExceptionFilter } from '@app/core/common/filters/prisma-cli
 import { TransformInterceptor } from '@app/core/common/interceptors/transform.interceptor';
 import { TrimPipe } from '@app/core/common/pipes/trim.pipe';
 import { ConfigService } from '@nestjs/config';
+import type { Application } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  const trustProxyHops =
-    configService.get<number>(
-      'app.trustProxyHops',
-    ) || 0;
+  // Cho phép NestJS chạy lifecycle shutdown khi container nhận SIGTERM/SIGINT.
+  app.enableShutdownHooks();
+
+  const trustProxyHops = configService.get<number>('app.trustProxyHops') || 0;
 
   if (trustProxyHops > 0) {
-    app
-      .getHttpAdapter()
-      .getInstance()
-      .set(
-        'trust proxy',
-        trustProxyHops,
-      );
+    const expressApp = app.getHttpAdapter().getInstance() as Application;
+
+    expressApp.set('trust proxy', trustProxyHops);
   }
 
   // Lấy Global Prefix từ cấu hình (env: API_PREFIX)
@@ -69,4 +66,8 @@ async function bootstrap() {
     `🚀 Ứng dụng Monolith đã chạy trên: http://localhost:${port}/${apiPrefix}`,
   );
 }
-bootstrap();
+
+bootstrap().catch((error: unknown) => {
+  console.error('Không thể khởi động Blog API.', error);
+  process.exitCode = 1;
+});

@@ -8,6 +8,8 @@ export default registerAs('database', () => {
     );
   }
 
+  const configuredPoolSize = parseInt(process.env.DB_POOL_SIZE || '10', 10);
+
   return {
     // Chuỗi kết nối Database chính (PostgreSQL, MySQL...)
     url: process.env.DATABASE_URL,
@@ -18,6 +20,9 @@ export default registerAs('database', () => {
 
     // Cấu hình số lượng kết nối tối đa (Connection Pool)
     // Tùy thuộc vào cấu hình server, mặc định để 10
-    poolSize: parseInt(process.env.DB_POOL_SIZE || '10', 10),
+    poolSize:
+      Number.isFinite(configuredPoolSize) && configuredPoolSize > 0
+        ? configuredPoolSize
+        : 10,
   };
 });

@@ -2,62 +2,38 @@ import {
   MiddlewareConsumer,
   Module,
   NestModule,
+  RequestMethod,
 } from '@nestjs/common';
 
-import {
-  ConfigModule,
-} from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 
-import {
-  APP_GUARD,
-} from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 
-import {
-  ScheduleModule,
-} from '@nestjs/schedule';
+import { ScheduleModule } from '@nestjs/schedule';
 
-import {
-  ThrottlerGuard,
-  ThrottlerModule,
-} from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
-import {
-  AdminApiModule,
-} from './admin/admin-api.module';
+import { AdminApiModule } from './admin/admin-api.module';
 
-import {
-  BlogownerApiModule,
-} from './blogowner/blogowner-api.module';
+import { BlogownerApiModule } from './blogowner/blogowner-api.module';
 
-import {
-  ModeratorApiModule,
-} from './moderator/moderator-api.module';
+import { ModeratorApiModule } from './moderator/moderator-api.module';
 
-import {
-  PublicApiModule,
-} from './public/public-api.module';
+import { PublicApiModule } from './public/public-api.module';
 
-import {
-  UserApiModule,
-} from './user/user-api.module';
+import { UserApiModule } from './user/user-api.module';
 
-import {
-  LoggerMiddleware,
-} from '@app/core/common/middlewares/logger.middleware';
+import { LoggerMiddleware } from '@app/core/common/middlewares/logger.middleware';
 
-import {
-  MaintenanceMiddleware,
-} from '@app/core/common/middlewares/maintenance.middleware';
+import { MaintenanceMiddleware } from '@app/core/common/middlewares/maintenance.middleware';
 
 import configs from '@app/core/config';
 
-import {
-  CleanupModule,
-} from '@app/core/modules/cleanup/cleanup.module';
+import { CleanupModule } from '@app/core/modules/cleanup/cleanup.module';
 
-import {
-  PrismaModule,
-} from '@app/core/core/prisma/prisma.module';
+import { PrismaModule } from '@app/core/core/prisma/prisma.module';
+
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -81,6 +57,7 @@ import {
     ]),
 
     PrismaModule,
+    HealthModule,
 
     AdminApiModule,
     BlogownerApiModule,
@@ -103,16 +80,21 @@ import {
     },
   ],
 })
-export class AppModule
-  implements NestModule
-{
-  configure(
-    consumer: MiddlewareConsumer,
-  ) {
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggerMiddleware).forRoutes('*');
+
     consumer
-      .apply(
-        LoggerMiddleware,
-        MaintenanceMiddleware,
+      .apply(MaintenanceMiddleware)
+      .exclude(
+        {
+          path: 'health',
+          method: RequestMethod.ALL,
+        },
+        {
+          path: 'health/ready',
+          method: RequestMethod.ALL,
+        },
       )
       .forRoutes('*');
   }
