@@ -6,7 +6,12 @@
 2. Điền credential production đã được tạo mới.
 3. Đặt `NODE_ENV=production`, `DB_LOG_QUERIES=false` và cấu hình đúng
    `FRONTEND_URL`, `TRUST_PROXY_HOPS`.
-4. Đảm bảo PostgreSQL trong `DATABASE_URL` cho phép máy triển khai kết nối.
+4. Tạo password database bằng `openssl rand -hex 32`, sau đó đặt cùng giá trị
+   vào `POSTGRES_PASSWORD` và phần password của `DATABASE_URL`.
+
+PostgreSQL chạy trong container `postgres` trên cùng VPS. Vì vậy hostname trong
+`DATABASE_URL` phải là `postgres`, không phải `localhost`. Không mở cổng 5432
+trong Azure NSG hoặc Docker Compose.
 
 Trên Azure Portal, Network Security Group của VM cần cho phép inbound TCP 22
 (SSH) và TCP 80 (HTTP). Không mở cổng 8080: container API chỉ nhận kết nối từ
@@ -27,17 +32,22 @@ Không copy hoặc commit file `.env` vào repository.
 Chạy từ thư mục `backend`:
 
 ```bash
-docker compose -f compose.production.yml build
-docker compose -f compose.production.yml up -d
+docker compose --env-file .env -f compose.production.yml config --quiet
+docker compose --env-file .env -f compose.production.yml up -d postgres
+docker compose --env-file .env -f compose.production.yml exec postgres \
+  sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose --env-file .env -f compose.production.yml up -d --build
 ```
 
-Compose sẽ chạy `prisma migrate deploy` trước. API chỉ được khởi động nếu
-migration hoàn tất thành công; Nginx chỉ khởi động sau khi API healthy.
+Compose sẽ đợi PostgreSQL healthy rồi chạy `prisma migrate deploy`. API chỉ
+được khởi động nếu migration hoàn tất thành công; Nginx chỉ khởi động sau khi
+API healthy.
 
 ## Kiểm tra
 
 ```bash
 docker compose -f compose.production.yml ps
+docker compose -f compose.production.yml logs -f postgres
 docker compose -f compose.production.yml logs -f api
 docker compose -f compose.production.yml logs -f nginx
 curl http://localhost/nginx-health
@@ -57,6 +67,19 @@ curl http://<AZURE_VM_PUBLIC_IP>/api/v1/health/ready
 Khi frontend chạy ở một domain khác, đặt `FRONTEND_URL` đúng origin của
 frontend, ví dụ `https://blog.example.com`. `TRUST_PROXY_HOPS=1` là cấu hình
 đúng khi chỉ có một lớp Nginx đứng trước NestJS.
+
+## Backup PostgreSQL
+
+Volume `postgres_data` giữ dữ liệu khi container được tạo lại. Volume không
+thay thế cho backup vì nó vẫn nằm trên disk của VPS.
+
+```bash
+docker compose -f compose.production.yml exec -T postgres \
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > blog-backup.dump
+```
+
+Chép `blog-backup.dump` ra khỏi VPS. Không chạy `docker compose down -v` nếu
+muốn giữ database vì tùy chọn `-v` sẽ xóa volume.
 
 ## Cập nhật phiên bản
 
@@ -79,4 +102,5 @@ chứng chỉ giả vào repository.
 docker compose -f compose.production.yml down
 ```
 
-Lệnh này không xóa database vì production sử dụng PostgreSQL managed bên ngoài.
+Lệnh này không xóa volume `postgres_data`. Không thêm tùy chọn `-v` nếu muốn
+giữ database.
