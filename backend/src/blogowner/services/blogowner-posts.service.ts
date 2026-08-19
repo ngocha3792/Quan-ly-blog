@@ -295,94 +295,101 @@ export class BlogownerPostsService {
     }
 
     /**
-     * Bước 4: chỉ sau khi đã sort + paginate theo root mới lấy full data.
-     * Nhờ vậy response luôn là:
-     * root A -> toàn bộ translation A -> root B -> translation B...
-     */
-    const pagePosts = await this.prisma.post.findMany({
-      where: {
-        authorId: ownerId,
-        deletedAt: null,
-        OR: [
-          {
-            id: {
-              in: pageRootIds,
-            },
-          },
-          {
-            parentPostId: {
-              in: pageRootIds,
-            },
-          },
-        ],
+ * Bước 4:
+ * Sau khi đã xác định root nào nằm trong page hiện tại,
+ * chỉ lấy dữ liệu của ROOT.
+ *
+ * Translation KHÔNG được trả trong API danh sách.
+ * Translation chỉ được lấy khi gọi findOne().
+ */
+const pageRoots =
+  await this.prisma.post.findMany({
+    where: {
+      id: {
+        in: pageRootIds,
       },
-      include: BLOGOWNER_POST_INCLUDE,
-    });
 
-    const groupMap = new Map<
-      number,
-      {
-        root?: BlogownerPostEntity;
-        translations: BlogownerPostEntity[];
-      }
-    >();
+      authorId: ownerId,
+      parentPostId: null,
+      deletedAt: null,
+    },
 
-    for (const rootId of pageRootIds) {
-      groupMap.set(rootId, {
-        translations: [],
-      });
-    }
+    include: BLOGOWNER_POST_INCLUDE,
+  });
 
-    for (const rawPost of pagePosts) {
-      const post = new BlogownerPostEntity(rawPost);
-      const rootId = post.parentPostId ?? post.id;
-      const group = groupMap.get(rootId);
+/**
+ * Prisma không đảm bảo thứ tự của kết quả theo mảng `in`,
+ * nên map lại theo rootId để giữ đúng sort/pagination
+ * đã tính ở phía trên.
+ */
+const rootById =
+  new Map<number, BlogownerPostEntity>();
 
-      if (!group) {
-        continue;
-      }
+for (const rawRoot of pageRoots) {
+  rootById.set(
+    rawRoot.id,
+    new BlogownerPostEntity(rawRoot),
+  );
+}
 
-      if (post.parentPostId === null) {
-        group.root = post;
-      } else {
-        group.translations.push(post);
-      }
-    }
+const metricsByRootId =
+  new Map(
+    pageMetrics.map(
+      (metric) => [
+        metric.rootId,
+        metric,
+      ],
+    ),
+  );
 
-    const metricsByRootId = new Map(
-      pageMetrics.map((metric) => [metric.rootId, metric]),
-    );
+/**
+ * Response list vẫn giữ wrapper hiện tại để chưa làm
+ * frontend cũ/new bị vỡ ngay ở bước backend này.
+ *
+ * translations = []
+ *
+ * Detail mới là nơi trả translations thật.
+ */
+const items: BlogownerPostGroup[] = [];
 
-    const items: BlogownerPostGroup[] = [];
+for (const rootId of pageRootIds) {
+  const root =
+    rootById.get(rootId);
 
-    for (const rootId of pageRootIds) {
-      const group = groupMap.get(rootId);
-      const metric = metricsByRootId.get(rootId);
+  const metric =
+    metricsByRootId.get(rootId);
 
-      if (!group?.root || !metric) {
-        continue;
-      }
+  if (!root || !metric) {
+    continue;
+  }
 
-      group.translations.sort((a, b) => {
-        const languageComparison = (a.language?.code ?? '').localeCompare(
-          b.language?.code ?? '',
-        );
+  items.push({
+    root,
 
-        return languageComparison !== 0
-          ? languageComparison
-          : a.id - b.id;
-      });
+    /**
+     * List không trả bản dịch.
+     */
+    translations: [],
 
-      items.push({
-        root: group.root,
-        translations: group.translations,
-        totals: {
-          views: metric.views,
-          likes: metric.likes,
-        },
-        latestUpdatedAt: metric.latestUpdatedAt,
-      });
-    }
+    /**
+     * View/Like vẫn tính tổng toàn group.
+     *
+     * Ví dụ:
+     * VI 100 views
+     * EN 50 views
+     * JA 20 views
+     *
+     * totals.views = 170
+     */
+    totals: {
+      views: metric.views,
+      likes: metric.likes,
+    },
+
+    latestUpdatedAt:
+      metric.latestUpdatedAt,
+  });
+}
 
     return {
       items,
@@ -601,107 +608,245 @@ export class BlogownerPostsService {
    * đang PENDING_REVIEW trong khi upload file còn chưa hoàn tất.
    */
   async create(
-    ownerId: number,
-    dto: CreateBlogownerPostDto,
-    thumbnailFile?: Express.Multer.File,
-    mediaFiles?: Express.Multer.File[],
-  ): Promise<BlogownerPostEntity> {
-    /**
-     * submitForReview chỉ là business flag của Blog Owner,
-     * không phải field của Post trong database.
-     *
-     * Vì vậy phải tách nó ra trước khi truyền DTO
-     * xuống PostsService.
-     */
-    const {
-      submitForReview = false,
-      ...createPostData
-    } = dto;
+  ownerId: number,
+  dto: CreateBlogownerPostDto,
+  thumbnailFile?: Express.Multer.File,
+  mediaFiles?: Express.Multer.File[],
+): Promise<BlogownerPostEntity> {
 
-    /**
-     * Bất kể Owner chọn lưu nháp hay gửi duyệt ngay,
-     * Post luôn được tạo dưới dạng DRAFT trước.
-     */
-    const createdPost = await this.postsService.create(ownerId, {
-      ...createPostData,
-      status: PostStatus.DRAFT,
-    });
+  const {
+    submitForReview = false,
+    translationLanguageIds = [],
+    ...createPostData
+  } = dto;
 
-    /**
-     * Upload thumbnail trước.
-     */
-if (thumbnailFile) {
-  const uploadedResult =
-    await this.helper.uploadThumbnail(
-      createdPost.id,
-      thumbnailFile,
+  /**
+   * Không được chọn chính ngôn ngữ của bài gốc
+   * làm ngôn ngữ bản dịch.
+   *
+   * Ví dụ:
+   * root = VI
+   * translationLanguageIds = [VI, EN]
+   * => không hợp lệ.
+   */
+  if (
+    translationLanguageIds.includes(
+      createPostData.languageId,
+    )
+  ) {
+    throw new BadRequestException(
+      'Ngôn ngữ bản dịch không được trùng với ngôn ngữ bài gốc.',
+    );
+  }
+
+  /**
+   * Luôn tạo bài gốc dưới dạng DRAFT trước.
+   *
+   * Chưa được đưa PENDING_REVIEW ở đây vì
+   * translations + upload chưa hoàn tất.
+   */
+  const createdPost =
+    await this.postsService.create(
+      ownerId,
+      {
+        ...createPostData,
+        status: PostStatus.DRAFT,
+      },
     );
 
-  try {
-    await this.prisma.post.update({
-      where: {
-        id: createdPost.id,
-      },
+  /**
+   * Dịch tất cả language trước.
+   *
+   * Chưa tạo translation ngay.
+   * Phải đảm bảo tất cả language đều:
+   * - tồn tại;
+   * - active;
+   * - có category tương ứng;
+   * - LibreTranslate dịch thành công.
+   */
+  const translationPreviews: Array<{
+    targetLanguageId: number;
+    title: string;
+    content: string;
+  }> = [];
 
-      data: {
-        thumbnailUrl:
-          uploadedResult.secure_url,
-      },
-    });
+  try {
+    for (
+      const targetLanguageId
+      of translationLanguageIds
+    ) {
+      const preview =
+        await this.translatePreview(
+          ownerId,
+          createdPost.id,
+          {
+            targetLanguageId,
+          },
+        );
+
+      translationPreviews.push({
+        targetLanguageId,
+        title:
+          preview.translation.title,
+        content:
+          preview.translation.content,
+      });
+    }
+
+    /**
+     * Khi tất cả bản dịch đã dịch thành công
+     * thì mới ghi translations xuống DB.
+     */
+    for (
+      const translated
+      of translationPreviews
+    ) {
+      await this.translate(
+        ownerId,
+        createdPost.id,
+        {
+          targetLanguageId:
+            translated.targetLanguageId,
+
+          title:
+            translated.title,
+
+          content:
+            translated.content,
+        },
+      );
+    }
   } catch (error: unknown) {
     /**
-     * Thumbnail đã upload lên Cloudinary nhưng
-     * database không lưu được URL.
+     * Nếu auto translate / tạo translation lỗi,
+     * không được để lại một root DRAFT mồ côi.
      *
-     * Xóa thumbnail vừa upload để tránh file rác.
+     * Đây là bài vừa tạo nên có thể hard-delete.
+     *
+     * Các relation:
+     * - translations;
+     * - PostCategory;
+     * - PostTag;
+     *
+     * sẽ được xử lý theo relation DB.
      */
     try {
-      await this.helper.deleteOldThumbnail(
-        uploadedResult.secure_url,
-      );
+      await this.prisma.post.delete({
+        where: {
+          id: createdPost.id,
+        },
+      });
     } catch {
       /**
-       * Không ghi đè lỗi database ban đầu
-       * nếu cleanup Cloudinary thất bại.
+       * Không ghi đè lỗi dịch ban đầu.
        */
     }
 
     throw error;
   }
-}
 
-    /**
-     * Upload toàn bộ media trước khi gửi Moderator duyệt.
-     */
-    await this.helper.uploadMediaFiles(
-      createdPost.id,
-      mediaFiles,
-    );
+  /**
+   * Upload thumbnail sau khi
+   * root + translations đã tạo thành công.
+   */
+  if (thumbnailFile) {
+    const uploadedResult =
+      await this.helper.uploadThumbnail(
+        createdPost.id,
+        thumbnailFile,
+      );
 
-    /**
-     * Nếu Owner xác nhận bài đã hoàn chỉnh,
-     * chuyển sang PENDING_REVIEW sau khi
-     * toàn bộ quá trình tạo/upload đã hoàn tất.
-     *
-     * Blog Owner không được chuyển thẳng sang PUBLISH.
-     */
-    if (submitForReview) {
+    try {
+      /**
+       * Thumbnail của root.
+       */
       await this.prisma.post.update({
         where: {
           id: createdPost.id,
         },
+
         data: {
-          status: PostStatus.PENDING_REVIEW,
-          ...RESET_REVIEW_DATA,
+          thumbnailUrl:
+            uploadedResult.secure_url,
         },
       });
-    }
 
-    return this.findOne(
-      ownerId,
-      createdPost.id,
-    );
+      /**
+       * Vì translations được auto-generate
+       * từ root nên dùng cùng thumbnail root.
+       */
+      await this.prisma.post.updateMany({
+        where: {
+          parentPostId:
+            createdPost.id,
+
+          deletedAt: null,
+        },
+
+        data: {
+          thumbnailUrl:
+            uploadedResult.secure_url,
+        },
+      });
+    } catch (error: unknown) {
+      /**
+       * Upload Cloudinary thành công nhưng
+       * update DB lỗi => cleanup ảnh vừa upload.
+       */
+      try {
+        await this.helper.deleteOldThumbnail(
+          uploadedResult.secure_url,
+        );
+      } catch {
+        // Không ghi đè lỗi DB ban đầu.
+      }
+
+      throw error;
+    }
   }
+
+  /**
+   * Media vẫn gắn với bài ROOT.
+   *
+   * Không duplicate media cho từng translation.
+   */
+  await this.helper.uploadMediaFiles(
+    createdPost.id,
+    mediaFiles,
+  );
+
+  /**
+   * Sau khi ROOT + TRANSLATIONS + FILE
+   * đều hoàn tất mới quyết định trạng thái.
+   */
+  const finalStatus =
+    submitForReview
+      ? PostStatus.PENDING_REVIEW
+      : PostStatus.DRAFT;
+
+  /**
+   * Update:
+   * ROOT
+   * + tất cả translations
+   *
+   * thành cùng một status.
+   */
+  await this.helper.updateOwnedPostGroupStatus(
+    ownerId,
+    createdPost.id,
+    finalStatus,
+  );
+
+  /**
+   * Luôn trả DETAIL của ROOT.
+   *
+   * findOne hiện tại sẽ kèm translations.
+   */
+  return this.findOne(
+    ownerId,
+    createdPost.id,
+  );
+}
 
   /**
    * Chỉnh sửa bài viết của chính Blog Owner.
@@ -713,117 +858,380 @@ if (thumbnailFile) {
    * - PENDING_REVIEW -> không được sửa
    */
   async update(
-    ownerId: number,
-    postId: number,
-    dto: UpdateBlogownerPostDto,
-    thumbnailFile?: Express.Multer.File,
-    mediaFiles?: Express.Multer.File[],
-  ): Promise<BlogownerPostEntity> {
-    const existingPost = await this.helper.findOwnedPost(
+  ownerId: number,
+  postId: number,
+  dto: UpdateBlogownerPostDto,
+  thumbnailFile?: Express.Multer.File,
+  mediaFiles?: Express.Multer.File[],
+): Promise<BlogownerPostEntity> {
+  /**
+   * =====================================================
+   * 1. LUÔN XÁC ĐỊNH GROUP TRƯỚC
+   * =====================================================
+   */
+
+  const {
+    root,
+    translations,
+  } =
+    await this.helper.findOwnedPostGroup(
       ownerId,
       postId,
-      BLOGOWNER_POST_INCLUDE,
     );
 
-this.helper.assertEditable(existingPost.status);
+  /**
+   * Flow mới chỉ cho sửa bài gốc.
+   *
+   * Không cho:
+   * PATCH /posts/{translationId}
+   *
+   * vì translations phải được backend tự sinh
+   * lại từ root.
+   */
+  if (postId !== root.id) {
+    throw new BadRequestException(
+      'Chỉ được chỉnh sửa bài gốc. Các bản dịch sẽ được tự động đồng bộ từ bài gốc.',
+    );
+  }
 
-/**
- * Chỉ xem request là một lần chỉnh sửa khi Owner
- * thực sự gửi ít nhất một trường dữ liệu hoặc file.
- *
- * Tránh trường hợp:
- * - REJECT + PATCH {}  -> DRAFT;
- * - PUBLISH + PATCH {} -> PENDING_REVIEW;
- * dù nội dung bài viết không hề được chỉnh sửa.
- */
-const hasDtoChanges = Object.values(dto).some(
-  (value) => value !== undefined,
-);
+  /**
+   * Nếu bất kỳ phiên bản nào đang chờ Moderator
+   * thì khóa cả group.
+   *
+   * Bình thường sau flow mới tất cả status sẽ giống nhau,
+   * nhưng check cả group để bảo vệ dữ liệu cũ.
+   */
+  for (const groupPost of [
+    root,
+    ...translations,
+  ]) {
+    this.helper.assertEditable(
+      groupPost.status,
+    );
+  }
 
-const hasThumbnailChange = Boolean(thumbnailFile);
+  /**
+   * =====================================================
+   * 2. TÁCH BUSINESS FIELD KHỎI DATA POST
+   * =====================================================
+   */
 
-const hasMediaChanges = Boolean(
-  mediaFiles && mediaFiles.length > 0,
-);
+  const {
+    submitForReview = false,
+    translationLanguageIds = [],
+    ...updatePostData
+  } = dto;
 
-if (
-  !hasDtoChanges &&
-  !hasThumbnailChange &&
-  !hasMediaChanges
-) {
-  throw new BadRequestException(
-    'Không có dữ liệu nào để cập nhật.',
-  );
-}
+  /**
+   * Không cho root language nằm trong targets.
+   */
+  if (
+    translationLanguageIds.includes(
+      root.languageId,
+    )
+  ) {
+    throw new BadRequestException(
+      'Ngôn ngữ bản dịch không được trùng với ngôn ngữ bài gốc.',
+    );
+  }
 
-const nextStatus =
-  this.helper.getNextStatusOnEdit(existingPost.status);
+  /**
+   * =====================================================
+   * 3. XÁC ĐỊNH TOÀN BỘ NGÔN NGỮ CẦN ĐỒNG BỘ
+   * =====================================================
+   *
+   * Bao gồm:
+   * - translations đã tồn tại;
+   * - translations mới Owner vừa chọn.
+   *
+   * Không cho việc bỏ một checkbox làm mất translation cũ.
+   */
 
-const updateData = { ...dto };
+  const existingTranslationLanguageIds =
+    translations.map(
+      (translation) =>
+        translation.languageId,
+    );
 
-    let newThumbnailPublicId: string | null = null;
+  const targetLanguageIds =
+    Array.from(
+      new Set([
+        ...existingTranslationLanguageIds,
+        ...translationLanguageIds,
+      ]),
+    ).filter(
+      (languageId) =>
+        languageId !== root.languageId,
+    );
 
-    if (thumbnailFile) {
-      const uploadedResult = await this.helper.uploadThumbnail(
-        postId,
+  /**
+   * =====================================================
+   * 4. PHẢI CÓ THAY ĐỔI
+   * =====================================================
+   */
+
+  const hasDtoChanges =
+    Object.values(
+      updatePostData,
+    ).some(
+      (value) =>
+        value !== undefined,
+    );
+
+  const hasTranslationChanges =
+    translationLanguageIds.some(
+      (languageId) =>
+        !existingTranslationLanguageIds.includes(
+          languageId,
+        ),
+    );
+
+  const hasThumbnailChange =
+    Boolean(thumbnailFile);
+
+  const hasMediaChanges =
+    Boolean(
+      mediaFiles &&
+      mediaFiles.length > 0,
+    );
+
+  if (
+    !hasDtoChanges &&
+    !hasTranslationChanges &&
+    !hasThumbnailChange &&
+    !hasMediaChanges
+  ) {
+    throw new BadRequestException(
+      'Không có dữ liệu nào để cập nhật.',
+    );
+  }
+
+  /**
+   * =====================================================
+   * 5. UPLOAD THUMBNAIL MỚI
+   * =====================================================
+   *
+   * Chưa xóa thumbnail cũ.
+   */
+
+  let newThumbnailUrl:
+    | string
+    | null = null;
+
+  if (thumbnailFile) {
+    const uploadedResult =
+      await this.helper.uploadThumbnail(
+        root.id,
         thumbnailFile,
       );
-      updateData.thumbnailUrl = uploadedResult.secure_url;
-      newThumbnailPublicId = uploadedResult.public_id;
-    }
 
-    try {
-      await this.postsService.update(postId, {
-        ...updateData,
-        status: nextStatus,
-      });
-    } catch (error) {
-      /**
-       * Ảnh mới đã upload nhưng DB update thất bại.
-       * Cleanup ảnh mới để tránh file rác trên Cloudinary.
-       */
-      if (newThumbnailPublicId) {
-        try {
-          await this.helper.deleteOldThumbnail(
-            updateData.thumbnailUrl ?? null,
-          );
-        } catch {
-          // Không ghi đè lỗi update DB ban đầu.
-        }
+    newThumbnailUrl =
+      uploadedResult.secure_url;
+  }
+
+  /**
+   * =====================================================
+   * 6. UPDATE ROOT
+   * =====================================================
+   *
+   * Luôn đưa ROOT về DRAFT trong lúc đang xử lý.
+   *
+   * Chỉ khi toàn bộ translations hoàn tất
+   * mới đổi cả group sang finalStatus.
+   */
+
+  try {
+    await this.postsService.update(
+      root.id,
+      {
+        ...updatePostData,
+
+        ...(newThumbnailUrl
+          ? {
+              thumbnailUrl:
+                newThumbnailUrl,
+            }
+          : {}),
+
+        status:
+          PostStatus.DRAFT,
+
+        ...RESET_REVIEW_DATA,
+      },
+    );
+  } catch (error: unknown) {
+    /**
+     * DB update root lỗi.
+     *
+     * Nếu thumbnail mới đã upload thì
+     * xóa file mới để tránh rác Cloudinary.
+     */
+    if (newThumbnailUrl) {
+      try {
+        await this.helper.deleteOldThumbnail(
+          newThumbnailUrl,
+        );
+      } catch {
+        // Không ghi đè error gốc.
       }
-
-      throw error;
     }
 
-/**
- * Sau khi nội dung bài viết đã được cập nhật thành công,
- * reset thông tin kiểm duyệt ngay lập tức.
- *
- * Việc này phải xảy ra trước các thao tác Cloudinary/media
- * phía sau để nếu upload media thất bại thì trạng thái bài
- * và review metadata vẫn nhất quán.
- *
- * - REJECT  -> DRAFT + clear review data
- * - PUBLISH -> PENDING_REVIEW + clear review data
- * - DRAFT   -> không thay đổi
- */
-await this.helper.resetReviewOnEdit(
-  postId,
-  existingPost.status,
-);
+    throw error;
+  }
+
+  /**
+   * =====================================================
+   * 7. ĐỒNG BỘ LẠI TRANSLATIONS ĐÃ TỒN TẠI
+   * =====================================================
+   */
+
+  try {
+    for (
+      const translation
+      of translations
+    ) {
+      await this.syncFromRoot(
+        ownerId,
+        translation.id,
+      );
+    }
 
     /**
-     * Chỉ xóa thumbnail cũ sau khi DB đã cập nhật
-     * thành công sang thumbnail mới.
+     * ===================================================
+     * 8. TẠO TRANSLATIONS MỚI
+     * ===================================================
      */
-    if (thumbnailFile) {
-      await this.helper.deleteOldThumbnail(existingPost.thumbnailUrl);
+
+    const existingLanguageSet =
+      new Set(
+        existingTranslationLanguageIds,
+      );
+
+    const newLanguageIds =
+      targetLanguageIds.filter(
+        (languageId) =>
+          !existingLanguageSet.has(
+            languageId,
+          ),
+      );
+
+    for (
+      const targetLanguageId
+      of newLanguageIds
+    ) {
+      /**
+       * Preview dịch tự động.
+       *
+       * Vì language này chưa tồn tại trong group
+       * nên translatePreview() không Conflict.
+       */
+      const preview =
+        await this.translatePreview(
+          ownerId,
+          root.id,
+          {
+            targetLanguageId,
+          },
+        );
+
+      /**
+       * Lưu translation.
+       */
+      await this.translate(
+        ownerId,
+        root.id,
+        {
+          targetLanguageId,
+
+          title:
+            preview.translation.title,
+
+          content:
+            preview.translation.content,
+        },
+      );
+    }
+  } catch (error: unknown) {
+    /**
+     * Nếu dịch lỗi giữa chừng:
+     *
+     * tuyệt đối không để một số version PUBLISH,
+     * một số DRAFT/PENDING.
+     *
+     * Đưa toàn group về DRAFT.
+     *
+     * Nội dung đã update vẫn được giữ để Owner
+     * có thể sửa/retry sau.
+     */
+    try {
+      await this.helper.updateOwnedPostGroupStatus(
+        ownerId,
+        root.id,
+        PostStatus.DRAFT,
+      );
+    } catch {
+      // Không ghi đè lỗi dịch ban đầu.
     }
 
-    await this.helper.uploadMediaFiles(postId, mediaFiles);
-
-    return this.findOne(ownerId, postId);
+    throw error;
   }
+
+  /**
+   * =====================================================
+   * 9. MEDIA GẮN ROOT
+   * =====================================================
+   */
+
+  await this.helper.uploadMediaFiles(
+    root.id,
+    mediaFiles,
+  );
+
+  /**
+   * =====================================================
+   * 10. FINAL STATUS CẢ GROUP
+   * =====================================================
+   */
+
+  const finalStatus =
+    submitForReview
+      ? PostStatus.PENDING_REVIEW
+      : PostStatus.DRAFT;
+
+  await this.helper.updateOwnedPostGroupStatus(
+    ownerId,
+    root.id,
+    finalStatus,
+  );
+
+  /**
+   * =====================================================
+   * 11. XÓA THUMBNAIL CŨ SAU KHI THÀNH CÔNG
+   * =====================================================
+   */
+
+  if (
+    thumbnailFile &&
+    root.thumbnailUrl &&
+    root.thumbnailUrl !==
+      newThumbnailUrl
+  ) {
+    await this.helper.deleteOldThumbnail(
+      root.thumbnailUrl,
+    );
+  }
+
+  /**
+   * =====================================================
+   * 12. TRẢ DETAIL ROOT
+   * =====================================================
+   */
+
+  return this.findOne(
+    ownerId,
+    root.id,
+  );
+}
 
   /**
    * Xóa mềm bài viết.
@@ -831,19 +1239,65 @@ await this.helper.resetReviewOnEdit(
    * Bản ghi vẫn còn trong database nhưng deletedAt được gán ngày giờ.
    */
   async remove(
-    ownerId: number,
-    postId: number,
-  ): Promise<{
-    message: string;
-  }> {
-    await this.helper.findOwnedPost(ownerId, postId);
+  ownerId: number,
+  postId: number,
+): Promise<{
+  message: string;
+}> {
+  /**
+   * Resolve group trước.
+   */
+  const {
+    root,
+  } =
+    await this.helper.findOwnedPostGroup(
+      ownerId,
+      postId,
+    );
 
-    await this.postsService.remove(postId);
-
-    return {
-      message: `Đã xóa bài viết có ID ${postId}.`,
-    };
+  /**
+   * Không cho delete riêng translation.
+   *
+   * Bài viết hiện được coi là một group.
+   */
+  if (postId !== root.id) {
+    throw new BadRequestException(
+      'Chỉ được xóa bài gốc. Khi xóa bài gốc, tất cả bản dịch sẽ được xóa cùng.',
+    );
   }
+
+  /**
+   * Dùng cùng một timestamp để toàn bộ group
+   * được soft-delete tại cùng thời điểm.
+   */
+  const deletedAt = new Date();
+
+  await this.prisma.post.updateMany({
+    where: {
+      authorId: ownerId,
+      deletedAt: null,
+
+      OR: [
+        {
+          id: root.id,
+          parentPostId: null,
+        },
+        {
+          parentPostId: root.id,
+        },
+      ],
+    },
+
+    data: {
+      deletedAt,
+    },
+  });
+
+  return {
+    message:
+      `Đã xóa bài viết ID ${root.id} và tất cả bản dịch.`,
+  };
+}
 
   /**
    * Gửi bài sang Moderator để kiểm duyệt.
@@ -855,25 +1309,72 @@ await this.helper.resetReviewOnEdit(
    * Khi chỉnh sửa, update() sẽ chuyển REJECT -> DRAFT.
    */
   async submitForReview(
-    ownerId: number,
-    postId: number,
-  ): Promise<BlogownerPostEntity> {
-    const post = await this.helper.findOwnedPost(ownerId, postId);
+  ownerId: number,
+  postId: number,
+): Promise<BlogownerPostEntity> {
+  /**
+   * Lấy toàn bộ group:
+   *
+   * ROOT
+   * + translations
+   */
+  const {
+    root,
+    translations,
+  } =
+    await this.helper.findOwnedPostGroup(
+      ownerId,
+      postId,
+    );
 
-    this.helper.assertSubmittable(post.status);
-
-    await this.prisma.post.update({
-      where: {
-        id: postId,
-      },
-      data: {
-        status: PostStatus.PENDING_REVIEW,
-        ...RESET_REVIEW_DATA,
-      },
-    });
-
-    return this.findOne(ownerId, postId);
+  /**
+   * Không cho submit trực tiếp một translation.
+   *
+   * Bài viết bây giờ được quản lý theo GROUP,
+   * nên frontend phải submit bằng ID của root.
+   */
+  if (postId !== root.id) {
+    throw new BadRequestException(
+      'Chỉ được gửi duyệt bài gốc. Các bản dịch sẽ được gửi duyệt cùng bài gốc.',
+    );
   }
+
+  /**
+   * Tất cả phiên bản trong group đều phải DRAFT.
+   *
+   * Bình thường flow mới luôn giữ chúng cùng status.
+   * Check toàn group để bảo vệ cả dữ liệu cũ.
+   */
+  for (const groupPost of [
+    root,
+    ...translations,
+  ]) {
+    this.helper.assertSubmittable(
+      groupPost.status,
+    );
+  }
+
+  /**
+   * Chuyển toàn bộ group:
+   *
+   * DRAFT
+   *    ↓
+   * PENDING_REVIEW
+   */
+  await this.helper.updateOwnedPostGroupStatus(
+    ownerId,
+    root.id,
+    PostStatus.PENDING_REVIEW,
+  );
+
+  /**
+   * Luôn trả detail của ROOT.
+   */
+  return this.findOne(
+    ownerId,
+    root.id,
+  );
+}
   /**
    * Đồng bộ lại một BẢN DỊCH từ bài gốc.
    *

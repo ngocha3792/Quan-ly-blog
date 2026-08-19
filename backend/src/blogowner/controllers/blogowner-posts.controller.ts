@@ -201,46 +201,9 @@ export class BlogownerPostsController {
     return this.blogownerPostsService.submitForReview(user.id, postId);
   }
 
-  /**
-   * Đồng bộ lại một bản dịch từ bài gốc.
-   *
-   * POST /api/v1/blog-owner/posts/:id/sync-from-root
-   *
-   * :id phải là ID của bản dịch.
-   * Không gửi body.
-   */
-  @Post(':id/sync-from-root')
-  @HttpCode(HttpStatus.OK)
-  syncFromRoot(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) translationPostId: number,
-  ) {
-    return this.blogownerPostsService.syncFromRoot(
-      user.id,
-      translationPostId,
-    );
-  }
 
-  /**
-   * Đồng bộ tất cả bản dịch từ một bài gốc.
-   *
-   * POST /api/v1/blog-owner/posts/:id/sync-all-translations
-   *
-   * :id phải là ID của bài gốc.
-   * Không gửi body.
-   * Bản dịch đang PENDING_REVIEW sẽ được bỏ qua, không bị thay đổi.
-   */
-  @Post(':id/sync-all-translations')
-  @HttpCode(HttpStatus.OK)
-  syncAllTranslations(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) rootPostId: number,
-  ) {
-    return this.blogownerPostsService.syncAllTranslations(
-      user.id,
-      rootPostId,
-    );
-  }
+
+
 
   /**
  * Dịch tự động title + content bằng Google.
@@ -265,22 +228,4 @@ translatePreview(
   );
 }
 
-
-  /**
-   * Tạo bản dịch của bài viết.
-   *
-   * POST /api/v1/blog-owner/posts/:id/translations
-   */
-  @Post(':id/translations')
-  translate(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) sourcePostId: number,
-    @Body() dto: TranslateBlogownerPostDto,
-  ) {
-    return this.blogownerPostsService.translate(
-      user.id,
-      sourcePostId,
-      dto,
-    );
-  }
 }
