@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit Post | DevBlog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/css/global.css">
+  <link rel="stylesheet" href="../../../assets/css/components.css">
+  <link rel="stylesheet" href="../../../assets/css/dashboard.css">
+  <link rel="stylesheet" href="../../../assets/css/dark-mode.css">
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+  <style>
+    /* CSS giúp Quill Editor tương thích với Dark Mode */
+    .dark-mode .ql-toolbar,
+    [data-bs-theme="dark"] .ql-toolbar {
+      background-color: #2b2b40;
+      border-color: #474761 !important;
+    }
+    .dark-mode .ql-toolbar button,
+    [data-bs-theme="dark"] .ql-toolbar button {
+      /* Bỏ filter invert vì đã set thẳng màu SVG bằng CSS ở dark-mode.css */
+    }
+    .dark-mode .ql-container,
+    [data-bs-theme="dark"] .ql-container {
+      background-color: #1e1e2d;
+      border-color: #474761 !important;
+      color: #e4e6ef;
+    }
+    .dark-mode .ql-editor.ql-blank::before,
+    [data-bs-theme="dark"] .ql-editor.ql-blank::before {
+      color: #6c757d;
+    }
+  </style>
+</head>
+
+<body class="dashboard-body">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <h4 class="text-white fw-bold mb-4"><i class="bi bi-braces-asterisk me-2"></i>DevBlog</h4>
+      <a class="" href="dashboard.html"><i class="bi bi-speedometer2"></i>Dashboard</a>
+      <a class="active" href="posts.html"><i class="bi bi-file-earmark-text"></i>Bài viết của tôi</a>
+      <a class="" href="create-post.html"><i class="bi bi-plus-circle"></i>Tạo bài viết</a>
+      <hr class="border-secondary">
+      <a href="../../public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+      <a href="../../public/auth.html" class="text-danger" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+        <i class="bi bi-box-arrow-right"></i>Đăng xuất
+      </a>
+    </aside>
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div><strong>Edit Post</strong>
+          <div class="small text-muted">Sửa bài viết</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary" data-theme-toggle>
+            <i class="bi bi-moon-stars"></i>
+          </button>
+          <span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
+        </div>
+      </header>
+
+      <section class="dashboard-content">
+        <div class="card soft-card">
+          <div class="card-body p-4">
+            <h3 class="fw-bold mb-4">Sửa bài viết</h3>
+            
+            <form id="postForm">
+              <div class="row g-3">
+                <div class="col-12 d-flex justify-content-between align-items-center mb-1">
+                  <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="editLang" id="editLangVi" value="VI" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary" for="editLangVi">
+                      <img src="https://flagcdn.com/w20/vn.png" alt="VN" style="width: 16px; margin-right: 4px;"> Tiếng Việt 
+                      <span class="badge bg-primary ms-1" id="badgeVi">Gốc</span>
+                    </label>
+
+                    <input type="radio" class="btn-check" name="editLang" id="editLangEn" value="EN" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="editLangEn">
+                      <img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 16px; margin-right: 4px;"> Tiếng Anh 
+                      <span class="badge bg-secondary ms-1" id="badgeEn">Dịch</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label class="form-label me-2 mb-0 small text-muted">Ngôn ngữ gốc:</label>
+                    <select class="form-select form-select-sm d-inline-block w-auto" id="originalLangSelect">
+                      <option value="VI">Tiếng Việt</option>
+                      <option value="EN">Tiếng Anh</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Tiêu đề bài viết (<span id="titleLangLabel">VI</span>) <span class="text-danger">*</span></label>
+                  <input type="text" id="postTitle" class="form-control" placeholder="Nhập tiêu đề..." required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Danh mục</label>
+                  <div class="form-control p-2" style="height: 100px; overflow-y: auto;" id="postCategoriesGroup">
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Backend" id="catBackend">
+                      <label class="form-check-label" for="catBackend">Backend</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Frontend" id="catFrontend">
+                      <label class="form-check-label" for="catFrontend">Frontend</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Database" id="catDatabase">
+                      <label class="form-check-label" for="catDatabase">Database</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="Angular" id="catAngular">
+                      <label class="form-check-label" for="catAngular">Angular</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input category-checkbox" type="checkbox" value="NodeJS" id="catNodeJS">
+                      <label class="form-check-label" for="catNodeJS">NodeJS</label>
+                    </div>
+                  </div>
+                  <small class="text-muted">Tích chọn các danh mục phù hợp (không cần giữ Ctrl)</small>
+                </div>
+                
+                <div class="col-md-6">
+                  <label class="form-label">Hashtags</label>
+                  <input type="text" id="postHashtags" class="form-control" placeholder="#tag1 #tag2">
+                </div>
+                
+                <div class="col-md-6">
+                  <label class="form-label">Ảnh bìa hiện tại</label>
+                  <div class="mb-2 text-primary small" id="currentThumbnailInfo">Đang dùng: <i class="bi bi-image"></i> thumbnail_cu.jpg</div>
+                  <input type="file" id="postThumbnail" class="form-control" accept="image/*">
+                  <small class="text-muted">Chọn ảnh mới để thay thế ảnh cũ</small>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Video đính kèm hiện tại</label>
+                  <div class="mb-2 text-primary small" id="currentVideoInfo">Chưa có video đính kèm</div>
+                  <input type="file" id="postVideo" class="form-control" accept="video/mp4,video/webm,video/ogg">
+                  <small class="text-muted">Chọn video mới để cập nhật</small>
+                </div>
+                
+                <div class="col-12">
+                  <label class="form-label">Content <span class="text-danger">*</span></label>
+                  <div>
+                    <div id="editor-container" style="height: 350px;"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="mt-4 d-flex gap-2">
+                <button type="button" id="btnPublish" class="btn btn-primary px-4"><i class="bi bi-check2-circle me-1"></i> Cập nhật</button>
+                <button type="button" id="btnCancel" class="btn btn-outline-secondary px-4"><i class="bi bi-x-circle me-1"></i> Hủy thay đổi</button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="liveToast" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toastMessage">Thông báo ở đây!</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../../assets/js/main.js"></script>
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      // 1. Khởi tạo Quill
+      var quill = new Quill('#editor-container', {
+        theme: 'snow',
+        placeholder: 'Bắt đầu viết nội dung...',
+        modules: {
+          toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            ['blockquote', 'code-block'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'color': [] }, { 'background': [] }],
+            ['link', 'image', 'video'],
+            ['clean']
+          ]
+        }
+      });
+
+      // -------------------------------------------------------------
+      // 2. MOCK DATA: GIẢ LẬP GỌI API LẤY DỮ LIỆU CŨ CỦA BÀI VIẾT
+      // -------------------------------------------------------------
+      const existingPostData = {
+        originalLanguage: "VI",
+        translations: {
+          VI: {
+            title: "Thiết kế Blog đa ngôn ngữ",
+            content: `
+              <h2>1. Vấn đề đặt ra</h2>
+              <p>Khi xây dựng một hệ thống bài viết hỗ trợ nhiều ngôn ngữ, chúng ta cần cân nhắc cấu trúc Database sao cho tối ưu nhất.</p>
+            `
+          },
+          EN: {
+            title: "Designing a Multi-language Blog",
+            content: `
+              <h2>1. The Problem</h2>
+              <p>When building a multi-language blog, we need to consider the Database structure.</p>
+            `
+          }
+        },
+        categories: ["Backend", "Database"],
+        hashtags: "#mysql #i18n #backend",
+        thumbnailName: "blog-banner-vn.jpg",
+        videoName: null
+      };
+
+      // 3. LOGIC MULTI-LANGUAGE
+      const postLangData = {
+        VI: { ...existingPostData.translations.VI },
+        EN: { ...existingPostData.translations.EN }
+      };
+      let currentEditLang = 'VI';
+      
+      const titleInput = document.getElementById('postTitle');
+      const titleLangLabel = document.getElementById('titleLangLabel');
+      const originalLangSelect = document.getElementById('originalLangSelect');
+      const badgeVi = document.getElementById('badgeVi');
+      const badgeEn = document.getElementById('badgeEn');
+      const langRadios = document.querySelectorAll('input[name="editLang"]');
+
+      // Khởi tạo gốc
+      originalLangSelect.value = existingPostData.originalLanguage;
+      if (existingPostData.originalLanguage === 'VI') {
+        badgeVi.className = 'badge bg-primary ms-1';
+        badgeVi.innerText = 'Gốc';
+        badgeEn.className = 'badge bg-secondary ms-1';
+        badgeEn.innerText = 'Dịch';
+      } else {
+        badgeEn.className = 'badge bg-primary ms-1';
+        badgeEn.innerText = 'Gốc';
+        badgeVi.className = 'badge bg-secondary ms-1';
+        badgeVi.innerText = 'Dịch';
+      }
+
+      // Cập nhật nhãn Ngôn ngữ gốc / Bản dịch
+      originalLangSelect.addEventListener('change', function() {
+        if (this.value === 'VI') {
+          badgeVi.className = 'badge bg-primary ms-1';
+          badgeVi.innerText = 'Gốc';
+          badgeEn.className = 'badge bg-secondary ms-1';
+          badgeEn.innerText = 'Dịch';
+        } else {
+          badgeEn.className = 'badge bg-primary ms-1';
+          badgeEn.innerText = 'Gốc';
+          badgeVi.className = 'badge bg-secondary ms-1';
+          badgeVi.innerText = 'Dịch';
+        }
+      });
+
+      // Xử lý khi chuyển đổi tab ngôn ngữ
+      langRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+          const selectedLang = this.value;
+          if (selectedLang !== currentEditLang) {
+            // Lưu dữ liệu tab hiện tại
+            postLangData[currentEditLang].title = titleInput.value;
+            postLangData[currentEditLang].content = quill.root.innerHTML;
+
+            // Đổi state
+            currentEditLang = selectedLang;
+            titleLangLabel.innerText = currentEditLang;
+            
+            // Load dữ liệu tab mới
+            titleInput.value = postLangData[currentEditLang].title;
+            quill.setContents([]); 
+            if(postLangData[currentEditLang].content) {
+              quill.clipboard.dangerouslyPasteHTML(postLangData[currentEditLang].content);
+            }
+          }
+        });
+      });
+
+      // 4. ĐỔ DỮ LIỆU CŨ VÀO FORM
+      titleInput.value = postLangData[currentEditLang].title;
+      document.getElementById('postHashtags').value = existingPostData.hashtags;
+
+      // - Categories (Checkboxes)
+      const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
+      categoryCheckboxes.forEach(checkbox => {
+        if (existingPostData.categories.includes(checkbox.value)) {
+          checkbox.checked = true;
+        }
+      });
+
+      // - Thông tin File hiện tại
+      if(existingPostData.thumbnailName) {
+        document.getElementById('currentThumbnailInfo').innerHTML = `Đang dùng: <i class="bi bi-image"></i> ${existingPostData.thumbnailName}`;
+      }
+      if(existingPostData.videoName) {
+        document.getElementById('currentVideoInfo').innerHTML = `Đang dùng: <i class="bi bi-film"></i> ${existingPostData.videoName}`;
+      }
+
+      // - Đổ HTML cũ vào Quill Editor
+      quill.clipboard.dangerouslyPasteHTML(postLangData[currentEditLang].content);
+
+
+      // -------------------------------------------------------------
+      // 5. LOGIC XỬ LÝ LƯU (CẬP NHẬT)
+      // -------------------------------------------------------------
+
+      // Toast Notification
+      const toastEl = document.getElementById('liveToast');
+      const toastMessage = document.getElementById('toastMessage');
+      const toast = new bootstrap.Toast(toastEl);
+
+      function showToast(message, type = 'success') {
+        toastMessage.innerText = message;
+        toastEl.className = `toast align-items-center text-white border-0 bg-${type}`;
+        toast.show();
+      }
+
+      // Xử lý Lưu (Cập nhật)
+      document.getElementById('btnPublish').addEventListener('click', function() {
+        const hashtags = document.getElementById('postHashtags').value.trim();
+        // Lấy danh sách danh mục đã check
+        const selectedCategories = Array.from(document.querySelectorAll('.category-checkbox:checked')).map(cb => cb.value);
+        
+        // Kiểm tra xem user có chọn file mới không, nếu không thì lấy file cũ
+        const thumbInput = document.getElementById('postThumbnail');
+        const videoInput = document.getElementById('postVideo');
+        const finalThumbnail = thumbInput.files.length > 0 ? thumbInput.files[0].name : existingPostData.thumbnailName;
+        const finalVideo = videoInput.files.length > 0 ? videoInput.files[0].name : existingPostData.videoName;
+
+        // Lưu nội dung tab hiện tại
+        postLangData[currentEditLang].title = titleInput.value;
+        postLangData[currentEditLang].content = quill.root.innerHTML;
+
+        const originalLang = originalLangSelect.value;
+        const mainTitle = postLangData[originalLang].title.trim();
+        const mainContent = postLangData[originalLang].content.trim();
+
+        // Validate bản gốc
+        if (!mainTitle) {
+          showToast('Vui lòng nhập tiêu đề bài gốc!', 'danger');
+          return;
+        }
+        if (mainContent === '<p><br></p>' || mainContent === '') {
+          showToast('Vui lòng nhập nội dung bài gốc!', 'danger');
+          return;
+        }
+
+        const updatedData = {
+          originalLanguage: originalLang,
+          translations: postLangData,
+          categories: selectedCategories,
+          hashtags: hashtags,
+          thumbnailName: finalThumbnail,
+          videoName: finalVideo
+        };
+
+        console.log("🚀 Dữ liệu CẬP NHẬT chuẩn bị gửi đi:", updatedData);
+        showToast('✅ Đã cập nhật bài viết thành công!', 'success');
+      });
+
+      // Xử lý nút Hủy
+      document.getElementById('btnCancel').addEventListener('click', function() {
+        if(confirm('Bạn có chắc muốn hủy các thay đổi? Giao diện sẽ quay lại Danh sách bài viết.')) {
+          window.location.href = 'posts.html';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

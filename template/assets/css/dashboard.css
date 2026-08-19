@@ -1,0 +1,139 @@
+.dashboard-body {
+    background: #f7f8fb;
+}
+
+.dashboard-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.dashboard-sidebar {
+    width: 270px;
+    background: #111827;
+    color: #d1d5db;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    padding: 20px;
+    overflow: auto;
+}
+
+.dashboard-sidebar a {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    color: #d1d5db;
+    text-decoration: none;
+    padding: .75rem .9rem;
+    border-radius: 10px;
+    margin-bottom: .25rem;
+}
+
+.dashboard-sidebar a:hover,
+.dashboard-sidebar a.active {
+    background: #1f2937;
+    color: white;
+}
+
+.dashboard-main {
+    margin-left: 270px;
+    min-height: 100vh;
+    width: calc(100% - 270px);
+}
+
+.dashboard-header {
+    height: 64px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.dashboard-content {
+    padding: 24px;
+}
+
+.stat-card {
+    border: 0;
+    border-radius: 16px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .05);
+}
+
+.table-card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    background: white;
+    margin: 0 2rem 2.5rem 2rem; /* Thụt vào từ lề trái và phải */
+    box-shadow: 0 4px 12px rgba(15, 23, 42, .03);
+    transition: margin 0.2s ease;
+}
+
+.dashboard-content .table th,
+.dashboard-content .table td {
+    padding: 1.1rem 1.4rem !important; /* Tăng padding để chữ không sát lề */
+    vertical-align: middle;
+}
+
+/* Đổi màu nền hàng đầu tiên (Header) của bảng một chút */
+.dashboard-content .table thead th {
+    background-color: #f8fafc !important; /* Màu xanh xám nhạt nhẹ nhàng */
+    border-bottom: 2px solid var(--border) !important;
+    font-weight: 600;
+}
+
+/* Ngăn nội dung cột ngắn bị xuống dòng */
+.text-nowrap {
+    white-space: nowrap !important;
+}
+
+/* Lớp trợ giúp độ rộng cố định của cột */
+.col-w-xs {
+    width: 60px;
+    min-width: 60px;
+}
+.col-w-sm {
+    width: 100px;
+    min-width: 100px;
+}
+.col-w-md {
+    width: 150px;
+    min-width: 150px;
+}
+.col-w-lg {
+    width: 200px;
+    min-width: 200px;
+}
+.col-w-actions {
+    width: 130px;
+    min-width: 130px;
+    text-align: center;
+}
+
+/* Responsive */
+@media(max-width:991px) {
+    .dashboard-sidebar {
+        position: static;
+        width: 100%;
+        height: auto;
+    }
+
+    .dashboard-shell {
+        display: block;
+    }
+
+    .dashboard-main {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .table-card {
+        margin: 0 0 1.5rem 0 !important;
+    }
+}

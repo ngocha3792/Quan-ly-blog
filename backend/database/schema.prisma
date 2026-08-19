@@ -1,0 +1,461 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ======================================================
+// ENUMS
+// ======================================================
+
+enum UserRole {
+  NORMAL
+  BLOG_OWNER
+  CONTENT_MODERATOR
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISH
+  REJECT
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum BlogOwnerRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReportTargetType {
+  POST
+  COMMENT
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE
+  COPYRIGHT
+  MISINFORMATION
+  OTHER
+}
+
+// ======================================================
+// MODELS
+// ======================================================
+
+model User {
+  id           Int        @id @default(autoincrement())
+  username     String     @unique
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(NORMAL)
+  status       UserStatus @default(ACTIVE)
+  bio          String?    @db.Text
+  avatarUrl    String?    @map("avatar_url")
+  avatarPublicId String?  @map("avatar_public_id") @db.VarChar(255)
+
+  lockedAt   DateTime? @map("locked_at")
+  lockedById Int?      @map("locked_by")
+  lockedBy   User?     @relation("UserLockings", fields: [lockedById], references: [id])
+  lockReason String?   @map("lock_reason") @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  usersLocked               User[]               @relation("UserLockings")
+  sessions                  UserSession[]
+  passwordResetTokens       PasswordResetToken[]
+  blogOwnerRequestsAsUser   BlogOwnerRequest[]   @relation("BlogOwnerRequests")
+  blogOwnerRequestsReviewed BlogOwnerRequest[]   @relation("BlogOwnerRequestsReviewed")
+  posts                     Post[]               @relation("UserPosts")
+  postsReviewed             Post[]               @relation("PostsReviewed")
+  comments                  Comment[]
+  postLikes                 PostLike[]
+  postBookmarks             PostBookmark[]
+  followers                 UserFollow[]         @relation("UserFollowers")
+  following                 UserFollow[]         @relation("UserFollowing")
+  reports                   Report[]             @relation("ReportsMade")
+  reportsReviewed           Report[]             @relation("ReportsReviewed")
+  securityLogs              SecurityLog[]
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model UserSession {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  deviceInfo       String?   @map("device_info")
+  ipAddress        String?   @map("ip_address")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model Language {
+  id        Int     @id @default(autoincrement())
+  code      String  @unique
+  name      String
+  flag      String?
+  isDefault Boolean @default(false) @map("is_default")
+  isActive  Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  categories Category[]
+  posts      Post[]
+
+  @@map("languages")
+}
+
+model CategoryGroup {
+  id        Int       @id @default(autoincrement())
+  code      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  categories Category[]
+
+  @@map("category_groups")
+}
+
+model Category {
+  id Int @id @default(autoincrement())
+
+  categoryGroupId Int           @map("category_group_id")
+  categoryGroup   CategoryGroup @relation(fields: [categoryGroupId], references: [id], onDelete: Restrict)
+
+  name String
+
+  languageId Int      @map("language_id")
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  postCategories PostCategory[]
+
+  @@unique([name, languageId])
+  @@unique([categoryGroupId, languageId])
+  @@index([categoryGroupId])
+  @@index([languageId])
+  @@map("categories")
+}
+
+model BlogOwnerRequest {
+  id     Int                    @id @default(autoincrement())
+  userId Int                    @map("user_id")
+  user   User                   @relation("BlogOwnerRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reason String                 @db.Text
+  topics String?                @db.Text
+  status BlogOwnerRequestStatus @default(PENDING)
+
+  reviewedById    Int?      @map("reviewed_by")
+  reviewedBy      User?     @relation("BlogOwnerRequestsReviewed", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime? @map("reviewed_at")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([reviewedById])
+  @@map("blog_owner_requests")
+}
+
+model Post {
+  id           Int        @id @default(autoincrement())
+  title        String
+  thumbnailUrl String?    @map("thumbnail_url")
+  content      String     @db.Text
+  status       PostStatus @default(DRAFT)
+  viewCount    Int        @default(0) @map("view_count")
+  publishedAt  DateTime?  @map("published_at")
+
+  parentPostId    Int?   @map("parent_post_id")
+  parentPost      Post?  @relation("TranslatedPosts", fields: [parentPostId], references: [id])
+  translatedPosts Post[] @relation("TranslatedPosts")
+
+  authorId Int  @map("author_id")
+  author   User @relation("UserPosts", fields: [authorId], references: [id], onDelete: Cascade)
+
+  languageId Int      @map("language_id")
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Restrict)
+
+  reviewedById    Int?      @map("reviewed_by")
+  reviewedBy      User?     @relation("PostsReviewed", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime? @map("reviewed_at")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  postCategories PostCategory[]
+  media          Media[]
+  comments       Comment[]
+  postTags       PostTag[]
+  postLikes      PostLike[]
+  postBookmarks  PostBookmark[]
+  dailyMetrics   PostDailyMetric[]
+  viewLogs       PostViewLog[]
+  reports        Report[]
+
+  @@unique([parentPostId, languageId])
+  @@index([authorId])
+  @@index([languageId])
+  @@index([parentPostId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([publishedAt])
+  @@index([status, languageId])
+  @@index([status, publishedAt])
+  @@index([authorId, status])
+  @@map("posts")
+}
+
+model PostCategory {
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  categoryId Int      @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([postId, categoryId])
+  @@index([categoryId])
+  @@map("post_categories")
+}
+
+model PostDailyMetric {
+  id Int @id @default(autoincrement())
+
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  metricDate DateTime @map("metric_date") @db.Date
+  viewCount  Int      @default(0) @map("view_count")
+  likeCount  Int      @default(0) @map("like_count")
+
+  @@unique([postId, metricDate])
+  @@index([metricDate])
+  @@map("post_daily_metrics")
+}
+
+model PostViewLog {
+  id Int @id @default(autoincrement())
+
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  viewerKey String   @map("viewer_key") @db.VarChar(128)
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  @@index([postId, viewerKey, viewedAt])
+  @@index([viewedAt])
+  @@map("post_view_logs")
+}
+
+model Media {
+  id        Int       @id @default(autoincrement())
+  postId    Int       @map("post_id")
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaType MediaType @map("media_type")
+  mediaUrl  String    @map("media_url")
+  publicId  String    @default("") @map("public_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([postId])
+  @@index([mediaType])
+  @@map("media")
+}
+
+model Comment {
+  id     Int  @id @default(autoincrement())
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parentId Int?      @map("parent_id")
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+
+  content String @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  reports Report[]
+
+  @@index([postId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([createdAt])
+  @@index([userId, createdAt], map: "comments_user_created_at_idx")
+  @@map("comments")
+}
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  postTags PostTag[]
+
+  @@map("tags")
+}
+
+model PostTag {
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  tagId Int @map("tag_id")
+  tag   Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("post_tags")
+}
+
+model PostLike {
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model PostBookmark {
+  postId Int  @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("post_bookmarks")
+}
+
+model UserFollow {
+  followerId Int  @map("follower_id")
+  follower   User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+
+  followingId Int  @map("following_id")
+  following   User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("user_follows")
+}
+
+model Report {
+  id         Int              @id @default(autoincrement())
+  reporterId Int              @map("reporter_id")
+  reporter   User             @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType ReportTargetType @map("target_type")
+
+  postId Int?  @map("post_id")
+  post   Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  commentId Int?     @map("comment_id")
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
+  reason      ReportReason
+  description String?      @db.Text
+  status      ReportStatus @default(PENDING)
+
+  reviewedById   Int?      @map("reviewed_by")
+  reviewedBy     User?     @relation("ReportsReviewed", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt     DateTime? @map("reviewed_at")
+  resolutionNote String?   @map("resolution_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([reporterId])
+  @@index([postId])
+  @@index([commentId])
+  @@index([status])
+  @@index([targetType])
+  @@index([reviewedById])
+  @@map("reports")
+}
+
+model SecurityLog {
+  id        Int     @id @default(autoincrement())
+  userId    Int?    @map("user_id")
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipAddress String  @map("ip_address")
+  action    String
+  userAgent String? @map("user_agent") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("security_logs")
+}

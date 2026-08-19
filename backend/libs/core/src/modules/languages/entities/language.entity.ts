@@ -1,0 +1,19 @@
+import { Language } from '@prisma/client';
+import { Exclude } from 'class-transformer';
+
+export class LanguageEntity implements Language {
+  id: number;
+  code: string;
+  name: string;
+  flag: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+
+  deletedAt: Date | null;
+
+  constructor(partial: Partial<LanguageEntity>) {
+    Object.assign(this, partial);
+  }
+}

@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manage Languages | DevBlog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/css/global.css">
+  <link rel="stylesheet" href="../../../assets/css/components.css">
+  <link rel="stylesheet" href="../../../assets/css/dashboard.css">
+  <link rel="stylesheet" href="../../../assets/css/dark-mode.css">
+</head>
+
+<body class="dashboard-body">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <h4 class="text-white fw-bold mb-4"><i class="bi bi-braces-asterisk me-2"></i>DevBlog</h4>
+      <a class="" href="dashboard.html"><i class="bi bi-speedometer2"></i>Dashboard</a>
+      <a class="" href="manage-users.html"><i class="bi bi-people"></i>Quản lý users</a>
+      <a class="active" href="manage-languages.html"><i class="bi bi-translate"></i>Quản lý languages</a>
+      <hr class="border-secondary">
+      <a href="../../public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+      <a href="../../public/auth.html" class="text-danger" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+        <i class="bi bi-box-arrow-right"></i>Đăng xuất
+      </a>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div><strong>Manage Languages</strong>
+          <div class="small text-muted">Admin dashboard</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary" data-theme-toggle>
+            <i class="bi bi-moon-stars"></i>
+          </button>
+          <span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
+        </div>
+      </header>
+
+      <section class="dashboard-content">
+        <div class="d-flex justify-content-between mb-3">
+          <h3 class="fw-bold">Languages</h3>
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addLanguageModal">
+            <i class="bi bi-plus-circle me-2"></i>Thêm language
+          </button>
+        </div>
+
+        <div class="card table-card border-0 shadow-sm">
+          <table class="table align-middle mb-0 table-hover">
+            <thead>
+              <tr>
+                <th class="col-w-sm text-nowrap">Code</th>
+                <th>Tên ngôn ngữ</th>
+                <th class="col-w-md text-nowrap text-center">Default</th>
+                <th class="col-w-md text-nowrap text-center">Trạng thái</th>
+                <th class="col-w-actions text-nowrap text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="languages-table-body">
+              <!-- Render by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4">
+          <nav>
+            <ul class="pagination justify-content-center" id="languages-pagination">
+              <!-- Pagination rendered by JS -->
+            </ul>
+          </nav>
+        </div>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal fade" id="addLanguageModal" tabindex="-1" aria-labelledby="addLanguageModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="addLanguageModalLabel">Thêm Ngôn ngữ mới</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAddLanguage">
+            
+            <div class="mb-3">
+              <label class="form-label">Quốc gia (Cờ)</label>
+              <div class="dropdown">
+                <button class="btn btn-outline-secondary w-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" id="addFlagBtn">
+                  <span class="d-flex align-items-center gap-2"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px; border-radius: 2px;"> Vietnam (VN)</span>
+                  <i class="bi bi-chevron-down"></i>
+                </button>
+                <ul class="dropdown-menu w-100 shadow" id="addFlagOptions" style="max-height: 250px; overflow-y: auto;">
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="vn" data-name="Vietnam (VN)"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px;"> Vietnam (VN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="us" data-name="English (US)"><img src="https://flagcdn.com/w20/us.png" style="width: 20px;"> English (US)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="gb" data-name="English (UK)"><img src="https://flagcdn.com/w20/gb.png" style="width: 20px;"> English (UK)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="jp" data-name="Japan (JP)"><img src="https://flagcdn.com/w20/jp.png" style="width: 20px;"> Japan (JP)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="kr" data-name="South Korea (KR)"><img src="https://flagcdn.com/w20/kr.png" style="width: 20px;"> South Korea (KR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="cn" data-name="China (CN)"><img src="https://flagcdn.com/w20/cn.png" style="width: 20px;"> China (CN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="fr" data-name="France (FR)"><img src="https://flagcdn.com/w20/fr.png" style="width: 20px;"> France (FR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="de" data-name="Germany (DE)"><img src="https://flagcdn.com/w20/de.png" style="width: 20px;"> Germany (DE)</a></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="langCode" class="form-label">Mã ngôn ngữ (Code)</label>
+              <input type="text" class="form-control" id="langCode" placeholder="VD: vi, en, fr..." required>
+            </div>
+            <div class="mb-3">
+              <label for="langName" class="form-label">Tên hiển thị</label>
+              <input type="text" class="form-control" id="langName" placeholder="VD: Tiếng Việt" required>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="isDefaultLang">
+              <label class="form-check-label" for="isDefaultLang">Đặt làm ngôn ngữ mặc định (Default)</label>
+            </div>
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" role="switch" id="isActiveLang" checked>
+              <label class="form-check-label" for="isActiveLang">Kích hoạt ngay (Active)</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" form="formAddLanguage" class="btn btn-primary">Lưu ngôn ngữ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editLanguageModal" tabindex="-1" aria-labelledby="editLanguageModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="editLanguageModalLabel">Chỉnh sửa Ngôn ngữ</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formEditLanguage">
+            
+            <div class="mb-3">
+              <label class="form-label">Quốc gia (Cờ)</label>
+              <div class="dropdown">
+                <button class="btn btn-outline-secondary w-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" id="editFlagBtn">
+                  <span class="d-flex align-items-center gap-2"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px; border-radius: 2px;"> Vietnam (VN)</span>
+                  <i class="bi bi-chevron-down"></i>
+                </button>
+                <ul class="dropdown-menu w-100 shadow" id="editFlagOptions" style="max-height: 250px; overflow-y: auto;">
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="vn" data-name="Vietnam (VN)"><img src="https://flagcdn.com/w20/vn.png" style="width: 20px;"> Vietnam (VN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="us" data-name="English (US)"><img src="https://flagcdn.com/w20/us.png" style="width: 20px;"> English (US)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="gb" data-name="English (UK)"><img src="https://flagcdn.com/w20/gb.png" style="width: 20px;"> English (UK)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="jp" data-name="Japan (JP)"><img src="https://flagcdn.com/w20/jp.png" style="width: 20px;"> Japan (JP)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="kr" data-name="South Korea (KR)"><img src="https://flagcdn.com/w20/kr.png" style="width: 20px;"> South Korea (KR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="cn" data-name="China (CN)"><img src="https://flagcdn.com/w20/cn.png" style="width: 20px;"> China (CN)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="fr" data-name="France (FR)"><img src="https://flagcdn.com/w20/fr.png" style="width: 20px;"> France (FR)</a></li>
+                  <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" data-flag="de" data-name="Germany (DE)"><img src="https://flagcdn.com/w20/de.png" style="width: 20px;"> Germany (DE)</a></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="editLangCode" class="form-label">Mã ngôn ngữ (Code)</label>
+              <input type="text" class="form-control" id="editLangCode" value="vi" required>
+            </div>
+            <div class="mb-3">
+              <label for="editLangName" class="form-label">Tên hiển thị</label>
+              <input type="text" class="form-control" id="editLangName" value="Tiếng Việt" required>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="editIsDefaultLang" checked>
+              <label class="form-check-label" for="editIsDefaultLang">Đặt làm ngôn ngữ mặc định (Default)</label>
+            </div>
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" role="switch" id="editIsActiveLang" checked>
+              <label class="form-check-label" for="editIsActiveLang">Kích hoạt ngay (Active)</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" form="formEditLanguage" class="btn btn-primary">Cập nhật</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      
+      // 1. Logic thay đổi cờ khi chọn trong Dropdown
+      function setupFlagDropdown(optionsId, btnId) {
+        const options = document.querySelectorAll(`#${optionsId} .dropdown-item`);
+        const btn = document.getElementById(btnId);
+        
+        options.forEach(item => {
+          item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const flag = this.getAttribute('data-flag');
+            const name = this.getAttribute('data-name');
+            // Gán lại nội dung HTML cho nút bấm
+            btn.innerHTML = `<span class="d-flex align-items-center gap-2"><img src="https://flagcdn.com/w20/${flag}.png" style="width: 20px; border-radius: 2px;"> ${name}</span><i class="bi bi-chevron-down"></i>`;
+          });
+        });
+      }
+
+      setupFlagDropdown('addFlagOptions', 'addFlagBtn');
+      setupFlagDropdown('editFlagOptions', 'editFlagBtn');
+
+      // 2. Fix triệt để lỗi kẹt màn hình đen khi Lưu
+      const formAdd = document.getElementById('formAddLanguage');
+      if (formAdd) {
+        formAdd.addEventListener('submit', function (e) {
+          e.preventDefault(); 
+          
+          // Mẹo: Dùng JS bấm thẳng vào nút [X] (Close) để kích hoạt chuẩn tiến trình đóng của Bootstrap
+          document.querySelector('#addLanguageModal .btn-close').click();
+          
+          // Đợi 350ms cho hiệu ứng đóng chạy xong rồi mới thả Alert
+          setTimeout(() => {
+            alert('Mock: Đã thêm Ngôn ngữ thành công!');
+            formAdd.reset(); // Xóa sạch dữ liệu vừa nhập
+          }, 350);
+        });
+      }
+
+      const formEdit = document.getElementById('formEditLanguage');
+      if (formEdit) {
+        formEdit.addEventListener('submit', function (e) {
+          e.preventDefault(); 
+          
+          document.querySelector('#editLanguageModal .btn-close').click();
+          
+          setTimeout(() => {
+            alert('Mock: Cập nhật Ngôn ngữ thành công!');
+          }, 350);
+        });
+      }
+
+      // 3. Mock Data & Render Danh sách ngôn ngữ
+      const baseLanguages = [
+        { code: 'vi', name: 'Tiếng Việt', flag: 'vn', isDefault: true, status: 'ACTIVE' },
+        { code: 'en', name: 'English', flag: 'gb', isDefault: false, status: 'ACTIVE' },
+        { code: 'ja', name: 'Japanese', flag: 'jp', isDefault: false, status: 'INACTIVE' },
+        { code: 'kr', name: 'Korean', flag: 'kr', isDefault: false, status: 'INACTIVE' },
+        { code: 'fr', name: 'French', flag: 'fr', isDefault: false, status: 'ACTIVE' }
+      ];
+
+      let languagesMockData = [];
+      for (let i = 0; i < 20; i++) {
+        let lang = { ...baseLanguages[i % baseLanguages.length] };
+        lang.id = i + 1;
+        if (i >= 5) {
+            lang.code = `${lang.code}${i}`;
+            lang.name = `${lang.name} ${i}`;
+            lang.isDefault = false;
+        }
+        languagesMockData.push(lang);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 6;
+
+      window.renderLanguages = function() {
+        const tbody = document.getElementById("languages-table-body");
+        if (!tbody) return;
+        
+        let htmlString = "";
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentLangs = languagesMockData.slice(startIndex, endIndex);
+
+        currentLangs.forEach(lang => {
+          let defaultBadge = lang.isDefault 
+            ? '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-star-fill me-1"></i> Default</span>'
+            : '<span class="text-muted">-</span>';
+            
+          let statusBadge = lang.status === 'ACTIVE' 
+            ? '<span class="badge bg-success rounded-pill px-3 py-2">ACTIVE</span>'
+            : '<span class="badge bg-secondary rounded-pill px-3 py-2">INACTIVE</span>';
+
+          htmlString += `
+              <tr>
+                <td class="fw-bold text-uppercase text-nowrap">${lang.code}</td>
+                <td class="text-nowrap"><img src="https://flagcdn.com/w20/${lang.flag}.png" alt="${lang.flag}" style="width: 20px; border-radius: 2px;" class="me-2">${lang.name}</td>
+                <td class="text-nowrap text-center">${defaultBadge}</td>
+                <td class="text-nowrap text-center">${statusBadge}</td>
+                <td class="text-nowrap text-center">
+                  <button class="btn btn-sm btn-outline-warning border-0 me-1" title="Chỉnh sửa" data-bs-toggle="modal" data-bs-target="#editLanguageModal">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger border-0" title="Xóa" onclick="if(confirm('Xóa ngôn ngữ này?')) alert('Đã xóa');">
+                    <i class="bi bi-trash3-fill"></i>
+                  </button>
+                </td>
+              </tr>
+          `;
+        });
+        
+        tbody.innerHTML = htmlString;
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("languages-pagination");
+        if (!paginationWrapper) return;
+        
+        const totalPages = Math.ceil(languagesMockData.length / itemsPerPage);
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        paginationWrapper.innerHTML = paginationHtml;
+        
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) return;
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              renderLanguages();
+            }
+          });
+        });
+      }
+
+      renderLanguages();
+
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../../assets/js/main.js"></script>
+</body>
+
+</html>

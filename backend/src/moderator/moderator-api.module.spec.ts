@@ -1,0 +1,207 @@
+import { ConfigModule } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
+
+import {
+  JwtAuthGuard,
+  PostsService,
+  PrismaService,
+  ReportsService,
+  RolesGuard,
+} from '@app/core';
+
+import { ModeratorCategoriesController } from './controllers/moderator-categories.controller';
+import { ModeratorPostsController } from './controllers/moderator-posts.controller';
+import { ModeratorReportsController } from './controllers/moderator-reports.controller';
+
+import { ModeratorApiModule } from './moderator-api.module';
+
+import { ModeratorCategoriesService } from './services/moderator-categories.service';
+import { ModeratorPostsService } from './services/moderator-posts.service';
+import { ModeratorReportsService } from './services/moderator-reports.service';
+import { ModeratorDashboardController } from './controllers/moderator-dashboard.controller';
+import { ModeratorDashboardService } from './services/moderator-dashboard.service';
+describe('ModeratorApiModule', () => {
+  let testingModule: TestingModule | undefined;
+
+  const mockPrismaService = {
+    post: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      updateMany: jest.fn(),
+    },
+
+    comment: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      updateMany: jest.fn(),
+    },
+
+    report: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      updateMany: jest.fn(),
+      groupBy: jest.fn(),
+    },
+
+    tag: {
+      findFirst: jest.fn(),
+    },
+
+    categoryGroup: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+
+    category: {
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
+      updateMany: jest.fn(),
+    },
+
+    language: {
+      findMany: jest.fn(),
+    },
+
+    postCategory: {
+      count: jest.fn(),
+    },
+
+    $transaction: jest.fn(),
+  };
+
+  const mockPostsService = {
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockReportsService = {
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+
+    const moduleBuilder = Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+        }),
+
+        ModeratorApiModule,
+      ],
+    });
+
+    testingModule = await moduleBuilder
+      .overrideProvider(PrismaService)
+      .useValue(mockPrismaService)
+
+      .overrideProvider(PostsService)
+      .useValue(mockPostsService)
+
+      .overrideProvider(ReportsService)
+      .useValue(mockReportsService)
+
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: jest.fn().mockReturnValue(true),
+      })
+
+      .overrideGuard(RolesGuard)
+      .useValue({
+        canActivate: jest.fn().mockReturnValue(true),
+      })
+
+      .compile();
+  });
+
+  afterEach(async () => {
+    await testingModule?.close();
+  });
+
+  it('should be defined', () => {
+    expect(testingModule).toBeDefined();
+  });
+
+  it('should resolve ModeratorPostsController', () => {
+    const controller =
+      testingModule!.get<ModeratorPostsController>(
+        ModeratorPostsController,
+      );
+
+    expect(controller).toBeDefined();
+  });
+
+  it('should resolve ModeratorPostsService', () => {
+    const service =
+      testingModule!.get<ModeratorPostsService>(
+        ModeratorPostsService,
+      );
+
+    expect(service).toBeDefined();
+  });
+
+  it('should resolve ModeratorReportsController', () => {
+    const controller =
+      testingModule!.get<ModeratorReportsController>(
+        ModeratorReportsController,
+      );
+
+    expect(controller).toBeDefined();
+  });
+
+  it('should resolve ModeratorReportsService', () => {
+    const service =
+      testingModule!.get<ModeratorReportsService>(
+        ModeratorReportsService,
+      );
+
+    expect(service).toBeDefined();
+  });
+
+  it('should resolve ModeratorCategoriesController', () => {
+    const controller =
+      testingModule!.get<ModeratorCategoriesController>(
+        ModeratorCategoriesController,
+      );
+
+    expect(controller).toBeDefined();
+  });
+
+  it('should resolve ModeratorCategoriesService', () => {
+    const service =
+      testingModule!.get<ModeratorCategoriesService>(
+        ModeratorCategoriesService,
+      );
+
+    expect(service).toBeDefined();
+  });
+  it('should resolve ModeratorDashboardController', () => {
+  const controller =
+    testingModule!.get<ModeratorDashboardController>(
+      ModeratorDashboardController,
+    );
+
+  expect(controller).toBeDefined();
+});
+
+it('should resolve ModeratorDashboardService', () => {
+  const service =
+    testingModule!.get<ModeratorDashboardService>(
+      ModeratorDashboardService,
+    );
+
+  expect(service).toBeDefined();
+});
+});

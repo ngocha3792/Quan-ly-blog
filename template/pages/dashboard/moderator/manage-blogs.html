@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manage Blogs | DevBlog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/css/global.css">
+  <link rel="stylesheet" href="../../../assets/css/components.css">
+  <link rel="stylesheet" href="../../../assets/css/dashboard.css">
+  <link rel="stylesheet" href="../../../assets/css/dark-mode.css">
+
+</head>
+
+<body class="dashboard-body">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <h4 class="text-white fw-bold mb-4"><i class="bi bi-braces-asterisk me-2"></i>DevBlog</h4>
+      <a class="" href="dashboard.html"><i class="bi bi-speedometer2"></i>Dashboard</a>
+      <a class="active" href="manage-blogs.html"><i class="bi bi-journal-text"></i>Duyệt blogs</a>
+      <a class="" href="manage-comments.html"><i class="bi bi-chat-left-text"></i>Quản lý comments</a>
+      <a class="" href="manage-categories.html"><i class="bi bi-folder"></i>Quản lý categories</a>
+      <hr class="border-secondary">
+      <a href="../../public/index.html"><i class="bi bi-house"></i>Về trang public</a>
+      <a href="../../public/auth.html" class="text-danger"><i class="bi bi-box-arrow-right"></i>Đăng xuất</a>
+    </aside>
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <div><strong>Pending Blogs</strong>
+          <div class="small text-muted">Phê duyệt bài viết</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary border-0" data-theme-toggle title="Đổi giao diện">
+            <i class="bi bi-moon-stars"></i>
+          </button>
+          <span class="avatar-sm">S</span>
+          <a href="../../public/auth.html" class="btn btn-sm btn-outline-danger ms-1" title="Đăng xuất" onclick="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
+        </div>
+      </header>
+      <section class="dashboard-content">
+        <div class="card table-card border-0 shadow-sm">
+          <table class="table align-middle mb-0 table-hover">
+            <thead>
+              <tr>
+                <th>Tiêu đề</th>
+                <th class="col-w-md text-nowrap">Tác giả</th>
+                <th class="col-w-md text-nowrap text-center">Trạng thái</th>
+                <th class="col-w-lg text-nowrap text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="blogs-table-body">
+              <!-- Render by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4">
+          <nav>
+            <ul class="pagination justify-content-center" id="blogs-pagination">
+              <!-- Pagination rendered by JS -->
+            </ul>
+          </nav>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal Xem trước bài viết -->
+  <div class="modal fade" id="previewBlogModal" tabindex="-1" aria-labelledby="previewBlogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="previewBlogModalLabel">Xem trước: <span id="previewBlogHeaderTitle">Tiêu đề bài viết</span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <span class="badge bg-secondary-subtle text-secondary-emphasis me-2" id="previewBlogCategory">Frontend</span>
+            <span class="text-muted small">Ngôn ngữ gốc: <span id="previewBlogLang">VI</span> | Chờ duyệt</span>
+          </div>
+          <h2 class="mb-4 fw-bold" id="previewBlogTitle">Tiêu đề bài viết</h2>
+          <div class="text-muted mb-4">Tác giả: <span id="previewBlogAuthor" class="fw-medium text-dark"></span></div>
+          <div class="blog-content text-dark" style="line-height: 1.8;">
+            <p>Đây là nội dung mô phỏng của bài viết để Moderator có thể đọc và đánh giá trước khi duyệt. Trong thực tế, nội dung này sẽ được load từ database dựa vào ID của bài viết.</p>
+            <p>Dưới đây là một ví dụ về nội dung bài viết dài hơn để kiểm tra khả năng cuộn trang (scroll) của Modal. Khi một bài viết có nhiều chi tiết, hình ảnh hoặc các đoạn mã nguồn, Moderator cần phải kiểm tra kỹ lưỡng trước khi quyết định duyệt (Approve) hoặc từ chối (Reject).</p>
+            
+            <h4 class="fw-bold mt-4">1. Tại sao tính năng này quan trọng?</h4>
+            <p>Việc kiểm duyệt bài viết giúp đảm bảo nền tảng DevBlog luôn giữ được chất lượng nội dung tốt nhất. Các bài viết rác (spam) hoặc copy từ nguồn khác mà không ghi nguồn sẽ bị loại bỏ.</p>
+            
+            <h4 class="fw-bold mt-4">2. Yêu cầu định dạng bài viết</h4>
+            <ul>
+              <li>Tiêu đề phải rõ ràng, không giật tít câu view (clickbait).</li>
+              <li>Nội dung không chứa ngôn từ kích động, thù địch hoặc spam.</li>
+              <li>Các đoạn code cần được đặt trong thẻ Code block (pre/code) một cách hợp lệ.</li>
+            </ul>
+            
+            <h4 class="fw-bold mt-4">3. Ví dụ đoạn code hợp lệ</h4>
+            <pre class="bg-light p-3 rounded border text-dark mt-2 mb-4"><code>function isContentValid(content) {
+  // Bài viết phải có ít nhất 500 ký tự
+  if (content.length < 500) return false;
+  
+  // Không được chứa các từ ngữ cấm
+  if (containsSpam(content)) return false;
+  
+  return true;
+}
+
+console.log("Hello Moderator! Chúc bạn một ngày làm việc vui vẻ.");</code></pre>
+            
+            <p>Bên cạnh đó, việc bố cục bài viết hợp lý cũng được đánh giá cao. Bài viết nên có các thẻ tiêu đề (Heading) từ H2, H3 để chia nhỏ nội dung, giúp người đọc dễ theo dõi hơn.</p>
+            <p>Cảm ơn tác giả đã đóng góp nội dung hữu ích cho cộng đồng của chúng ta!</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Từ chối bài viết -->
+  <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="rejectModalLabel">Từ chối bài viết</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formRejectBlog">
+            <div class="mb-3">
+              <label for="rejectReason" class="form-label">Lý do từ chối</label>
+              <textarea class="form-control" id="rejectReason" rows="3" placeholder="Ví dụ: Bài viết vi phạm chính sách nội dung, hoặc cần chỉnh sửa lại phần mở đầu..." required></textarea>
+              <div class="form-text">Tác giả sẽ nhận được thông báo kèm lý do này để chỉnh sửa và gửi lại.</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" form="formRejectBlog" class="btn btn-danger">Xác nhận Từ chối</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../../assets/js/main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const formReject = document.getElementById('formRejectBlog');
+      if (formReject) {
+        formReject.addEventListener('submit', function (e) {
+          e.preventDefault();
+          const reason = document.getElementById('rejectReason').value;
+          
+          document.querySelector('#rejectModal .btn-close').click();
+          
+          setTimeout(() => {
+            alert('Mock: Đã từ chối bài viết với lý do:\n' + reason);
+            formReject.reset();
+          }, 350);
+        });
+      }
+
+      // Mock Data 25 bài viết
+      const baseBlogs = [
+        { title: 'Hướng dẫn học ReactJS cơ bản cho người mới', author: 'User A', category: 'Frontend', lang: 'VI' },
+        { title: '10 mẹo tối ưu hiệu suất với CSS', author: 'DevMaster', category: 'Frontend', lang: 'EN' },
+        { title: 'Tìm hiểu về Web Components', author: 'CodeLover', category: 'Web Design', lang: 'VI' }
+      ];
+
+      let blogsMockData = [];
+      for (let i = 0; i < 25; i++) {
+        let blog = { ...baseBlogs[i % baseBlogs.length] };
+        blog.id = i + 1;
+        blog.title = `${blog.title} (Phần ${i + 1})`;
+        blogsMockData.push(blog);
+      }
+
+      let currentPage = 1;
+      const itemsPerPage = 8;
+
+      function renderBlogs() {
+        const tbody = document.getElementById("blogs-table-body");
+        if (!tbody) return;
+        
+        let htmlString = "";
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentBlogs = blogsMockData.slice(startIndex, endIndex);
+
+        currentBlogs.forEach(blog => {
+          htmlString += `
+              <tr>
+                <td class="fw-medium">
+                  <a href="#" class="text-decoration-none text-dark post-title" data-bs-toggle="modal" data-bs-target="#previewBlogModal" 
+                     onclick="document.getElementById('previewBlogHeaderTitle').innerText='${blog.title}'; document.getElementById('previewBlogTitle').innerText='${blog.title}'; document.getElementById('previewBlogAuthor').innerText='${blog.author}'; document.getElementById('previewBlogCategory').innerText='${blog.category}'; document.getElementById('previewBlogLang').innerText='${blog.lang}';">
+                     ${blog.title}
+                  </a>
+                </td>
+                <td class="text-nowrap">${blog.author}</td>
+                <td class="text-nowrap text-center"><span class="badge bg-warning-subtle text-warning-emphasis">Chờ duyệt</span></td>
+                <td class="text-nowrap text-center">
+                  <button class="btn btn-sm btn-outline-success border-0 me-1" title="Duyệt bài"
+                    onclick="if(confirm('Xác nhận duyệt bài viết này?')) alert('Đã duyệt bài viết thành công!');">
+                    <i class="bi bi-check-circle-fill"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger border-0 me-1" title="Từ chối"
+                    data-bs-toggle="modal" data-bs-target="#rejectModal">
+                    <i class="bi bi-x-circle-fill"></i>
+                  </button>
+                </td>
+              </tr>
+          `;
+        });
+        
+        tbody.innerHTML = htmlString;
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const paginationWrapper = document.getElementById("blogs-pagination");
+        if (!paginationWrapper) return;
+        
+        const totalPages = Math.ceil(blogsMockData.length / itemsPerPage);
+        
+        if (totalPages <= 1) {
+          paginationWrapper.innerHTML = '';
+          return;
+        }
+
+        let paginationHtml = '';
+        
+        // Previous
+        paginationHtml += `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        
+        // Numbered Pages
+        for (let i = 1; i <= totalPages; i++) {
+          paginationHtml += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        
+        // Next
+        paginationHtml += `
+          <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        
+        paginationWrapper.innerHTML = paginationHtml;
+        
+        const pageLinks = paginationWrapper.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const parent = this.parentElement;
+            if (parent.classList.contains('disabled') || parent.classList.contains('active')) {
+              return;
+            }
+            const newPage = parseInt(this.getAttribute('data-page'));
+            if (!isNaN(newPage)) {
+              currentPage = newPage;
+              renderBlogs();
+            }
+          });
+        });
+      }
+
+      renderBlogs();
+    });
+  </script>
+</body>
+
+</html>
