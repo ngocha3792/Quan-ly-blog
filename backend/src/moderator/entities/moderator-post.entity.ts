@@ -1,5 +1,6 @@
 import {
   type Media,
+  type PostStatus,
   type User,
 } from '@prisma/client';
 import {
@@ -41,71 +42,68 @@ type ModeratorMediaSummary = Pick<
 >;
 
 /**
+ * Một phiên bản ngôn ngữ trong cùng Post Group.
+ *
+ * Dùng để Moderator biết group hiện có:
+ * - VI
+ * - EN
+ * - JA
+ * - KO...
+ *
+ * Khi click tab, frontend sẽ gọi lại:
+ * GET /moderator/posts/:postId
+ * để lấy full content của version đó.
+ */
+export type ModeratorTranslationSummary = {
+  id: number;
+  title: string;
+  thumbnailUrl: string | null;
+  status: PostStatus;
+  parentPostId: number | null;
+  languageId: number;
+
+  language: {
+    id: number;
+    code: string;
+    name: string;
+    flag: string | null;
+  };
+};
+
+/**
  * Entity bài viết dành riêng cho Moderator.
- *
- * Moderator được xem:
- * - toàn bộ tiêu đề và nội dung;
- * - tác giả;
- * - ngôn ngữ;
- * - category và tag;
- * - media;
- * - trạng thái;
- * - thời điểm kiểm duyệt;
- * - lý do từ chối;
- * - người đã xử lý trước đó.
- *
- * Moderator không nhận:
- * - deletedAt;
- * - các quan hệ Prisma thô.
  */
 export class ModeratorPostEntity extends PostEntity {
-  /**
-   * Không trả trạng thái xóa mềm ra response.
-   */
   @Exclude()
   declare deletedAt: Date | null;
 
-  /**
-   * Chỉ trả reviewedBy dưới dạng object gọn,
-   * không trả trực tiếp foreign key.
-   */
   @Exclude()
   declare reviewedById: number | null;
 
-@Type(() => UserEntity)
-reviewedBy?: ModeratorReviewerSummary | null;
+  @Type(() => UserEntity)
+  reviewedBy?: ModeratorReviewerSummary | null;
 
-  /**
-   * Danh sách ảnh/video của bài viết.
-   */
   media?: ModeratorMediaSummary[];
 
   /**
-   * Quan hệ Prisma thô:
-   * Post -> PostCategory -> Category
+   * Các phiên bản ngôn ngữ thuộc cùng Post Group.
+   *
+   * Giống cách Blog Owner detail đang trả translations.
    */
+  translations?: ModeratorTranslationSummary[];
+
   @Exclude()
   declare postCategories?: ModeratorPostCategoryRelation[];
 
-  /**
-   * Quan hệ Prisma thô:
-   * Post -> PostTag -> Tag
-   */
   @Exclude()
   declare postTags?: ModeratorPostTagRelation[];
 
-  /**
-   * Danh sách category đã được làm phẳng.
-   */
   @Expose()
   @Type(() => CategoryEntity)
   override get categories(): CategoryEntity[] | undefined {
     return super.categories;
   }
 
-  /**
-   * Danh sách tag đã được làm phẳng.
-   */
   @Expose()
   override get tags():
     | Array<{
@@ -117,12 +115,8 @@ reviewedBy?: ModeratorReviewerSummary | null;
   }
 
   constructor(partial: Partial<ModeratorPostEntity>) {
-  super(partial);
+    super(partial);
 
-  /**
-   * Gán lại các thuộc tính riêng của ModeratorPostEntity
-   * như media và reviewedBy sau khi constructor class cha chạy.
-   */
-  Object.assign(this, partial);
-}
+    Object.assign(this, partial);
+  }
 }

@@ -349,38 +349,45 @@ describe('ModeratorDashboardService', () => {
     await service.getDashboard();
 
     expect(
-      mockPrismaService.post.count,
-    ).toHaveBeenNthCalledWith(2, {
-      where: {
-        status: {
-          in: [
-            PostStatus.PUBLISH,
-            PostStatus.REJECT,
-          ],
-        },
+  mockPrismaService.post.count,
+).toHaveBeenNthCalledWith(1, {
+  where: {
+    parentPostId: null,
+    status: PostStatus.PENDING_REVIEW,
+    deletedAt: null,
+  },
+});
 
-        reviewedAt: {
-          /**
-           * 00:00 ngày 28/07 Việt Nam.
-           */
-          gte: new Date(
-            '2026-07-27T17:00:00.000Z',
-          ),
+    expect(
+  mockPrismaService.post.count,
+).toHaveBeenNthCalledWith(2, {
+  where: {
+    parentPostId: null,
 
-          /**
-           * 00:00 ngày 29/07 Việt Nam.
-           */
-          lt: new Date(
-            '2026-07-28T17:00:00.000Z',
-          ),
-        },
+    status: {
+      in: [
+        PostStatus.PUBLISH,
+        PostStatus.REJECT,
+      ],
+    },
 
-        reviewedById: {
-          not: null,
-        },
+    reviewedAt: {
+      gte: new Date(
+        '2026-07-27T17:00:00.000Z',
+      ),
 
-        deletedAt: null,
-      },
-    });
+      lt: new Date(
+        '2026-07-28T17:00:00.000Z',
+      ),
+    },
+
+    reviewedById: {
+      not: null,
+    },
+
+    deletedAt: null,
+  },
+});
+
   });
 });

@@ -136,6 +136,11 @@ describe('ModeratorPostsService', () => {
           where: {
             deletedAt: null,
             status: PostStatus.PENDING_REVIEW,
+            AND: [
+              {
+                parentPostId: null,
+              },
+             ],
           },
           skip: 0,
           take: 10,
@@ -189,152 +194,359 @@ describe('ModeratorPostsService', () => {
       );
     });
 
-    it('should return a moderator post', async () => {
-      mockPrismaService.post.findFirst.mockResolvedValueOnce(
-        basePost,
-      );
+    it('should return a moderator post with language versions', async () => {
+  mockPrismaService.post.findFirst.mockResolvedValueOnce(
+    basePost,
+  );
 
-      const result = await service.findOne(1);
+  mockPrismaService.post.findMany.mockResolvedValueOnce([
+    {
+      id: 1,
+      title: 'Bài viết chờ duyệt',
+      thumbnailUrl: null,
+      status: PostStatus.PENDING_REVIEW,
+      parentPostId: null,
+      languageId: 4,
 
-      expect(result.id).toBe(1);
-      expect(result.status).toBe(
-        PostStatus.PENDING_REVIEW,
-      );
-    });
+      language: {
+        id: 4,
+        code: 'vi',
+        name: 'Tiếng Việt',
+        flag: '🇻🇳',
+      },
+    },
+
+    {
+      id: 2,
+      title: 'Pending English article',
+      thumbnailUrl: null,
+      status: PostStatus.PENDING_REVIEW,
+      parentPostId: 1,
+      languageId: 5,
+
+      language: {
+        id: 5,
+        code: 'en',
+        name: 'English',
+        flag: '🇺🇸',
+      },
+    },
+  ]);
+
+  const result = await service.findOne(1);
+
+  expect(result.id).toBe(1);
+
+  expect(result.status).toBe(
+    PostStatus.PENDING_REVIEW,
+  );
+
+  expect(result.translations).toHaveLength(2);
+
+  expect(result.translations?.map(
+    (version) => version.language.code,
+  )).toEqual([
+    'vi',
+    'en',
+  ]);
+});
   });
 
   describe('approve', () => {
-    it('should approve a pending post', async () => {
-      mockPrismaService.post.findFirst
-        .mockResolvedValueOnce({
-          id: 1,
-          status: PostStatus.PENDING_REVIEW,
-          publishedAt: null,
-        })
-        .mockResolvedValueOnce({
-          ...basePost,
-          status: PostStatus.PUBLISH,
-          reviewedById: 2,
-          reviewedAt: date,
-          publishedAt: date,
-          reviewedBy: {
-            id: 2,
-            username: 'moderator',
-            avatarUrl: null,
-          },
-        });
+    it('should approve a pending root post and its translations', async () => {
+  /**
+   * Lần 1:
+   * selectedPost.
+   *
+   * Phải khai báo parentPostId: null,
+   * nếu không service sẽ hiểu đây là translation.
+   */
+  mockPrismaService.post.findFirst
+    .mockResolvedValueOnce({
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+    })
 
-      mockPrismaService.post.updateMany.mockResolvedValueOnce({
-        count: 1,
-      });
+    /**
+     * Lần cuối:
+     * lấy ROOT sau khi approve.
+     */
+    .mockResolvedValueOnce({
+      ...basePost,
+      status: PostStatus.PUBLISH,
+      reviewedById: 2,
+      reviewedAt: date,
+      publishedAt: date,
 
-      const result = await service.approve(2, 1);
-
-      expect(
-        mockPrismaService.post.updateMany,
-      ).toHaveBeenCalledWith({
-        where: {
-          id: 1,
-          status: PostStatus.PENDING_REVIEW,
-          deletedAt: null,
-        },
-        data: {
-          status: PostStatus.PUBLISH,
-          reviewedById: 2,
-          reviewedAt: expect.any(Date),
-          rejectionReason: null,
-          publishedAt: expect.any(Date),
-        },
-      });
-
-      expect(result.status).toBe(PostStatus.PUBLISH);
+      reviewedBy: {
+        id: 2,
+        username: 'moderator',
+        avatarUrl: null,
+      },
     });
+
+  /**
+   * Toàn post group:
+   *
+   * ROOT id 1
+   * EN translation id 2
+   */
+  mockPrismaService.post.findMany.mockResolvedValueOnce([
+    {
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+      publishedAt: null,
+    },
+
+    {
+      id: 2,
+      parentPostId: 1,
+      status: PostStatus.PENDING_REVIEW,
+      publishedAt: null,
+    },
+  ]);
+
+  /**
+   * updateMany lần 1 = claim ROOT.
+   * updateMany lần 2 = approve translation.
+   */
+  mockPrismaService.post.updateMany
+    .mockResolvedValueOnce({
+      count: 1,
+    })
+    .mockResolvedValueOnce({
+      count: 1,
+    });
+
+  const result = await service.approve(2, 1);
+
+  /**
+   * ROOT được approve.
+   */
+  expect(
+    mockPrismaService.post.updateMany,
+  ).toHaveBeenNthCalledWith(1, {
+    where: {
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+      deletedAt: null,
+    },
+
+    data: {
+      status: PostStatus.PUBLISH,
+      reviewedById: 2,
+      reviewedAt: expect.any(Date),
+      rejectionReason: null,
+      publishedAt: expect.any(Date),
+    },
+  });
+
+  /**
+   * Translation cũng được approve.
+   */
+  expect(
+    mockPrismaService.post.updateMany,
+  ).toHaveBeenNthCalledWith(2, {
+    where: {
+      id: 2,
+      parentPostId: 1,
+      status: PostStatus.PENDING_REVIEW,
+      deletedAt: null,
+    },
+
+    data: {
+      status: PostStatus.PUBLISH,
+      reviewedById: 2,
+      reviewedAt: expect.any(Date),
+      rejectionReason: null,
+      publishedAt: expect.any(Date),
+    },
+  });
+
+  expect(result.status).toBe(
+    PostStatus.PUBLISH,
+  );
+});
 
     it('should reject approving a non-pending post', async () => {
-      mockPrismaService.post.findFirst.mockResolvedValueOnce({
-        id: 1,
-        status: PostStatus.PUBLISH,
-        publishedAt: date,
-      });
+  mockPrismaService.post.findFirst.mockResolvedValueOnce({
+    id: 1,
+    parentPostId: null,
+    status: PostStatus.PUBLISH,
+  });
 
-      await expect(
-        service.approve(2, 1),
-      ).rejects.toThrow(BadRequestException);
+  mockPrismaService.post.findMany.mockResolvedValueOnce([
+    {
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PUBLISH,
+      publishedAt: date,
+    },
+  ]);
 
-      expect(
-        mockPrismaService.post.updateMany,
-      ).not.toHaveBeenCalled();
-    });
+  await expect(
+    service.approve(2, 1),
+  ).rejects.toThrow(BadRequestException);
+
+  expect(
+    mockPrismaService.post.updateMany,
+  ).not.toHaveBeenCalled();
+});
 
     it('should detect concurrent moderation', async () => {
-      mockPrismaService.post.findFirst.mockResolvedValueOnce({
-        id: 1,
-        status: PostStatus.PENDING_REVIEW,
-        publishedAt: null,
-      });
+  mockPrismaService.post.findFirst.mockResolvedValueOnce({
+    id: 1,
+    parentPostId: null,
+    status: PostStatus.PENDING_REVIEW,
+  });
 
-      mockPrismaService.post.updateMany.mockResolvedValueOnce({
-        count: 0,
-      });
+  mockPrismaService.post.findMany.mockResolvedValueOnce([
+    {
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+      publishedAt: null,
+    },
+  ]);
 
-      await expect(
-        service.approve(2, 1),
-      ).rejects.toThrow(ConflictException);
-    });
+  /**
+   * Có Moderator khác claim ROOT trước.
+   *
+   * updateMany không update được row nào.
+   */
+  mockPrismaService.post.updateMany.mockResolvedValueOnce({
+    count: 0,
+  });
+
+  await expect(
+    service.approve(2, 1),
+  ).rejects.toThrow(ConflictException);
+});
+    it('should reject approving a translation directly', async () => {
+  mockPrismaService.post.findFirst.mockResolvedValueOnce({
+    id: 2,
+    parentPostId: 1,
+    status: PostStatus.PENDING_REVIEW,
+  });
+
+  await expect(
+    service.approve(2, 2),
+  ).rejects.toThrow(BadRequestException);
+
+  expect(
+    mockPrismaService.post.updateMany,
+  ).not.toHaveBeenCalled();
+});
   });
 
   describe('reject', () => {
-    it('should reject a pending post with a reason', async () => {
-      mockPrismaService.post.findFirst
-        .mockResolvedValueOnce({
-          id: 1,
-          status: PostStatus.PENDING_REVIEW,
-        })
-        .mockResolvedValueOnce({
-          ...basePost,
-          status: PostStatus.REJECT,
-          reviewedById: 2,
-          reviewedAt: date,
-          rejectionReason:
-            'Bài viết cần bổ sung nguồn tham khảo.',
-          reviewedBy: {
-            id: 2,
-            username: 'moderator',
-            avatarUrl: null,
-          },
-        });
+    it('should reject a pending root post and its translations with the same reason', async () => {
+  const rejectionReason =
+    'Bài viết cần bổ sung nguồn tham khảo.';
 
-      mockPrismaService.post.updateMany.mockResolvedValueOnce({
-        count: 1,
-      });
+  mockPrismaService.post.findFirst
+    .mockResolvedValueOnce({
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+    })
 
-      const result = await service.reject(2, 1, {
-        rejectionReason:
-          'Bài viết cần bổ sung nguồn tham khảo.',
-      });
+    .mockResolvedValueOnce({
+      ...basePost,
+      status: PostStatus.REJECT,
+      reviewedById: 2,
+      reviewedAt: date,
+      rejectionReason,
 
-      expect(
-        mockPrismaService.post.updateMany,
-      ).toHaveBeenCalledWith({
-        where: {
-          id: 1,
-          status: PostStatus.PENDING_REVIEW,
-          deletedAt: null,
-        },
-        data: {
-          status: PostStatus.REJECT,
-          reviewedById: 2,
-          reviewedAt: expect.any(Date),
-          rejectionReason:
-            'Bài viết cần bổ sung nguồn tham khảo.',
-        },
-      });
-
-      expect(result.status).toBe(PostStatus.REJECT);
-      expect(result.rejectionReason).toBe(
-        'Bài viết cần bổ sung nguồn tham khảo.',
-      );
+      reviewedBy: {
+        id: 2,
+        username: 'moderator',
+        avatarUrl: null,
+      },
     });
+
+  /**
+   * ROOT + một translation.
+   */
+  mockPrismaService.post.findMany.mockResolvedValueOnce([
+    {
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+    },
+
+    {
+      id: 2,
+      parentPostId: 1,
+      status: PostStatus.PENDING_REVIEW,
+    },
+  ]);
+
+  mockPrismaService.post.updateMany
+    .mockResolvedValueOnce({
+      count: 1,
+    })
+    .mockResolvedValueOnce({
+      count: 1,
+    });
+
+  const result = await service.reject(2, 1, {
+    rejectionReason,
+  });
+
+  /**
+   * ROOT.
+   */
+  expect(
+    mockPrismaService.post.updateMany,
+  ).toHaveBeenNthCalledWith(1, {
+    where: {
+      id: 1,
+      parentPostId: null,
+      status: PostStatus.PENDING_REVIEW,
+      deletedAt: null,
+    },
+
+    data: {
+      status: PostStatus.REJECT,
+      reviewedById: 2,
+      reviewedAt: expect.any(Date),
+      rejectionReason,
+    },
+  });
+
+  /**
+   * Translation.
+   */
+  expect(
+    mockPrismaService.post.updateMany,
+  ).toHaveBeenNthCalledWith(2, {
+    where: {
+      id: 2,
+      parentPostId: 1,
+      status: PostStatus.PENDING_REVIEW,
+      deletedAt: null,
+    },
+
+    data: {
+      status: PostStatus.REJECT,
+      reviewedById: 2,
+      reviewedAt: expect.any(Date),
+      rejectionReason,
+    },
+  });
+
+  expect(result.status).toBe(
+    PostStatus.REJECT,
+  );
+
+  expect(result.rejectionReason).toBe(
+    rejectionReason,
+  );
+});
 
     it('should reject processing a missing post', async () => {
       mockPrismaService.post.findFirst.mockResolvedValueOnce(
@@ -351,5 +563,23 @@ describe('ModeratorPostsService', () => {
         mockPrismaService.post.updateMany,
       ).not.toHaveBeenCalled();
     });
+
+    it('should reject processing a translation directly', async () => {
+  mockPrismaService.post.findFirst.mockResolvedValueOnce({
+    id: 2,
+    parentPostId: 1,
+    status: PostStatus.PENDING_REVIEW,
+  });
+
+  await expect(
+    service.reject(2, 2, {
+      rejectionReason: 'Không hợp lệ.',
+    }),
+  ).rejects.toThrow(BadRequestException);
+
+  expect(
+    mockPrismaService.post.updateMany,
+  ).not.toHaveBeenCalled();
+});
   });
 });

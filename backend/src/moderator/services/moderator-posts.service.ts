@@ -30,6 +30,34 @@ const MODERATOR_VISIBLE_STATUSES: PostStatus[] = [
   PostStatus.REJECT,
 ];
 
+  /**
+ * Dữ liệu tóm tắt của các phiên bản ngôn ngữ.
+ *
+ * Full content không nhét hết vào đây để response detail
+ * không quá lớn.
+ *
+ * Khi Moderator chọn một language tab,
+ * frontend gọi GET /moderator/posts/:id để lấy full version.
+ */
+const MODERATOR_TRANSLATION_SELECT = {
+  id: true,
+  title: true,
+  thumbnailUrl: true,
+  status: true,
+  parentPostId: true,
+  languageId: true,
+
+  language: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      flag: true,
+    },
+  },
+} satisfies Prisma.PostSelect;
+
+
 /**
  * Các quan hệ cần trả cho màn hình kiểm duyệt bài viết.
  */
@@ -175,18 +203,112 @@ export class ModeratorPostsService {
    *
    * Moderator không được xem bài DRAFT.
    */
-  async findOne(postId: number): Promise<ModeratorPostEntity> {
-    const post = await this.postsService.findOne(
-      postId,
-      MODERATOR_POST_INCLUDE,
+  async findOne(
+  postId: number,
+): Promise<ModeratorPostEntity> {
+  /**
+   * =========================================
+   * 1. LẤY FULL CONTENT CỦA VERSION ĐANG XEM
+   * =========================================
+   */
+  const post = await this.postsService.findOne(
+    postId,
+    MODERATOR_POST_INCLUDE,
+  );
+
+  /**
+   * Moderator không được xem DRAFT.
+   */
+  if (!MODERATOR_VISIBLE_STATUSES.includes(post.status)) {
+    throw new PostNotFoundException(
+      postId.toString(),
     );
-
-    if (!MODERATOR_VISIBLE_STATUSES.includes(post.status)) {
-      throw new PostNotFoundException(postId.toString());
-    }
-
-    return new ModeratorPostEntity(post);
   }
+
+  /**
+   * =========================================
+   * 2. XÁC ĐỊNH ROOT CỦA POST GROUP
+   * =========================================
+   *
+   * ROOT:
+   * parentPostId = null
+   *
+   * Translation:
+   * parentPostId = ROOT ID
+   */
+  const rootPostId =
+    post.parentPostId ?? post.id;
+
+  /**
+   * =========================================
+   * 3. LẤY DANH SÁCH CÁC VERSION
+   * =========================================
+   *
+   * Giống BlogOwner findOne().
+   *
+   * Chỉ trả summary:
+   * - id
+   * - title
+   * - language
+   * - status
+   *
+   * Không trả full content tất cả phiên bản một lúc.
+   */
+  const translations =
+    await this.prisma.post.findMany({
+      where: {
+        authorId: post.authorId,
+        deletedAt: null,
+
+        status: {
+          in: MODERATOR_VISIBLE_STATUSES,
+        },
+
+        OR: [
+          {
+            id: rootPostId,
+          },
+          {
+            parentPostId: rootPostId,
+          },
+        ],
+      },
+
+      select: MODERATOR_TRANSLATION_SELECT,
+
+      orderBy: [
+        {
+          language: {
+            code: 'asc',
+          },
+        },
+        {
+          id: 'asc',
+        },
+      ],
+    });
+
+  /**
+   * Bảo vệ dữ liệu cũ:
+   * group phải còn ROOT.
+   */
+  const rootExists = translations.some(
+    (version) =>
+      version.id === rootPostId &&
+      version.parentPostId === null,
+  );
+
+  if (!rootExists) {
+    throw new PostNotFoundException(
+      rootPostId.toString(),
+    );
+  }
+
+  return new ModeratorPostEntity({
+    ...post,
+    translations,
+  });
+}
 
   /**
    * Duyệt bài viết.
