@@ -1,90 +1,7 @@
-// import { Transform, Type } from 'class-transformer';
-// import {
-//   ArrayMinSize,
-//   ArrayUnique,
-//   IsArray,
-//   IsEnum,
-//   IsInt,
-//   IsNotEmpty,
-//   IsOptional,
-//   IsString,
-//   IsUrl,
-//   MaxLength,
-// } from 'class-validator';
-// import { PostStatus } from '@prisma/client';
-// import { IsProfanityFree } from '@app/core/common/decorators/is-profanity-free.decorator';
-
-// function transformArray(value: unknown): unknown {
-//   if (typeof value === 'string') {
-//     try {
-//       const parsed = JSON.parse(value);
-//       if (Array.isArray(parsed)) return parsed;
-//     } catch {}
-//     return value
-//       .split(',')
-//       .map((item) => item.trim())
-//       .filter((item) => item !== '');
-//   }
-//   if (value !== undefined && value !== null && !Array.isArray(value)) {
-//     return [value];
-//   }
-//   return value;
-// }
-
-// export class CreatePostDto {
-//   @IsString()
-//   @IsNotEmpty({ message: 'Tiêu đề không được để trống' })
-//   @MaxLength(255, { message: 'Tiêu đề không được vượt quá 255 ký tự' })
-//   @IsProfanityFree()
-//   title!: string;
-
-//   @IsOptional()
-//   @IsString()
-//   @IsUrl({}, { message: 'URL ảnh đại diện không hợp lệ' })
-//   thumbnailUrl?: string;
-
-//   @IsString()
-//   @IsNotEmpty({ message: 'Nội dung không được để trống' })
-//   @IsProfanityFree()
-//   content!: string;
-
-//   @IsOptional()
-//   @IsEnum(PostStatus, { message: 'Trạng thái bài viết không hợp lệ' })
-//   status?: PostStatus;
-
-//   @IsOptional()
-//   @IsInt({ message: 'Mã bài viết cha phải là số nguyên' })
-//   @Type(() => Number)
-//   parentPostId?: number;
-
-//   @IsArray({ message: 'Danh sách danh mục phải là một mảng' })
-//   @ArrayMinSize(1, { message: 'Bài viết phải có ít nhất một danh mục' })
-//   @ArrayUnique({ message: 'Danh sách danh mục không được chứa mã trùng nhau' })
-//   @IsInt({ each: true, message: 'Mỗi mã danh mục phải là số nguyên' })
-//   @Transform(({ value }) => transformArray(value))
-//   @Type(() => Number)
-//   categoryIds!: number[];
-
-//   @IsInt({ message: 'Mã ngôn ngữ phải là số nguyên' })
-//   @Type(() => Number)
-//   languageId!: number;
-
-//   @IsOptional()
-//   @IsArray({ message: 'Danh sách thẻ phải là một mảng' })
-//   @ArrayUnique({ message: 'Danh sách thẻ không được chứa mã trùng nhau' })
-//   @IsInt({ each: true, message: 'Mỗi mã thẻ phải là số nguyên' })
-//   @Transform(({ value }) => transformArray(value))
-//   @Type(() => Number)
-//   tagIds?: number[];
-
-//   @IsOptional()
-//   @IsArray({ message: 'Danh sách tên thẻ phải là một mảng' })
-//   @ArrayUnique({ message: 'Danh sách tên thẻ không được trùng nhau' })
-//   @IsString({ each: true, message: 'Tên thẻ phải là chuỗi' })
-//   @Transform(({ value }) => transformArray(value))
-//   tagNames?: string[];
-// }
-
+import {
+  MAX_POST_CONTENT_LENGTH,
+  sanitizePostContent,
+} from '@app/core/common/utils/post-content.util';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -191,7 +108,7 @@ export class CreatePostDto {
   @MaxLength(255, {
     message: 'Tiêu đề không được vượt quá 255 ký tự',
   })
-  // @IsProfanityFree()
+  @IsProfanityFree()
   title!: string;
 
   @IsOptional()
@@ -199,10 +116,27 @@ export class CreatePostDto {
   @IsUrl({}, { message: 'URL ảnh đại diện không hợp lệ' })
   thumbnailUrl?: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Nội dung không được để trống' })
-  // @IsProfanityFree()
-  content!: string;
+ @Transform(
+  ({ value }) =>
+    sanitizePostContent(value),
+  {
+    toClassOnly: true,
+  },
+)
+@IsString()
+@IsNotEmpty({
+  message:
+    'Nội dung không được để trống',
+})
+@MaxLength(
+  MAX_POST_CONTENT_LENGTH,
+  {
+    message:
+      `Nội dung bài viết không được vượt quá ${MAX_POST_CONTENT_LENGTH} ký tự`,
+  },
+)
+@IsProfanityFree()
+content!: string;
 
   @IsOptional()
   @IsEnum(PostStatus, {
