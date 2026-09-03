@@ -81,7 +81,13 @@ describe('UsersPublicService', () => {
         where: {
           following: {
             status: UserStatus.ACTIVE,
-            role: UserRole.BLOG_OWNER,
+            role: {
+            in: [
+              UserRole.BLOG_OWNER,
+              UserRole.CONTENT_MODERATOR,
+              UserRole.SUPER_ADMIN,
+            ],
+          },
             deletedAt: null,
           },
         },
@@ -92,7 +98,13 @@ describe('UsersPublicService', () => {
       expect(prisma.user.findMany).toHaveBeenCalledWith({
         where: {
           status: UserStatus.ACTIVE,
-          role: UserRole.BLOG_OWNER,
+          role: {
+            in: [
+              UserRole.BLOG_OWNER,
+              UserRole.CONTENT_MODERATOR,
+              UserRole.SUPER_ADMIN,
+            ],
+          },
           deletedAt: null,
         },
         select: {
@@ -134,7 +146,13 @@ describe('UsersPublicService', () => {
         where: {
           id: { in: [1, 2] },
           status: UserStatus.ACTIVE,
-          role: UserRole.BLOG_OWNER,
+          role: {
+            in: [
+              UserRole.BLOG_OWNER,
+              UserRole.CONTENT_MODERATOR,
+              UserRole.SUPER_ADMIN,
+            ],
+          },
           deletedAt: null,
         },
         select: {

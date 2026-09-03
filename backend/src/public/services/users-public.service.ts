@@ -9,6 +9,15 @@ import {
 import type { PaginationParams } from '@app/core';
 import { PostsPublicService } from './posts-public.service';
 
+// Vai trò được tính là "tác giả" ở public API: Blog Owner và các vai trò
+// cao hơn (Content Moderator, Super Admin) khi họ có bài viết — không chỉ
+// riêng Blog Owner. NORMAL không đăng bài được nên không có mặt ở đây.
+const AUTHOR_ELIGIBLE_ROLES: UserRole[] = [
+  UserRole.BLOG_OWNER,
+  UserRole.CONTENT_MODERATOR,
+  UserRole.SUPER_ADMIN,
+];
+
 @Injectable()
 export class UsersPublicService {
   constructor(
@@ -27,7 +36,7 @@ export class UsersPublicService {
       where: {
         id: authorId,
         status: UserStatus.ACTIVE,
-        role: UserRole.BLOG_OWNER,
+        role: { in: AUTHOR_ELIGIBLE_ROLES },
         deletedAt: null,
       },
       select: {
@@ -109,7 +118,7 @@ export class UsersPublicService {
 
     const whereAuthorCondition: Prisma.UserWhereInput = {
       status: UserStatus.ACTIVE,
-      role: UserRole.BLOG_OWNER,
+      role: { in: AUTHOR_ELIGIBLE_ROLES },
       deletedAt: null,
       ...languageUserFilter,
     };
