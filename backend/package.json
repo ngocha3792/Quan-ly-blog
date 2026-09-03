@@ -46,6 +46,7 @@
     "streamifier": "^0.1.1"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.29.7",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -86,8 +87,12 @@
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
+      "sanitize-html[\\\\/]node_modules[\\\\/].+\\.js$": "babel-jest",
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "node_modules[\\\\/](?!.*(htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities)[\\\\/])"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
