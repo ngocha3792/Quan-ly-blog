@@ -71,3 +71,4 @@ export * from './modules/posts/entities';
 export * from './modules/mail/mail.module';
 export * from './modules/mail/mail.service';
 
+export * from './modules/health/health.module';

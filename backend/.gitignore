@@ -41,6 +41,12 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+.env.docker
+.env.production
+.env.deploy
+
+# Backup PostgreSQL local (scripts/backup-postgres.sh)
+/backups
 
 # temp directory
 .temp
