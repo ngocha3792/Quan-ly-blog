@@ -1,0 +1,7 @@
+# Các file này chạy trong container Linux hoặc trực tiếp trên VPS Linux.
+# Ép LF bất kể core.autocrlf trên máy dev, tránh lỗi "bad interpreter" khi
+# shebang có CRLF.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf
+compose*.yml text eol=lf

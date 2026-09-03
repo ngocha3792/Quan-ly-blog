@@ -35,7 +35,7 @@ echo "==> [2/6] Backup database trước khi migrate"
 echo "==> [3/6] Chạy migration một lần"
 API_IMAGE="registry.example.com/blog-api-runtime:${APP_VERSION}" \
 MIGRATION_IMAGE="registry.example.com/blog-api-migration:${APP_VERSION}" \
-  docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm migrate
+  docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm -T migrate
 
 echo "==> [4/6] Cập nhật API container"
 API_IMAGE="registry.example.com/blog-api-runtime:${APP_VERSION}" \
