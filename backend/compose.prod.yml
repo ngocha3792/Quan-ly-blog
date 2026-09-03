@@ -22,6 +22,7 @@ services:
     volumes:
       - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./docker/certs:/etc/nginx/certs:ro
+      - certbot_webroot:/var/www/certbot:ro
     networks:
       - edge
     depends_on:
@@ -29,6 +30,25 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
+
+  # One-shot lấy/renew certificate Let's Encrypt (webroot mode — Nginx phục
+  # vụ challenge qua volume certbot_webroot dùng chung).
+  #
+  # Lấy cert lần đầu (Nginx phải đang chạy ở chế độ chỉ-HTTP trước, xem
+  # DEPLOYMENT.md mục "HTTPS"):
+  #   docker compose -f compose.prod.yml run --rm certbot certonly \
+  #     --webroot -w /var/www/certbot \
+  #     -d mainbloggy.duckdns.org \
+  #     --email <email-thật> --agree-tos --no-eff-email
+  #
+  # Renew (cron gọi định kỳ, xem crontab mẫu trong DEPLOYMENT.md):
+  #   docker compose -f compose.prod.yml run --rm certbot renew --quiet
+  #   docker compose -f compose.prod.yml exec nginx nginx -s reload
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./docker/certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
 
   # Bỏ service này nếu dùng managed PostgreSQL.
   postgres:
@@ -165,3 +185,4 @@ networks:
 
 volumes:
   blog_postgres_data:
+  certbot_webroot:

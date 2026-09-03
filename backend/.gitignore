@@ -48,6 +48,9 @@ lerna-debug.log*
 # Backup PostgreSQL local (scripts/backup-postgres.sh)
 /backups
 
+# Certificate TLS thật (Let's Encrypt) — chỉ tồn tại trên VPS, không commit.
+/docker/certs
+
 # temp directory
 .temp
 .tmp

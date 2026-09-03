@@ -194,10 +194,59 @@ trong khi bản khác chưa duyệt), đã xác nhận với người vận hàn
 — bài đã publish "tự nhiên" chuyển về chờ duyệt ngay khi ai đó thêm ngôn
 ngữ dịch cho nó.
 
-## 8. Kiểm tra nhanh
+## 8. Domain + HTTPS
+
+Production chạy ở **`https://mainbloggy.duckdns.org`** (DuckDNS, free
+dynamic DNS — trỏ về IP VPS `103.72.57.142`). Domain này không phải mua,
+chỉ cần đăng nhập [duckdns.org](https://www.duckdns.org) và set current
+ip đúng bằng IP VPS. Nếu trước đó DuckDNS được dùng cho việc khác (vd:
+router nhà tự update), phải tắt cơ chế auto-update đó đi, không nó sẽ tự
+đổi IP về nhà lần renew tiếp theo.
+
+### Cấp/gia hạn certificate (Let's Encrypt qua Certbot, webroot mode)
+
+Certbot chạy dạng service one-shot trong `compose.prod.yml`, dùng chung
+volume `certbot_webroot` với Nginx để phục vụ HTTP-01 challenge. Cert lưu
+ở `./docker/certs` (bind mount, **không commit vào git** — đã thêm
+`.gitignore`).
+
+Cấp lần đầu (Nginx phải đang chạy config chỉ-HTTP, chưa có khối
+`listen 443` tham chiếu cert chưa tồn tại — nếu không nginx sẽ không khởi
+động được vì thiếu file cert):
 
 ```bash
-curl http://103.72.57.142/api/v1/health/live
-curl http://103.72.57.142/api/v1/health/ready
-curl http://103.72.57.142/
+docker compose -f compose.prod.yml run --rm certbot certonly \
+  --webroot -w /var/www/certbot \
+  -d mainbloggy.duckdns.org \
+  --email <email-thật> --agree-tos --no-eff-email --non-interactive
+```
+
+Sau khi có cert, đổi `docker/nginx.conf` sang bản đầy đủ (HTTP redirect
+sang HTTPS + server block 443) rồi `docker exec ... nginx -s reload`
+(không cần recreate container, bind mount đã cập nhật ngay).
+
+Gia hạn tự động: `scripts/renew-cert.sh` + cron 2 lần/ngày (khuyến nghị
+của certbot — chỉ renew thật khi còn <30 ngày tới hạn, gọi thường xuyên
+không sao):
+
+```bash
+(crontab -l 2>/dev/null; echo '17 3,15 * * * /opt/blog-api/backend/scripts/renew-cert.sh >> /var/log/certbot-renew.log 2>&1') | crontab -
+```
+
+Cert hiện tại hết hạn **2026-12-02**.
+
+### Lưu ý allowedHosts (frontend)
+
+Đổi/thêm domain phải cập nhật `angular.json` →
+`security.allowedHosts` bên repo `blog-frontend` (xem DEPLOYMENT.md của
+repo đó) — để trống hoặc thiếu domain sẽ khiến Angular SSR từ chối mọi
+request với Host header không khớp, trả lỗi trông như tới từ Nginx nhưng
+thực ra từ Express (`X-Powered-By: Express`, dễ nhầm là lỗi Nginx/config).
+
+## 9. Kiểm tra nhanh
+
+```bash
+curl https://mainbloggy.duckdns.org/api/v1/health/live
+curl https://mainbloggy.duckdns.org/api/v1/health/ready
+curl https://mainbloggy.duckdns.org/
 ```
