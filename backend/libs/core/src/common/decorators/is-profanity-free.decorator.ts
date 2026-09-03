@@ -5,7 +5,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-
+import sanitizeHtml from 'sanitize-html';
 import { FORBIDDEN_WORDS } from './forbidden-words';
 
 /**
@@ -14,8 +14,27 @@ import { FORBIDDEN_WORDS } from './forbidden-words';
  * - Chuyển thành chữ thường.
  * - Gộp nhiều khoảng trắng thành một khoảng trắng.
  */
-function normalizeText(text: string): string {
-  return text
+function normalizeText(
+  text: string,
+): string {
+  /**
+   * Nếu input là HTML:
+   *
+   * <p>ngu</p>
+   *
+   * chuyển thành:
+   *
+   * ngu
+   *
+   * trước khi check.
+   */
+  const plainText =
+    sanitizeHtml(text, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+
+  return plainText
     .normalize('NFKC')
     .toLocaleLowerCase('vi-VN')
     .replace(/\s+/g, ' ')

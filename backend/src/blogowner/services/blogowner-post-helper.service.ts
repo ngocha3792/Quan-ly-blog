@@ -64,6 +64,125 @@ export class BlogownerPostHelperService {
   }
 
   /**
+ * Từ bất kỳ postId nào của Blog Owner, xác định ID bài gốc.
+ *
+ * - Nếu postId là bài gốc: rootPostId = post.id.
+ * - Nếu postId là bản dịch: rootPostId = post.parentPostId.
+ */
+async resolveOwnedRootPostId(
+  ownerId: number,
+  postId: number,
+): Promise<number> {
+  const post = await this.findOwnedPost(ownerId, postId);
+
+  return post.parentPostId ?? post.id;
+}
+
+/**
+ * Lấy toàn bộ nhóm bài viết của Blog Owner.
+ *
+ * Một group gồm:
+ * - root: bài gốc;
+ * - translations: toàn bộ bản dịch active;
+ * - posts: root + translations.
+ */
+async findOwnedPostGroup(
+  ownerId: number,
+  postId: number,
+) {
+  const rootPostId =
+    await this.resolveOwnedRootPostId(
+      ownerId,
+      postId,
+    );
+
+  const posts =
+    await this.prisma.post.findMany({
+      where: {
+        authorId: ownerId,
+        deletedAt: null,
+
+        OR: [
+          {
+            id: rootPostId,
+            parentPostId: null,
+          },
+          {
+            parentPostId: rootPostId,
+          },
+        ],
+      },
+
+      orderBy: {
+        id: 'asc',
+      },
+    });
+
+  const root = posts.find(
+    (post) =>
+      post.id === rootPostId &&
+      post.parentPostId === null,
+  );
+
+  if (!root) {
+    throw new PostNotFoundException(
+      rootPostId.toString(),
+    );
+  }
+
+  const translations = posts.filter(
+    (post) =>
+      post.parentPostId === rootPostId,
+  );
+
+  return {
+    rootPostId,
+    root,
+    translations,
+    posts,
+  };
+}
+
+/**
+ * Đổi trạng thái toàn bộ group:
+ *
+ * root + tất cả translations active.
+ */
+async updateOwnedPostGroupStatus(
+  ownerId: number,
+  postId: number,
+  status: PostStatus,
+): Promise<void> {
+  const { rootPostId } =
+    await this.findOwnedPostGroup(
+      ownerId,
+      postId,
+    );
+
+  await this.prisma.post.updateMany({
+    where: {
+      authorId: ownerId,
+      deletedAt: null,
+
+      OR: [
+        {
+          id: rootPostId,
+          parentPostId: null,
+        },
+        {
+          parentPostId: rootPostId,
+        },
+      ],
+    },
+
+    data: {
+      status,
+      ...RESET_REVIEW_DATA,
+    },
+  });
+}
+
+  /**
    * Kiểm tra bài có đang ở trạng thái cho phép chỉnh sửa không.
    *
    * Bài đang PENDING_REVIEW thì không được sửa nội dung lẫn media.

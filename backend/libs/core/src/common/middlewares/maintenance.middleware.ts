@@ -13,6 +13,12 @@ export class MaintenanceMiddleware implements NestMiddleware {
   constructor(private configService: ConfigService) {}
 
   use(req: Request, res: Response, next: NextFunction) {
+    // Liveness probe phải luôn trả lời, kể cả khi đang bảo trì,
+    // để Docker/orchestrator không giết container còn sống.
+    if (req.path.endsWith('/health/live')) {
+      return next();
+    }
+
     // Đọc cờ MAINTENANCE_MODE từ ConfigService thông qua namespace 'app'
     const isMaintenance = this.configService.get<boolean>(
       'app.maintenanceMode',

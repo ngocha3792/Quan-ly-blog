@@ -11,6 +11,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  // Cho phép Nest chạy onModuleDestroy (đóng Prisma pool...) khi nhận SIGTERM/SIGINT.
+  app.enableShutdownHooks();
+
   const trustProxyHops =
     configService.get<number>(
       'app.trustProxyHops',

@@ -50,13 +50,55 @@ export class BlogownerDashboardService {
     const startDate = getVietnamCalendarDate(-6);
     const tomorrow = getVietnamCalendarDate(1);
 
-    const basePostWhere = { authorId: ownerId, deletedAt: null };
-    const publishedPostWhere = { ...basePostWhere, status: PostStatus.PUBLISH };
+    /**
+ * Tất cả version active của Owner.
+ *
+ * Dùng cho:
+ * - tổng view;
+ * - like;
+ * - comment;
+ * - daily metrics.
+ *
+ * Vì view của EN/JA vẫn là view thật và phải được tính.
+ */
+const allPostWhere:
+  Prisma.PostWhereInput = {
+    authorId: ownerId,
+    deletedAt: null,
+  };
 
-    const countPosts = (status?: PostStatus) =>
-      this.prisma.post.count({
-        where: status ? { ...basePostWhere, status } : basePostWhere,
-      });
+/**
+ * Một logical article = một ROOT.
+ *
+ * Dùng để đếm số bài viết.
+ */
+const rootPostWhere:
+  Prisma.PostWhereInput = {
+    authorId: ownerId,
+    parentPostId: null,
+    deletedAt: null,
+  };
+
+/**
+ * Featured card cũng chỉ được trả ROOT,
+ * không được đưa translation thành một card riêng.
+ */
+const publishedRootWhere:
+  Prisma.PostWhereInput = {
+    ...rootPostWhere,
+    status: PostStatus.PUBLISH,
+  };
+
+const countPosts =
+  (status?: PostStatus) =>
+    this.prisma.post.count({
+      where: status
+        ? {
+            ...rootPostWhere,
+            status,
+          }
+        : rootPostWhere,
+    });
 
     const [
       totalPosts,
@@ -78,7 +120,7 @@ export class BlogownerDashboardService {
       countPosts(PostStatus.REJECT),
 
       this.prisma.post.aggregate({
-        where: basePostWhere,
+        where: allPostWhere,
         _sum: {
           viewCount: true,
         },
@@ -86,14 +128,14 @@ export class BlogownerDashboardService {
 
       this.prisma.postLike.count({
         where: {
-          post: basePostWhere,
+          post: allPostWhere,
         },
       }),
 
       this.prisma.comment.count({
         where: {
           deletedAt: null,
-          post: basePostWhere,
+          post: allPostWhere,
         },
       }),
 
@@ -103,7 +145,7 @@ export class BlogownerDashboardService {
             gte: startDate,
             lt: tomorrow,
           },
-          post: basePostWhere,
+          post: allPostWhere,
         },
         select: {
           metricDate: true,
@@ -116,7 +158,7 @@ export class BlogownerDashboardService {
       }),
 
       this.prisma.post.findMany({
-        where: publishedPostWhere,
+        where: publishedRootWhere,
         select: FEATURED_POST_SELECT,
         orderBy: [
           {
@@ -130,7 +172,7 @@ export class BlogownerDashboardService {
       }),
 
       this.prisma.post.findMany({
-        where: publishedPostWhere,
+        where: publishedRootWhere,
         select: FEATURED_POST_SELECT,
         orderBy: [
           {
@@ -218,4 +260,4 @@ export class BlogownerDashboardService {
       },
     };
   }
-}
+}

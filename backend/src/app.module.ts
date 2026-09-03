@@ -56,6 +56,10 @@ import {
 } from '@app/core/modules/cleanup/cleanup.module';
 
 import {
+  HealthModule,
+} from '@app/core/modules/health/health.module';
+
+import {
   PrismaModule,
 } from '@app/core/core/prisma/prisma.module';
 
@@ -81,6 +85,8 @@ import {
     ]),
 
     PrismaModule,
+
+    HealthModule,
 
     AdminApiModule,
     BlogownerApiModule,

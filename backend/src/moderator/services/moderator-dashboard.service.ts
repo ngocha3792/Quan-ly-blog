@@ -55,11 +55,15 @@ export class ModeratorDashboardService {
       reasonGroups,
       recentReports,
     ] = await this.prisma.$transaction([
-      /**
-       * Số bài đang chờ Moderator duyệt.
-       */
+    /**
+     * Dashboard đếm theo article group.
+     *
+     * Mỗi bài đa ngôn ngữ gồm:
+     * ROOT + các translation.
+     */
       this.prisma.post.count({
         where: {
+          parentPostId: null,
           status: PostStatus.PENDING_REVIEW,
           deletedAt: null,
         },
@@ -69,26 +73,36 @@ export class ModeratorDashboardService {
        * Số bài đã được Moderator duyệt hoặc từ chối hôm nay.
        */
       this.prisma.post.count({
-        where: {
-          status: {
-            in: [
-              PostStatus.PUBLISH,
-              PostStatus.REJECT,
-            ],
-          },
+  where: {
+    /**
+     * Chỉ đếm ROOT.
+     *
+     * Khi Moderator approve/reject một article group,
+     * ROOT và translations đều được cập nhật trạng thái.
+     * Nếu không lọc ROOT thì một bài đa ngôn ngữ
+     * sẽ bị tính nhiều lần.
+     */
+    parentPostId: null,
 
-          reviewedAt: {
-            gte: todayStart,
-            lt: tomorrowStart,
-          },
+    status: {
+      in: [
+        PostStatus.PUBLISH,
+        PostStatus.REJECT,
+      ],
+    },
 
-          reviewedById: {
-            not: null,
-          },
+    reviewedAt: {
+      gte: todayStart,
+      lt: tomorrowStart,
+    },
 
-          deletedAt: null,
-        },
-      }),
+    reviewedById: {
+      not: null,
+    },
+
+    deletedAt: null,
+  },
+}),
 
       /**
        * Report bài viết đang chờ xử lý.

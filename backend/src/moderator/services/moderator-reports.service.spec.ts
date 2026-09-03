@@ -134,6 +134,8 @@ describe('ModeratorReportsService', () => {
     },
 
     post: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
       updateMany: jest.fn(),
     },
 
@@ -264,7 +266,7 @@ describe('ModeratorReportsService', () => {
   });
 
   describe('resolve', () => {
-    it('should resolve post report and hide post', async () => {
+    it('should resolve post report and hide the whole post group', async () => {
       mockPrismaService.report.findUnique
         .mockResolvedValueOnce({
           id: 1,
@@ -286,6 +288,26 @@ describe('ModeratorReportsService', () => {
           },
         });
 
+        mockPrismaService.post.findUnique.mockResolvedValueOnce({
+          id: 6,
+          parentPostId: null,
+          deletedAt: null,
+        });
+
+      mockPrismaService.post.findMany.mockResolvedValueOnce([
+          {
+            id: 6,
+            parentPostId: null,
+          },
+          {
+            id: 7,
+            parentPostId: 6,
+          },
+          {
+            id: 8,
+            parentPostId: 6,
+          },
+        ]);
       mockPrismaService.report.updateMany
         .mockResolvedValueOnce({
           count: 1,
@@ -294,32 +316,32 @@ describe('ModeratorReportsService', () => {
           count: 2,
         });
 
-      mockPrismaService.post.updateMany.mockResolvedValueOnce({
-        count: 1,
-      });
+      mockPrismaService.post.updateMany.mockResolvedValueOnce({count: 3,});
 
       const result = await service.resolve(2, 1, {
         resolutionNote: 'Bài viết có nội dung vi phạm.',
       });
 
-      expect(
-        mockPrismaService.post.updateMany,
-      ).toHaveBeenCalledWith({
-        where: {
-          id: 6,
-          deletedAt: null,
-        },
-        data: {
-          deletedAt: expect.any(Date),
-        },
-      });
+      expect(mockPrismaService.post.updateMany,).toHaveBeenCalledWith({
+          where: {
+            id: {
+              in: [6,7,8,],
+            },
+
+            deletedAt: null,
+          },
+
+          data: {
+            deletedAt: expect.any(Date),
+          },
+        });
 
       expect(
         mockPrismaService.report.updateMany,
       ).toHaveBeenNthCalledWith(2, {
         where: {
           targetType: ReportTargetType.POST,
-          postId: 6,
+          postId: {in: [6,7,8,],},
           status: ReportStatus.PENDING,
         },
         data: {
@@ -335,6 +357,184 @@ describe('ModeratorReportsService', () => {
         ReportStatus.RESOLVED,
       );
     });
+
+    it(
+  'should resolve a translation report and hide the whole post group',
+  async () => {
+    /**
+     * Report đang nhắm tới EN id=7,
+     * ROOT của nó là id=6.
+     */
+    mockPrismaService.report.findUnique
+      .mockResolvedValueOnce({
+        id: 10,
+
+        status:
+          ReportStatus.PENDING,
+
+        targetType:
+          ReportTargetType.POST,
+
+        postId: 7,
+
+        commentId: null,
+      })
+
+      .mockResolvedValueOnce({
+        ...basePostReport,
+
+        id: 10,
+
+        postId: 7,
+
+        status:
+          ReportStatus.RESOLVED,
+
+        reviewedById: 2,
+
+        reviewedAt: date,
+
+        resolutionNote:
+          'Bản dịch chứa nội dung vi phạm.',
+
+        reviewedBy: {
+          id: 2,
+          username:
+            'content_moderator',
+          avatarUrl: null,
+        },
+      });
+
+    /**
+     * selectedPost chính là translation EN.
+     */
+    mockPrismaService.post.findUnique
+      .mockResolvedValueOnce({
+        id: 7,
+        parentPostId: 6,
+        deletedAt: null,
+      });
+
+    /**
+     * Nhưng phải lấy cả article group.
+     */
+    mockPrismaService.post.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 6,
+          parentPostId: null,
+        },
+
+        {
+          id: 7,
+          parentPostId: 6,
+        },
+
+        {
+          id: 8,
+          parentPostId: 6,
+        },
+      ]);
+
+    mockPrismaService.report.updateMany
+      /**
+       * claim report 10
+       */
+      .mockResolvedValueOnce({
+        count: 1,
+      })
+
+      /**
+       * resolve report PENDING khác
+       * trong cùng group
+       */
+      .mockResolvedValueOnce({
+        count: 2,
+      });
+
+    mockPrismaService.post.updateMany
+      .mockResolvedValueOnce({
+        count: 3,
+      });
+
+    const result =
+      await service.resolve(
+        2,
+        10,
+        {
+          resolutionNote:
+            'Bản dịch chứa nội dung vi phạm.',
+        },
+      );
+
+    /**
+     * Dù report nhắm EN id=7,
+     * toàn group 6,7,8 phải bị ẩn.
+     */
+    expect(
+      mockPrismaService.post.updateMany,
+    ).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: [
+            6,
+            7,
+            8,
+          ],
+        },
+
+        deletedAt: null,
+      },
+
+      data: {
+        deletedAt:
+          expect.any(Date),
+      },
+    });
+
+    expect(
+      mockPrismaService.report.updateMany,
+    ).toHaveBeenNthCalledWith(
+      2,
+      {
+        where: {
+          targetType:
+            ReportTargetType.POST,
+
+          postId: {
+            in: [
+              6,
+              7,
+              8,
+            ],
+          },
+
+          status:
+            ReportStatus.PENDING,
+        },
+
+        data: {
+          status:
+            ReportStatus.RESOLVED,
+
+          reviewedById: 2,
+
+          reviewedAt:
+            expect.any(Date),
+
+          resolutionNote:
+            'Bản dịch chứa nội dung vi phạm.',
+        },
+      },
+    );
+
+    expect(
+      result.status,
+    ).toBe(
+      ReportStatus.RESOLVED,
+    );
+  },
+);
 
     it('should resolve comment report and hide comment', async () => {
       mockPrismaService.report.findUnique

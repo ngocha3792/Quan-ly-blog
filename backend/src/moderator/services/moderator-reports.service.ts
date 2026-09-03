@@ -421,58 +421,199 @@ export class ModeratorReportsService {
    * Xử lý report nhắm tới bài viết.
    */
   private async resolvePostReport(
-    tx: Prisma.TransactionClient,
-    postId: number | null,
-    moderatorId: number,
-    reviewedAt: Date,
-    resolutionNote: string,
-  ): Promise<void> {
-    if (postId === null) {
-      throw new BadRequestException(
-        'Báo cáo bài viết không chứa postId hợp lệ.',
-      );
-    }
+  tx: Prisma.TransactionClient,
+  postId: number | null,
+  moderatorId: number,
+  reviewedAt: Date,
+  resolutionNote: string,
+): Promise<void> {
+  if (postId === null) {
+    throw new BadRequestException(
+      'Báo cáo bài viết không chứa postId hợp lệ.',
+    );
+  }
 
-    /**
-     * Ẩn bài viết bằng soft delete.
-     */
-    const hideResult = await tx.post.updateMany({
+  /**
+   * =============================================
+   * 1. TÌM POST ĐANG BỊ REPORT
+   * =============================================
+   *
+   * postId có thể là:
+   *
+   * ROOT:
+   *   id = 6
+   *   parentPostId = null
+   *
+   * hoặc translation:
+   *   id = 7
+   *   parentPostId = 6
+   */
+  const selectedPost =
+    await tx.post.findUnique({
       where: {
         id: postId,
+      },
+
+      select: {
+        id: true,
+        parentPostId: true,
+        deletedAt: true,
+      },
+    });
+
+  if (
+    !selectedPost ||
+    selectedPost.deletedAt !== null
+  ) {
+    throw new ConflictException(
+      'Bài viết đã bị xóa, bị ẩn hoặc không còn tồn tại.',
+    );
+  }
+
+  /**
+   * =============================================
+   * 2. XÁC ĐỊNH ROOT POST
+   * =============================================
+   */
+  const rootPostId =
+    selectedPost.parentPostId ??
+    selectedPost.id;
+
+  /**
+   * =============================================
+   * 3. LẤY TOÀN BỘ POST GROUP
+   * =============================================
+   *
+   * Ví dụ:
+   *
+   * ROOT VI  id=6
+   * EN       id=7 parentPostId=6
+   * JA       id=8 parentPostId=6
+   */
+  const groupPosts =
+    await tx.post.findMany({
+      where: {
+        deletedAt: null,
+
+        OR: [
+          {
+            id: rootPostId,
+          },
+          {
+            parentPostId: rootPostId,
+          },
+        ],
+      },
+
+      select: {
+        id: true,
+        parentPostId: true,
+      },
+    });
+
+  /**
+   * Post group hợp lệ bắt buộc phải còn ROOT.
+   */
+  const rootExists =
+    groupPosts.some(
+      (post) =>
+        post.id === rootPostId &&
+        post.parentPostId === null,
+    );
+
+  if (!rootExists) {
+    throw new ConflictException(
+      'Bài viết gốc đã bị xóa, bị ẩn hoặc không còn tồn tại.',
+    );
+  }
+
+  const groupPostIds =
+    groupPosts.map(
+      (post) => post.id,
+    );
+
+  /**
+   * =============================================
+   * 4. SOFT DELETE CẢ GROUP
+   * =============================================
+   */
+  const hideResult =
+    await tx.post.updateMany({
+      where: {
+        id: {
+          in: groupPostIds,
+        },
+
         deletedAt: null,
       },
+
       data: {
         deletedAt: reviewedAt,
       },
     });
 
-    if (hideResult.count !== 1) {
-      throw new ConflictException(
-        'Bài viết đã bị xóa, bị ẩn hoặc không còn tồn tại.',
-      );
-    }
-
-    /**
-     * Resolve tất cả report PENDING còn lại
-     * cùng nhắm tới bài viết này.
-     *
-     * Report đang xét đã RESOLVED nên không còn khớp
-     * điều kiện status=PENDING.
-     */
-    await tx.report.updateMany({
-      where: {
-        targetType: ReportTargetType.POST,
-        postId,
-        status: ReportStatus.PENDING,
-      },
-      data: {
-        status: ReportStatus.RESOLVED,
-        reviewedById: moderatorId,
-        reviewedAt,
-        resolutionNote,
-      },
-    });
+  /**
+   * Nếu số row update khác số version vừa đọc
+   * có thể một Moderator/action khác đã thay đổi
+   * dữ liệu đồng thời.
+   *
+   * Transaction sẽ rollback toàn bộ.
+   */
+  if (
+    hideResult.count !==
+    groupPostIds.length
+  ) {
+    throw new ConflictException(
+      'Bài viết hoặc một bản dịch đã được xử lý bởi thao tác khác. Vui lòng tải lại dữ liệu.',
+    );
   }
+
+  /**
+   * =============================================
+   * 5. RESOLVE TẤT CẢ REPORT CỦA POST GROUP
+   * =============================================
+   *
+   * Nếu:
+   *
+   * report A → ROOT
+   * report B → EN
+   * report C → JA
+   *
+   * Resolve một report đúng
+   * → bài bị ẩn cả group
+   * → các report PENDING còn lại trong group
+   *   cũng phải RESOLVED.
+   *
+   * Report đang xử lý hiện tại đã được claim
+   * RESOLVED ở phía trên nên không khớp
+   * status=PENDING nữa.
+   */
+  await tx.report.updateMany({
+    where: {
+      targetType:
+        ReportTargetType.POST,
+
+      postId: {
+        in: groupPostIds,
+      },
+
+      status:
+        ReportStatus.PENDING,
+    },
+
+    data: {
+      status:
+        ReportStatus.RESOLVED,
+
+      reviewedById:
+        moderatorId,
+
+      reviewedAt,
+
+      resolutionNote,
+    },
+  });
+}
 
   /**
    * Xử lý report nhắm tới bình luận.
