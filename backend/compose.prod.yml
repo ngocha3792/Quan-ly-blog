@@ -111,6 +111,40 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  # Dịch tự động (LibreTranslate). ĐANG TẮT — KHÔNG chạy được trên VPS hiện
+  # tại (16GB đĩa / 1.9GB RAM). Đã thử thật ngày 2026-09-03: một layer của
+  # image chính thức đã ~3GB, tải dở đã ăn gần hết đĩa trống (phải hủy giữa
+  # chừng). Ngoài ra mỗi cặp ngôn ngữ khi *chạy* tốn thêm ~1-2GB RAM — dù
+  # tải xong cũng không đủ RAM để chạy nổi 1 ngôn ngữ cùng lúc với
+  # api/postgres/frontend hiện có. Xem DEPLOYMENT.md mục "Dịch tự động" để
+  # biết các hướng đã cân nhắc (nâng VPS, API trả phí, MyMemory free API).
+  #
+  # Chỉ bật lại khi đã nâng VPS lên tối thiểu ~20GB đĩa + 4GB RAM riêng cho
+  # service này, hoặc thay bằng image/API khác nhẹ hơn.
+  libretranslate:
+    image: libretranslate/libretranslate:v1.6.5
+    restart: unless-stopped
+    environment:
+      LT_LOAD_ONLY: ${TRANSLATE_LOAD_ONLY:-en,vi,fr,ja,ko,zh}
+      LT_DISABLE_WEB_UI: 'true'
+      LT_UPDATE_MODELS: 'false'
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local/share
+    networks:
+      - backend
+    # Giới hạn cứng: nếu vượt mức, Docker chỉ kill riêng container này,
+    # không để nó ăn hết RAM kéo sập Postgres/API theo.
+    deploy:
+      resources:
+        limits:
+          memory: ${TRANSLATE_MEM_LIMIT:-1200M}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5000/languages || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
 networks:
   edge:
   backend:
@@ -118,3 +152,4 @@ networks:
 
 volumes:
   blog_postgres_data:
+  libretranslate_models:
