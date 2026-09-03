@@ -132,31 +132,43 @@ backup ngoài VPS, cần tự chép ra nơi khác định kỳ nếu dữ liệu
   dạng (`error in libcrypto` khi OpenSSH đọc key) — dùng PowerShell
   `Set-Clipboard` thay vì mở file bằng editor.
 
-## 7. Dịch tự động (LibreTranslate) — chưa triển khai được
+## 7. Dịch tự động (LibreTranslate) — đang chạy, chỉ en↔vi
 
 `TranslationService` (`backend/src/blogowner/services/translation.service.ts`)
 gọi `TRANSLATE_API_URL` theo đúng API contract của LibreTranslate
-(`POST /translate`). Đã thử tự host trên VPS này ngày 2026-09-03, **không
-khả thi**:
+(`POST /translate`). Lần thử đầu (2026-09-03, image chính thức) thất bại vì
+một layer ~3GB (PyTorch+CUDA) suýt làm đầy đĩa VPS giữa chừng, và ước tính
+RAM mỗi ngôn ngữ (~1-2GB theo tài liệu cộng đồng) vượt quá 1.9GB RAM của
+VPS. Đào sâu hơn thì phát hiện phần lớn size đó (~4.7GB) là `nvidia-*` +
+`triton` — CUDA runtime hoàn toàn không cần thiết khi chạy CPU, không phải
+do model ngôn ngữ.
 
-- Image chính thức `libretranslate/libretranslate` có một layer riêng
-  ~3GB (PyTorch runtime), tải dở đã ăn gần hết 7GB đĩa trống lúc đó —
-  phải hủy giữa chừng để không ảnh hưởng Postgres đang chạy thật.
-- Dù tải xong, mỗi cặp ngôn ngữ khi *chạy* tốn thêm khoảng 1-2GB RAM
-  (theo tài liệu cộng đồng) — VPS chỉ có 1.9GB RAM tổng, không đủ để
-  chạy dù chỉ 1 ngôn ngữ cùng lúc với stack hiện có.
-- Service `libretranslate` trong `compose.prod.yml` **đang để tắt** (có
-  comment cảnh báo ngay tại đó) — không tự chạy, tránh lặp lại sự cố
-  đầy đĩa nếu ai đó chạy `docker compose up -d` không chỉ định service.
+**Giải pháp**: build lại image từ source
+(`backend/docker/libretranslate/Dockerfile.cpu-slim` — xem README cùng
+thư mục để biết cách build), ép `torch` về bản CPU-only rồi gỡ
+`nvidia-*`/`triton`. Image còn **~2.25GB** (từ 8.68GB), bake sẵn 2 model
+`en→vi` và `vi→en` lúc build (không tải lúc container start). Build trên
+máy dev (VPS quá yếu để tự build), ship xuống bằng `docker save | ssh |
+docker load` — giống hệt cách deploy `api`/`frontend`.
 
-Các hướng đã cân nhắc, chưa hướng nào được chọn (đang tạm gác tính năng):
+Đã test thật trên VPS (2026-09-03), request đúng định dạng
+`TranslationService` gửi (`q` là mảng `[title, content]`,
+`format: "html"`, `LT_THREADS=1`):
 
-| Hướng | Chi phí | Việc cần làm |
-|---|---|---|
-| Nâng VPS (~20GB đĩa, 4GB RAM riêng cho service này) | Tiền hạ tầng hàng tháng | Bật lại đúng service `libretranslate` đã viết sẵn |
-| LibreTranslate API trả phí (`portal.libretranslate.com`) | Từ $29/tháng, không có free tier | Chỉ cần đổi `TRANSLATE_API_URL` + API key, code không đổi |
-| MyMemory API (miễn phí, không cần đăng ký) | Miễn phí, ~5000 từ/ngày/IP | Phải sửa `translation.service.ts`: tách request, cắt đoạn text >~500 ký tự, chấp nhận rủi ro dịch hỏng HTML vì MyMemory không có mode `format: html` |
-| Mirror cộng đồng miễn phí (`translate.cutie.dating`, `translate.fedilab.app`) | Miễn phí | Đã test 2026-09-03: cả hai đều không truy cập được (chết/403) — không dùng được hiện tại |
+- Dịch đúng cả hai chiều, giữ nguyên thẻ HTML.
+- RAM: idle ~110MB, peak lúc dịch ~244-335MB (giới hạn cứng `700M` trong
+  compose, container khác vẫn dùng bình thường, tổng cả 5 container chỉ
+  ~500MB/1.9GB).
+- Đĩa VPS sau khi ship xuống: còn 7.3GB trống (image gốc + ship xuống chỉ
+  tốn hơn 2GB, không phải 8.68GB như bản chính thức).
+
+### Thêm ngôn ngữ khác ngoài en/vi
+
+Phải build lại image (`--build-arg models=en,vi,<thêm>`) rồi ship lại —
+không có tải model lúc runtime trong setup này. Đo lại RAM bằng
+`docker stats` sau khi thêm ngôn ngữ trước khi deploy thật, vì mỗi ngôn
+ngữ cộng thêm sẽ tăng RAM đáng kể (xem chi tiết trong
+`docker/libretranslate/README.md`).
 
 ## 8. Kiểm tra nhanh
 
