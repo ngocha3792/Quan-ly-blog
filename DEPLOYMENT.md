@@ -196,12 +196,14 @@ ngữ dịch cho nó.
 
 ## 8. Domain + HTTPS
 
-Production chạy ở **`https://mainbloggy.duckdns.org`** (DuckDNS, free
-dynamic DNS — trỏ về IP VPS `103.72.57.142`). Domain này không phải mua,
-chỉ cần đăng nhập [duckdns.org](https://www.duckdns.org) và set current
-ip đúng bằng IP VPS. Nếu trước đó DuckDNS được dùng cho việc khác (vd:
-router nhà tự update), phải tắt cơ chế auto-update đó đi, không nó sẽ tự
-đổi IP về nhà lần renew tiếp theo.
+Production chạy ở **`https://blogy.id.vn`** (domain thật, trỏ về IP VPS
+`103.72.57.142`). `www.blogy.id.vn` cũng trỏ về cùng IP nhưng luôn
+redirect 301 về domain gốc (không phục vụ nội dung riêng) — cả `nginx.conf`
+lẫn cert Let's Encrypt đều cấu hình cho cả hai tên.
+
+Trước đó dùng tạm `mainbloggy.duckdns.org` (DuckDNS, free dynamic DNS)
+trong lúc chưa có domain thật — cert đó đã bị xoá
+(`certbot delete --cert-name mainbloggy.duckdns.org`), không còn dùng.
 
 ### Cấp/gia hạn certificate (Let's Encrypt qua Certbot, webroot mode)
 
@@ -217,13 +219,14 @@ Cấp lần đầu (Nginx phải đang chạy config chỉ-HTTP, chưa có khố
 ```bash
 docker compose -f compose.prod.yml run --rm certbot certonly \
   --webroot -w /var/www/certbot \
-  -d mainbloggy.duckdns.org \
+  -d blogy.id.vn -d www.blogy.id.vn \
   --email <email-thật> --agree-tos --no-eff-email --non-interactive
 ```
 
 Sau khi có cert, đổi `docker/nginx.conf` sang bản đầy đủ (HTTP redirect
-sang HTTPS + server block 443) rồi `docker exec ... nginx -s reload`
-(không cần recreate container, bind mount đã cập nhật ngay).
+sang HTTPS + server block 443 cho từng domain, `www` chỉ redirect về gốc)
+rồi `docker exec ... nginx -s reload` (không cần recreate container, bind
+mount đã cập nhật ngay).
 
 Gia hạn tự động: `scripts/renew-cert.sh` + cron 2 lần/ngày (khuyến nghị
 của certbot — chỉ renew thật khi còn <30 ngày tới hạn, gọi thường xuyên
@@ -234,6 +237,11 @@ không sao):
 ```
 
 Cert hiện tại hết hạn **2026-12-02**.
+
+**Đổi/thêm domain sau này**: dùng đúng trình tự bootstrap (config
+chỉ-HTTP → cấp cert → chuyển config đầy đủ) — đã làm 2 lần thật
+(DuckDNS rồi domain thật), quy trình này luôn cần thiết vì Nginx không
+khởi động nổi nếu `listen 443` tham chiếu cert chưa tồn tại.
 
 ### Lưu ý allowedHosts (frontend)
 
@@ -246,7 +254,7 @@ thực ra từ Express (`X-Powered-By: Express`, dễ nhầm là lỗi Nginx/con
 ## 9. Kiểm tra nhanh
 
 ```bash
-curl https://mainbloggy.duckdns.org/api/v1/health/live
-curl https://mainbloggy.duckdns.org/api/v1/health/ready
-curl https://mainbloggy.duckdns.org/
+curl https://blogy.id.vn/api/v1/health/live
+curl https://blogy.id.vn/api/v1/health/ready
+curl https://blogy.id.vn/
 ```
