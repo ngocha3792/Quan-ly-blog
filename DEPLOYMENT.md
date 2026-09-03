@@ -132,43 +132,67 @@ backup ngoài VPS, cần tự chép ra nơi khác định kỳ nếu dữ liệu
   dạng (`error in libcrypto` khi OpenSSH đọc key) — dùng PowerShell
   `Set-Clipboard` thay vì mở file bằng editor.
 
-## 7. Dịch tự động (LibreTranslate) — đang chạy, chỉ en↔vi
+## 7. Dịch tự động (LibreTranslate) — đang chạy, 4 ngôn ngữ
 
 `TranslationService` (`backend/src/blogowner/services/translation.service.ts`)
 gọi `TRANSLATE_API_URL` theo đúng API contract của LibreTranslate
 (`POST /translate`). Lần thử đầu (2026-09-03, image chính thức) thất bại vì
-một layer ~3GB (PyTorch+CUDA) suýt làm đầy đĩa VPS giữa chừng, và ước tính
-RAM mỗi ngôn ngữ (~1-2GB theo tài liệu cộng đồng) vượt quá 1.9GB RAM của
-VPS. Đào sâu hơn thì phát hiện phần lớn size đó (~4.7GB) là `nvidia-*` +
-`triton` — CUDA runtime hoàn toàn không cần thiết khi chạy CPU, không phải
-do model ngôn ngữ.
+một layer ~3GB (PyTorch+CUDA) suýt làm đầy đĩa VPS giữa chừng. Đào sâu hơn
+thì phát hiện phần lớn size đó (~4.7GB) là `nvidia-*` + `triton` — CUDA
+runtime hoàn toàn không cần thiết khi chạy CPU, không phải do model ngôn
+ngữ.
 
 **Giải pháp**: build lại image từ source
 (`backend/docker/libretranslate/Dockerfile.cpu-slim` — xem README cùng
-thư mục để biết cách build), ép `torch` về bản CPU-only rồi gỡ
-`nvidia-*`/`triton`. Image còn **~2.25GB** (từ 8.68GB), bake sẵn 2 model
-`en→vi` và `vi→en` lúc build (không tải lúc container start). Build trên
-máy dev (VPS quá yếu để tự build), ship xuống bằng `docker save | ssh |
-docker load` — giống hệt cách deploy `api`/`frontend`.
+thư mục để biết cách build/đo RAM), ép `torch` về bản CPU-only rồi gỡ
+`nvidia-*`/`triton`. Build trên máy dev (VPS quá yếu để tự build), ship
+xuống bằng `docker save | ssh | docker load` — giống hệt cách deploy
+`api`/`frontend`.
+
+**Production đang chạy `en, vi, zh, ja` (4 ngôn ngữ, 6 model,
+`libretranslate-cpu-slim:4lang`)**. Từng thử 6 ngôn ngữ
+(`en,vi,zh,ja,ko,fr`, 10 model) nhưng RAM khi dùng hết các cặp lên tới
+~1.465GB — gần chạm hết ngân sách thực tế của VPS (~1.4GB sau khi trừ
+các container khác + OS), không còn margin cho traffic thật nên đã lùi
+về 4 ngôn ngữ. Bảng số liệu đầy đủ (2, 4, 10 ngôn ngữ) ở
+`docker/libretranslate/README.md`.
 
 Đã test thật trên VPS (2026-09-03), request đúng định dạng
 `TranslationService` gửi (`q` là mảng `[title, content]`,
 `format: "html"`, `LT_THREADS=1`):
 
-- Dịch đúng cả hai chiều, giữ nguyên thẻ HTML.
-- RAM: idle ~110MB, peak lúc dịch ~244-335MB (giới hạn cứng `700M` trong
-  compose, container khác vẫn dùng bình thường, tổng cả 5 container chỉ
-  ~500MB/1.9GB).
-- Đĩa VPS sau khi ship xuống: còn 7.3GB trống (image gốc + ship xuống chỉ
-  tốn hơn 2GB, không phải 8.68GB như bản chính thức).
+- Dịch đúng cả 4 ngôn ngữ, cả hai chiều, giữ nguyên thẻ HTML.
+- RAM: idle ~278MB, peak khi dùng hết cả 6 model ~1.074GB — cap cứng
+  `TRANSLATE_MEM_LIMIT=1300M`. Tổng cả 5 container thực tế ~900MB/1.9GB.
+- Đĩa VPS sau khi ship: ~5.4GB trống.
 
-### Thêm ngôn ngữ khác ngoài en/vi
+**Bài học vận hành**: không chạy `docker build`/`docker save | ssh |
+docker load` nặng đồng thời lúc site có traffic thật — đã gây 504 timeout
+thật cho user khi build 6-ngôn-ngữ + ship 2 image lớn (2.25GB, 3.88GB)
+chạy song song với giờ người dùng đang thao tác. Hết tải thì hết 504
+ngay, không phải bug code.
 
-Phải build lại image (`--build-arg models=en,vi,<thêm>`) rồi ship lại —
-không có tải model lúc runtime trong setup này. Đo lại RAM bằng
-`docker stats` sau khi thêm ngôn ngữ trước khi deploy thật, vì mỗi ngôn
-ngữ cộng thêm sẽ tăng RAM đáng kể (xem chi tiết trong
-`docker/libretranslate/README.md`).
+### Thêm/bớt ngôn ngữ
+
+Phải build lại image (`--build-arg models=en,vi,...`) rồi ship lại —
+không có tải model lúc runtime trong setup này. **Bắt buộc đo lại RAM
+bằng cách gọi `/translate` qua toàn bộ cặp ngôn ngữ (cả 2 chiều)** trước
+khi deploy thật — model chỉ load lúc dùng lần đầu và không tự giải phóng,
+nên RAM chỉ tăng dần theo thời gian sử dụng thật, không giảm. Cập nhật cả
+`TRANSLATE_IMAGE` và `TRANSLATE_MEM_LIMIT` trong `compose.prod.yml` khớp
+số đo được. Chi tiết cách đo ở `docker/libretranslate/README.md`.
+
+### Hành vi "thêm ngôn ngữ làm cả nhóm về chờ duyệt"
+
+Khi Blog Owner thêm bản dịch ngôn ngữ mới cho một bài **đã có sẵn** (kể cả
+đã PUBLISH), `updateOwnedPostGroupStatus`
+(`blogowner-post-helper.service.ts`) đưa **toàn bộ group** (bài gốc + mọi
+bản dịch) về `DRAFT`/`PENDING_REVIEW` — không chỉ riêng bản dịch mới. Đây
+là hành vi **cố ý** (comment trong code: không để một số version PUBLISH
+trong khi bản khác chưa duyệt), đã xác nhận với người vận hành
+2026-09-03, giữ nguyên không sửa. Ghi lại ở đây vì dễ bị hiểu nhầm là bug
+— bài đã publish "tự nhiên" chuyển về chờ duyệt ngay khi ai đó thêm ngôn
+ngữ dịch cho nó.
 
 ## 8. Kiểm tra nhanh
 

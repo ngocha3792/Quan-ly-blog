@@ -123,7 +123,7 @@ services:
   # tài nguyên rồi `docker save | ssh | docker load` xuống VPS, giống hệt
   # cách build/deploy api và frontend.
   libretranslate:
-    image: ${TRANSLATE_IMAGE:-libretranslate-cpu-slim:en-vi}
+    image: ${TRANSLATE_IMAGE:-libretranslate-cpu-slim:4lang}
     restart: unless-stopped
     environment:
       LT_DISABLE_WEB_UI: 'true'
@@ -135,11 +135,14 @@ services:
       - backend
     # Giới hạn cứng: nếu vượt mức, Docker chỉ kill riêng container này,
     # không để nó ăn hết RAM kéo sập Postgres/API theo. Test thật với 1
-    # worker: idle ~110MB, peak lúc dịch ~335MB — 700M vẫn còn dư.
+    # worker, 4 ngôn ngữ (en/vi/zh/ja, 6 model, cả 2 chiều đã dùng hết):
+    # idle ~278MB, peak ~1.074GB — đặt cap 1300M để còn margin thật.
+    # Model không tự giải phóng khỏi RAM sau khi dùng, nên peak này là mức
+    # cần tính cho lâu dài, không phải trường hợp hiếm.
     deploy:
       resources:
         limits:
-          memory: ${TRANSLATE_MEM_LIMIT:-700M}
+          memory: ${TRANSLATE_MEM_LIMIT:-1300M}
     healthcheck:
       # Image final stage (python:3.11-slim) không có wget/curl, chỉ có
       # Python — dùng urllib thay vì cài thêm gói cho healthcheck.
