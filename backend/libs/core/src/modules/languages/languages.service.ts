@@ -86,16 +86,22 @@ export class LanguagesService {
     createLanguageDto: CreateLanguageDto,
     prisma: Prisma.TransactionClient = this.prisma,
   ) {
+    // Chuẩn hóa chữ thường: public API luôn lowercase code khi lọc theo
+    // Accept-Language/?lang (xem getActiveIdByCode). Nếu code lưu không
+    // lowercase, bài viết của ngôn ngữ đó sẽ không hiện với trình duyệt
+    // thường (mọi request có Accept-Language sẽ bị lệch case, trả về rỗng).
+    const normalizedCode = createLanguageDto.code.trim().toLowerCase();
+
     const existingCode = await prisma.language.findUnique({
-      where: { code: createLanguageDto.code },
+      where: { code: normalizedCode },
     });
 
     if (existingCode) {
-      throw new LanguageAlreadyExistsException(createLanguageDto.code);
+      throw new LanguageAlreadyExistsException(normalizedCode);
     }
 
     return prisma.language.create({
-      data: createLanguageDto,
+      data: { ...createLanguageDto, code: normalizedCode },
     });
   }
 
@@ -127,18 +133,23 @@ export class LanguagesService {
   ) {
     await this.findOne(id, prisma); // Kiểm tra tồn tại
 
-    if (updateLanguageDto.code) {
+    const data = { ...updateLanguageDto };
+
+    if (data.code) {
+      // Cùng lý do chuẩn hóa như create() — xem comment ở đó.
+      data.code = data.code.trim().toLowerCase();
+
       const existingCode = await prisma.language.findUnique({
-        where: { code: updateLanguageDto.code },
+        where: { code: data.code },
       });
       if (existingCode && existingCode.id !== id) {
-        throw new LanguageAlreadyExistsException(updateLanguageDto.code);
+        throw new LanguageAlreadyExistsException(data.code);
       }
     }
 
     return prisma.language.update({
       where: { id },
-      data: updateLanguageDto,
+      data,
     });
   }
 
