@@ -1,5 +1,7 @@
 name: Deploy backend
 
+# (debug: chạm trực tiếp file workflow để test push-trigger — sẽ xoá dòng
+# này ở commit sau khi xác nhận trigger hoạt động lại)
 # Blue-green deploy qua GHCR. Push vào develop (chạm backend/) chạy 3 job
 # tuần tự — một job fail thì job sau không chạy, không có deployment nào
 # xảy ra:
