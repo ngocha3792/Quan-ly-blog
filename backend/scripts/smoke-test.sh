@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#
 # Smoke test tối thiểu cho một base URL — dùng cho cả:
 #   - test trực tiếp một slot trước khi switch Nginx:
 #       ./scripts/smoke-test.sh http://127.0.0.1:3002/api/v1
