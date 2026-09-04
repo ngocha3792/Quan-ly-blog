@@ -41,7 +41,7 @@ if ! ./scripts/backup-postgres.sh; then
 fi
 
 log "--- [3/8] Chạy migration một lần (chưa đụng tới ${CURRENT_COLOR}) ---"
-if ! run_migration "${TARGET_COLOR}" "${MIGRATION_IMAGE}"; then
+if ! run_migration "${TARGET_COLOR}" "${MIGRATION_IMAGE}" "${API_IMAGE}"; then
   log "MIGRATION THẤT BẠI — dừng deploy. ${CURRENT_COLOR} (sha=${CURRENT_SHA}) vẫn đang phục vụ traffic bình thường."
   exit 1
 fi
@@ -81,7 +81,7 @@ log "Giữ ${CURRENT_COLOR} sống thêm ${GRACE_SECONDS}s trước khi dừng..
 sleep "${GRACE_SECONDS}"
 
 if [[ "${CURRENT_SHA}" != "-" ]]; then
-  stop_slot "${CURRENT_COLOR}" || log "!! Dừng slot ${CURRENT_COLOR} thất bại — dọn tay sau, không chặn deploy (traffic đã an toàn ở ${TARGET_COLOR})."
+  stop_slot "${CURRENT_COLOR}" "${API_REPO}:${CURRENT_SHA}" || log "!! Dừng slot ${CURRENT_COLOR} thất bại — dọn tay sau, không chặn deploy (traffic đã an toàn ở ${TARGET_COLOR})."
 else
   log "Lần deploy đầu tiên — không có slot ${CURRENT_COLOR} thật nào để dừng."
 fi

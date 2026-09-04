@@ -70,41 +70,57 @@ record_release() {
     "event=${event} old_color=${old_color} old_sha=${old_sha} new_color=${new_color} new_sha=${new_sha} result=${result}"
 }
 
+# compose.slot.yml khai CẢ HAI service "api" và "migrate" trong cùng một
+# file. Docker Compose validate toàn bộ file (nội suy API_IMAGE/
+# MIGRATION_IMAGE thành field "image:") TRƯỚC khi chạy bất kỳ lệnh nào
+# (up/run/down...), bất kể lệnh đó chỉ nhắm tới một service. Biến nào
+# không set sẽ nội suy thành chuỗi rỗng → Compose báo "service ... has
+# neither an image nor a build context specified: invalid compose
+# project" — dù service đó không hề được dùng ở lệnh này. Đã gặp thật
+# (không phải suy đoán) khi chạy deploy-blue-green.sh lần đầu trên VPS
+# thật (run_migration thiếu API_IMAGE).
+#
+# Vì vậy cả 3 hàm dưới đây luôn nhận (và luôn set) CẢ HAI biến, kể cả khi
+# một trong hai không thực sự được dùng ở lệnh đó — tham số thứ 3 có thể
+# bỏ qua, khi đó dùng tạm giá trị của tham số còn lại (chỉ cần khác rỗng
+# để qua validate, không cần là image thật sự tồn tại vì Compose không
+# pull/dùng service không được target).
+
 # Start (hoặc recreate) service "api" của một slot. Không chạy migrate —
 # caller tự quyết định có cần migrate trước hay không (deploy có, rollback
 # không — xem nguyên tắc expand-contract trong DEPLOYMENT.md).
 start_slot() {
-  local color="$1" api_image="$2"
+  local color="$1" api_image="$2" migration_image="${3:-$2}"
   local port
   port="$(port_for_color "${color}")"
 
   log "Start slot ${color} (image=${api_image}, port=${port})"
 
-  COLOR="${color}" API_PORT="${port}" API_IMAGE="${api_image}" \
+  COLOR="${color}" API_PORT="${port}" API_IMAGE="${api_image}" MIGRATION_IMAGE="${migration_image}" \
     docker compose -p "blog-api-${color}" -f "${COMPOSE_SLOT_FILE}" \
     --env-file "${ENV_FILE}" up -d api
 }
 
 run_migration() {
-  local color="$1" migration_image="$2"
+  local color="$1" migration_image="$2" api_image="${3:-$2}"
   local port
   port="$(port_for_color "${color}")"
 
   log "Chạy migration một lần (image=${migration_image})"
 
-  COLOR="${color}" API_PORT="${port}" MIGRATION_IMAGE="${migration_image}" \
+  COLOR="${color}" API_PORT="${port}" MIGRATION_IMAGE="${migration_image}" API_IMAGE="${api_image}" \
     docker compose -p "blog-api-${color}" -f "${COMPOSE_SLOT_FILE}" \
     --env-file "${ENV_FILE}" run --rm -T migrate
 }
 
 stop_slot() {
-  local color="$1"
+  local color="$1" api_image="$2" migration_image="${3:-$2}"
   local port
   port="$(port_for_color "${color}")"
 
   log "Dừng slot ${color}"
 
-  COLOR="${color}" API_PORT="${port}" API_IMAGE="" \
+  COLOR="${color}" API_PORT="${port}" API_IMAGE="${api_image}" MIGRATION_IMAGE="${migration_image}" \
     docker compose -p "blog-api-${color}" -f "${COMPOSE_SLOT_FILE}" \
     --env-file "${ENV_FILE}" down
 }
