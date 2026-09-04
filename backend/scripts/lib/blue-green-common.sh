@@ -150,8 +150,16 @@ wait_healthy() {
 }
 
 # Đổi traffic Nginx sang một màu: swap symlink + validate + reload.
-# KHÔNG rollback nếu nginx -t/-s reload fail — để caller quyết định (đây
-# là lỗi cấu hình nghiêm trọng, không phải lỗi tạm thời nên không tự retry).
+# KHÔNG rollback nếu nginx -t/-s reload fail vì lỗi cấu hình thật — để
+# caller quyết định (đây là lỗi nghiêm trọng, không tự sửa được bằng retry).
+#
+# `docker exec` có retry ngắn cho RIÊNG lỗi "container is restarting" —
+# đã gặp thật lúc bootstrap lần đầu trên VPS: container nginx đang tự
+# restart-loop (do lần khởi động trước đó trỏ vào một upstream chưa tồn
+# tại) đúng lúc script chạy `docker exec`, khiến lệnh fail dù symlink đã
+# đổi đúng. Không phải lỗi cấu hình — chỉ là trúng thời điểm container
+# đang giữa 2 lần restart. Lỗi cấu hình thật (nginx -t báo syntax sai) vẫn
+# fail y hệt sau khi hết số lần retry, không bị che giấu.
 switch_nginx() {
   local color="$1"
   local target="upstream-${color}.conf"
@@ -164,6 +172,16 @@ switch_nginx() {
   log "Switch Nginx -> ${color}"
   ln -sfn "${target}" "${NGINX_BLOGY_DIR}/upstream-current.conf"
 
-  docker exec "${NGINX_CONTAINER}" nginx -t
-  docker exec "${NGINX_CONTAINER}" nginx -s reload
+  local tries=5 i
+  for ((i = 1; i <= tries; i++)); do
+    if docker exec "${NGINX_CONTAINER}" nginx -t; then
+      docker exec "${NGINX_CONTAINER}" nginx -s reload
+      return $?
+    fi
+    log "nginx -t lần ${i}/${tries} thất bại (có thể container đang tự restart) — thử lại sau 2s"
+    sleep 2
+  done
+
+  log "nginx -t vẫn thất bại sau ${tries} lần thử — có thể là lỗi cấu hình thật"
+  return 1
 }
