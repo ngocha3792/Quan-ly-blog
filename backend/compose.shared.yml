@@ -1,8 +1,16 @@
-name: blog-shared
+name: blog-backend-prod
 
 # Layer "sống lâu dài" của production — nginx, postgres, certbot,
 # libretranslate, frontend. KHÔNG chứa "api" (xem compose.slot.yml, chạy
 # 2 lần với -p blog-api-blue / -p blog-api-green cho blue-green deploy).
+#
+# QUAN TRỌNG: project name PHẢI giữ nguyên "blog-backend-prod" — đúng tên
+# project của compose.prod.yml cũ đang chạy thật trên VPS. Volume Postgres
+# (blog_postgres_data) và certbot_webroot không có "name:" cố định, nên
+# Compose tự đặt tên volume theo project: "<project>_blog_postgres_data".
+# Đổi project name ở đây sẽ khiến Postgres khởi động với volume RỖNG thay
+# vì volume dữ liệu thật đang có (đã xác nhận trên VPS thật:
+# "blog-backend-prod_blog_postgres_data" là volume hiện tại).
 #
 # Bootstrap lần đầu trên VPS — xem DEPLOYMENT.md mục "Bootstrap blue-green
 # lần đầu" để biết thứ tự đầy đủ (tạo releases/, symlink upstream ban đầu,
