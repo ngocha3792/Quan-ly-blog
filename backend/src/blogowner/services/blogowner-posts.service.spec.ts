@@ -1,17 +1,8 @@
-import {
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PostStatus } from '@prisma/client';
-import {
-  Test,
-  TestingModule,
-} from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 
-import {
-  PostsService,
-  PrismaService,
-} from '@app/core';
+import { PostsService, PrismaService } from '@app/core';
 
 import { BlogownerPostEntity } from '../entities';
 import {
@@ -47,6 +38,8 @@ describe('BlogownerPostsService', () => {
 
   const mockHelper = {
     findOwnedPost: jest.fn(),
+    findOwnedPostGroup: jest.fn(),
+    updateOwnedPostGroupStatus: jest.fn(),
     assertEditable: jest.fn(),
     assertSubmittable: jest.fn(),
     getNextStatusOnEdit: jest.fn(),
@@ -77,10 +70,7 @@ describe('BlogownerPostsService', () => {
      * gọi Cloudinary và trả kết quả upload.
      */
     mockHelper.uploadThumbnail.mockImplementation(
-      (
-        postId: number,
-        file: Express.Multer.File,
-      ) =>
+      (postId: number, file: Express.Multer.File) =>
         mockCloudinaryService.uploadFile(
           file,
           `nestjs_blog/posts/${postId}/thumbnail`,
@@ -92,39 +82,18 @@ describe('BlogownerPostsService', () => {
      * parse publicId từ URL Cloudinary.
      */
     mockHelper.deleteOldThumbnail.mockImplementation(
-      (
-        url: string | null | undefined,
-      ) => {
-        if (
-          url &&
-          url.includes('/upload/')
-        ) {
-          const parts =
-            url.split('/upload/');
+      (url: string | null | undefined) => {
+        if (url && url.includes('/upload/')) {
+          const parts = url.split('/upload/');
 
           if (parts.length > 1) {
-            const path =
-              parts[1].replace(
-                /^v\d+\//,
-                '',
-              );
+            const path = parts[1].replace(/^v\d+\//, '');
 
-            const dotIndex =
-              path.lastIndexOf('.');
+            const dotIndex = path.lastIndexOf('.');
 
-            const publicId =
-              dotIndex >= 0
-                ? path.substring(
-                    0,
-                    dotIndex,
-                  )
-                : path;
+            const publicId = dotIndex >= 0 ? path.substring(0, dotIndex) : path;
 
-            return mockCloudinaryService
-              .deleteFile(
-                publicId,
-                'image',
-              );
+            return mockCloudinaryService.deleteFile(publicId, 'image');
           }
         }
 
@@ -136,68 +105,54 @@ describe('BlogownerPostsService', () => {
      * Business rule hiện tại:
      * chỉ DRAFT được submit.
      */
-    mockHelper.assertSubmittable.mockImplementation(
-      (status: PostStatus) => {
-        if (
-          status === PostStatus.DRAFT
-        ) {
-          return;
-        }
+    mockHelper.assertSubmittable.mockImplementation((status: PostStatus) => {
+      if (status === PostStatus.DRAFT) {
+        return;
+      }
 
-        const statusErrors: Record<
-          string,
-          string
-        > = {
-          [PostStatus.PENDING_REVIEW]:
-            'Bài viết này đang chờ Moderator duyệt.',
+      const statusErrors: Record<string, string> = {
+        [PostStatus.PENDING_REVIEW]: 'Bài viết này đang chờ Moderator duyệt.',
 
-          [PostStatus.PUBLISH]:
-            'Bài viết đã được xuất bản. Chỉ khi chỉnh sửa bài thì bài mới được gửi duyệt lại.',
+        [PostStatus.PUBLISH]:
+          'Bài viết đã được xuất bản. Chỉ khi chỉnh sửa bài thì bài mới được gửi duyệt lại.',
 
-          [PostStatus.REJECT]:
-            'Bài viết bị từ chối phải được chỉnh sửa trước khi gửi duyệt lại.',
-        };
+        [PostStatus.REJECT]:
+          'Bài viết bị từ chối phải được chỉnh sửa trước khi gửi duyệt lại.',
+      };
 
-        throw new BadRequestException(
-          statusErrors[status] ??
-            `Không thể gửi duyệt bài viết đang ở trạng thái ${status}.`,
-        );
-      },
-    );
-
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          BlogownerPostsService,
-
-          {
-            provide: PrismaService,
-            useValue: mockPrismaService,
-          },
-
-          {
-            provide: PostsService,
-            useValue: mockPostsService,
-          },
-
-          {
-            provide:
-              BlogownerPostHelperService,
-            useValue: mockHelper,
-          },
-
-          {
-            provide: TranslationService,
-            useValue:
-              mockTranslationService,
-          },
-        ],
-      }).compile();
-
-    service =
-      module.get<BlogownerPostsService>(
-        BlogownerPostsService,
+      throw new BadRequestException(
+        statusErrors[status] ??
+          `Không thể gửi duyệt bài viết đang ở trạng thái ${status}.`,
       );
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        BlogownerPostsService,
+
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+
+        {
+          provide: PostsService,
+          useValue: mockPostsService,
+        },
+
+        {
+          provide: BlogownerPostHelperService,
+          useValue: mockHelper,
+        },
+
+        {
+          provide: TranslationService,
+          useValue: mockTranslationService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<BlogownerPostsService>(BlogownerPostsService);
   });
 
   afterEach(() => {
@@ -223,10 +178,7 @@ describe('BlogownerPostsService', () => {
         { id: 102, parentPostId: 101 },
         { id: 201, parentPostId: null },
       ])
-      .mockResolvedValueOnce([
-        { id: 101 },
-        { id: 201 },
-      ])
+      .mockResolvedValueOnce([{ id: 101 }, { id: 201 }])
       .mockResolvedValueOnce([
         {
           id: 101,
@@ -295,7 +247,12 @@ describe('BlogownerPostsService', () => {
 
     expect(result.items).toHaveLength(2);
     expect(result.items[0].root.id).toBe(101);
-    expect(result.items[0].translations.map((post) => post.id)).toEqual([102]);
+    /**
+     * findAll() (list) không còn trả translations — chỉ findOne()
+     * (detail) mới trả bản dịch. Xem comment "Response list vẫn giữ
+     * wrapper hiện tại..." trong blogowner-posts.service.ts.
+     */
+    expect(result.items[0].translations).toEqual([]);
     expect(result.items[0].totals).toEqual({
       views: 120,
       likes: 7,
@@ -323,10 +280,7 @@ describe('BlogownerPostsService', () => {
         { id: 102, parentPostId: 101 },
         { id: 201, parentPostId: null },
       ])
-      .mockResolvedValueOnce([
-        { id: 101 },
-        { id: 201 },
-      ])
+      .mockResolvedValueOnce([{ id: 101 }, { id: 201 }])
       .mockResolvedValueOnce([
         {
           id: 101,
@@ -396,9 +350,7 @@ describe('BlogownerPostsService', () => {
         /** Chỉ translation EN khớp status DRAFT. */
         { id: 102, parentPostId: 101 },
       ])
-      .mockResolvedValueOnce([
-        { id: 101 },
-      ])
+      .mockResolvedValueOnce([{ id: 101 }])
       .mockResolvedValueOnce([
         {
           id: 101,
@@ -477,10 +429,11 @@ describe('BlogownerPostsService', () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0].root.id).toBe(101);
-    expect(result.items[0].translations.map((post) => post.id)).toEqual([
-      102,
-      103,
-    ]);
+    /**
+     * findAll() (list) không còn trả translations — chỉ findOne()
+     * (detail) mới trả bản dịch.
+     */
+    expect(result.items[0].translations).toEqual([]);
   });
 
   /**
@@ -492,64 +445,39 @@ describe('BlogownerPostsService', () => {
       id: 20,
     });
 
-    mockHelper.uploadMediaFiles
-      .mockResolvedValue(undefined);
+    mockHelper.uploadMediaFiles.mockResolvedValue(undefined);
 
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(
-        new BlogownerPostEntity({
-          id: 20,
-          title: 'Draft Post',
-          status: PostStatus.DRAFT,
-        }),
-      );
-
-    const result = await service.create(
-      3,
-      {
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
+        id: 20,
         title: 'Draft Post',
-        content: 'Draft content',
-        languageId: 4,
-        categoryIds: [13],
-        submitForReview: false,
-      },
-    );
-
-    expect(
-      mockPostsService.create,
-    ).toHaveBeenCalledWith(
-      3,
-      {
-        title: 'Draft Post',
-        content: 'Draft content',
-        languageId: 4,
-        categoryIds: [13],
         status: PostStatus.DRAFT,
-      },
+      }),
     );
 
-    expect(
-      mockHelper.uploadMediaFiles,
-    ).toHaveBeenCalledWith(
-      20,
-      undefined,
-    );
+    const result = await service.create(3, {
+      title: 'Draft Post',
+      content: 'Draft content',
+      languageId: 4,
+      categoryIds: [13],
+      submitForReview: false,
+    });
 
-    expect(
-      mockPrismaService.post.update,
-    ).not.toHaveBeenCalled();
+    expect(mockPostsService.create).toHaveBeenCalledWith(3, {
+      title: 'Draft Post',
+      content: 'Draft content',
+      languageId: 4,
+      categoryIds: [13],
+      status: PostStatus.DRAFT,
+    });
 
-    expect(
-      service.findOne,
-    ).toHaveBeenCalledWith(
-      3,
-      20,
-    );
+    expect(mockHelper.uploadMediaFiles).toHaveBeenCalledWith(20, undefined);
 
-    expect(result.status).toBe(
-      PostStatus.DRAFT,
-    );
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+
+    expect(service.findOne).toHaveBeenCalledWith(3, 20);
+
+    expect(result.status).toBe(PostStatus.DRAFT);
   });
 
   it('should create a post as draft when submitForReview is omitted', async () => {
@@ -557,52 +485,34 @@ describe('BlogownerPostsService', () => {
       id: 22,
     });
 
-    mockHelper.uploadMediaFiles
-      .mockResolvedValue(undefined);
+    mockHelper.uploadMediaFiles.mockResolvedValue(undefined);
 
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(
-        new BlogownerPostEntity({
-          id: 22,
-          title:
-            'Backward Compatible Post',
-          status: PostStatus.DRAFT,
-        }),
-      );
-
-    const result = await service.create(
-      3,
-      {
-        title:
-          'Backward Compatible Post',
-        content: 'Content',
-        languageId: 4,
-        categoryIds: [13],
-      },
-    );
-
-    expect(
-      mockPostsService.create,
-    ).toHaveBeenCalledWith(
-      3,
-      {
-        title:
-          'Backward Compatible Post',
-        content: 'Content',
-        languageId: 4,
-        categoryIds: [13],
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
+        id: 22,
+        title: 'Backward Compatible Post',
         status: PostStatus.DRAFT,
-      },
+      }),
     );
 
-    expect(
-      mockPrismaService.post.update,
-    ).not.toHaveBeenCalled();
+    const result = await service.create(3, {
+      title: 'Backward Compatible Post',
+      content: 'Content',
+      languageId: 4,
+      categoryIds: [13],
+    });
 
-    expect(result.status).toBe(
-      PostStatus.DRAFT,
-    );
+    expect(mockPostsService.create).toHaveBeenCalledWith(3, {
+      title: 'Backward Compatible Post',
+      content: 'Content',
+      languageId: 4,
+      categoryIds: [13],
+      status: PostStatus.DRAFT,
+    });
+
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+
+    expect(result.status).toBe(PostStatus.DRAFT);
   });
 
   it('should submit a newly created post for review when submitForReview is true', async () => {
@@ -610,64 +520,39 @@ describe('BlogownerPostsService', () => {
       id: 21,
     });
 
-    mockHelper.uploadMediaFiles
-      .mockResolvedValue(undefined);
+    mockHelper.uploadMediaFiles.mockResolvedValue(undefined);
 
-    mockPrismaService.post.update
-      .mockResolvedValue({
+    mockHelper.updateOwnedPostGroupStatus.mockResolvedValue(undefined);
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
         id: 21,
-        status:
-          PostStatus.PENDING_REVIEW,
-      });
-
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(
-        new BlogownerPostEntity({
-          id: 21,
-          title: 'Ready Post',
-          status:
-            PostStatus.PENDING_REVIEW,
-        }),
-      );
-
-    const result = await service.create(
-      3,
-      {
         title: 'Ready Post',
-        content: 'Ready content',
-        languageId: 4,
-        categoryIds: [13],
-        submitForReview: true,
-      },
+        status: PostStatus.PENDING_REVIEW,
+      }),
     );
 
-    expect(
-      mockPostsService.create,
-    ).toHaveBeenCalledWith(
-      3,
-      {
-        title: 'Ready Post',
-        content: 'Ready content',
-        languageId: 4,
-        categoryIds: [13],
-        status: PostStatus.DRAFT,
-      },
-    );
-
-    expect(
-      mockPrismaService.post.update,
-    ).toHaveBeenCalledWith({
-      where: {
-        id: 21,
-      },
-
-      data: {
-        status:
-          PostStatus.PENDING_REVIEW,
-        ...RESET_REVIEW_DATA,
-      },
+    const result = await service.create(3, {
+      title: 'Ready Post',
+      content: 'Ready content',
+      languageId: 4,
+      categoryIds: [13],
+      submitForReview: true,
     });
+
+    expect(mockPostsService.create).toHaveBeenCalledWith(3, {
+      title: 'Ready Post',
+      content: 'Ready content',
+      languageId: 4,
+      categoryIds: [13],
+      status: PostStatus.DRAFT,
+    });
+
+    expect(mockHelper.updateOwnedPostGroupStatus).toHaveBeenCalledWith(
+      3,
+      21,
+      PostStatus.PENDING_REVIEW,
+    );
 
     /**
      * Thứ tự bắt buộc:
@@ -675,241 +560,182 @@ describe('BlogownerPostsService', () => {
      * -> upload media
      * -> PENDING_REVIEW.
      */
+    expect(mockPostsService.create.mock.invocationCallOrder[0]).toBeLessThan(
+      mockHelper.uploadMediaFiles.mock.invocationCallOrder[0],
+    );
+
     expect(
-      mockPostsService.create.mock
-        .invocationCallOrder[0],
+      mockHelper.uploadMediaFiles.mock.invocationCallOrder[0],
     ).toBeLessThan(
-      mockHelper.uploadMediaFiles.mock
-        .invocationCallOrder[0],
+      mockHelper.updateOwnedPostGroupStatus.mock.invocationCallOrder[0],
     );
 
-    expect(
-      mockHelper.uploadMediaFiles.mock
-        .invocationCallOrder[0],
-    ).toBeLessThan(
-      mockPrismaService.post.update.mock
-        .invocationCallOrder[0],
-    );
+    expect(service.findOne).toHaveBeenCalledWith(3, 21);
 
-    expect(
-      service.findOne,
-    ).toHaveBeenCalledWith(
-      3,
-      21,
-    );
-
-    expect(result.status).toBe(
-      PostStatus.PENDING_REVIEW,
-    );
+    expect(result.status).toBe(PostStatus.PENDING_REVIEW);
   });
 
   it('should delete newly uploaded thumbnail when saving its URL fails during post creation', async () => {
-  const thumbnailFile = {
-    mimetype: 'image/png',
-    buffer: Buffer.from(
-      'fake-thumbnail',
-    ),
-    originalname:
-      'create-thumbnail.png',
-  } as Express.Multer.File;
+    const thumbnailFile = {
+      mimetype: 'image/png',
+      buffer: Buffer.from('fake-thumbnail'),
+      originalname: 'create-thumbnail.png',
+    } as Express.Multer.File;
 
-  const uploadedThumbnailUrl =
-    'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/30/thumbnail/create-thumbnail.png';
+    const uploadedThumbnailUrl =
+      'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/30/thumbnail/create-thumbnail.png';
 
-  const databaseError =
-    new Error(
-      'Database update failed',
-    );
+    const databaseError = new Error('Database update failed');
 
-  /**
-   * Post đã được tạo dưới trạng thái DRAFT.
-   */
-  mockPostsService.create
-    .mockResolvedValue({
+    /**
+     * Post đã được tạo dưới trạng thái DRAFT.
+     */
+    mockPostsService.create.mockResolvedValue({
       id: 30,
     });
 
-  /**
-   * Thumbnail upload lên Cloudinary thành công.
-   */
-  mockCloudinaryService.uploadFile
-    .mockResolvedValue({
-      secure_url:
-        uploadedThumbnailUrl,
+    /**
+     * Thumbnail upload lên Cloudinary thành công.
+     */
+    mockCloudinaryService.uploadFile.mockResolvedValue({
+      secure_url: uploadedThumbnailUrl,
 
-      public_id:
-        'nestjs_blog/posts/30/thumbnail/create-thumbnail',
+      public_id: 'nestjs_blog/posts/30/thumbnail/create-thumbnail',
     });
 
-  /**
-   * Nhưng database không lưu được thumbnailUrl.
-   */
-  mockPrismaService.post.update
-    .mockRejectedValueOnce(
-      databaseError,
-    );
+    /**
+     * Nhưng database không lưu được thumbnailUrl.
+     */
+    mockPrismaService.post.update.mockRejectedValueOnce(databaseError);
 
-  await expect(
-    service.create(
-      3,
-      {
-        title:
-          'Post with thumbnail',
-        content:
-          'Post content',
-        languageId: 4,
-        categoryIds: [13],
-        submitForReview: false,
-      },
-      thumbnailFile,
-    ),
-  ).rejects.toBe(databaseError);
+    await expect(
+      service.create(
+        3,
+        {
+          title: 'Post with thumbnail',
+          content: 'Post content',
+          languageId: 4,
+          categoryIds: [13],
+          submitForReview: false,
+        },
+        thumbnailFile,
+      ),
+    ).rejects.toBe(databaseError);
 
-  /**
-   * Bài viết luôn được tạo DRAFT trước.
-   */
-  expect(
-    mockPostsService.create,
-  ).toHaveBeenCalledWith(
-    3,
-    {
-      title:
-        'Post with thumbnail',
-      content:
-        'Post content',
+    /**
+     * Bài viết luôn được tạo DRAFT trước.
+     */
+    expect(mockPostsService.create).toHaveBeenCalledWith(3, {
+      title: 'Post with thumbnail',
+      content: 'Post content',
       languageId: 4,
       categoryIds: [13],
-      status:
-        PostStatus.DRAFT,
-    },
-  );
+      status: PostStatus.DRAFT,
+    });
 
-  /**
-   * Thumbnail phải được upload đúng thư mục bài viết.
-   */
-  expect(
-    mockCloudinaryService.uploadFile,
-  ).toHaveBeenCalledWith(
-    thumbnailFile,
-    'nestjs_blog/posts/30/thumbnail',
-  );
+    /**
+     * Thumbnail phải được upload đúng thư mục bài viết.
+     */
+    expect(mockCloudinaryService.uploadFile).toHaveBeenCalledWith(
+      thumbnailFile,
+      'nestjs_blog/posts/30/thumbnail',
+    );
 
-  /**
-   * Backend đã cố lưu URL thumbnail vào database.
-   */
-  expect(
-    mockPrismaService.post.update,
-  ).toHaveBeenCalledWith({
-    where: {
-      id: 30,
-    },
+    /**
+     * Backend đã cố lưu URL thumbnail vào database.
+     */
+    expect(mockPrismaService.post.update).toHaveBeenCalledWith({
+      where: {
+        id: 30,
+      },
 
-    data: {
-      thumbnailUrl:
-        uploadedThumbnailUrl,
-    },
+      data: {
+        thumbnailUrl: uploadedThumbnailUrl,
+      },
+    });
+
+    /**
+     * Khi database update thất bại,
+     * thumbnail vừa upload phải bị xóa.
+     */
+    expect(mockCloudinaryService.deleteFile).toHaveBeenCalledWith(
+      'nestjs_blog/posts/30/thumbnail/create-thumbnail',
+      'image',
+    );
+
+    /**
+     * Không được upload media hoặc đi tiếp tới findOne()
+     * sau khi lưu thumbnail thất bại.
+     */
+    expect(mockHelper.uploadMediaFiles).not.toHaveBeenCalled();
+
+    expect(mockPrismaService.post.findFirst).not.toHaveBeenCalled();
+
+    /**
+     * Lỗi database ban đầu phải được giữ nguyên,
+     * không bị lỗi cleanup ghi đè.
+     */
+    expect(mockPrismaService.post.update).toHaveBeenCalledTimes(1);
   });
-
-  /**
-   * Khi database update thất bại,
-   * thumbnail vừa upload phải bị xóa.
-   */
-  expect(
-    mockCloudinaryService.deleteFile,
-  ).toHaveBeenCalledWith(
-    'nestjs_blog/posts/30/thumbnail/create-thumbnail',
-    'image',
-  );
-
-  /**
-   * Không được upload media hoặc đi tiếp tới findOne()
-   * sau khi lưu thumbnail thất bại.
-   */
-  expect(
-    mockHelper.uploadMediaFiles,
-  ).not.toHaveBeenCalled();
-
-  expect(
-    mockPrismaService.post.findFirst,
-  ).not.toHaveBeenCalled();
-
-  /**
-   * Lỗi database ban đầu phải được giữ nguyên,
-   * không bị lỗi cleanup ghi đè.
-   */
-  expect(
-    mockPrismaService.post.update,
-  ).toHaveBeenCalledTimes(1);
-});
 
   /**
    * TRANSLATION GROUP
    */
 
   it('should return all translations in the same translation group', async () => {
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
+    mockHelper.findOwnedPost.mockResolvedValue({
+      id: 15,
+      title: 'English Post',
+      thumbnailUrl: null,
+      parentPostId: 1,
+      authorId: 99,
+      languageId: 5,
+      status: PostStatus.DRAFT,
+    });
+
+    mockPrismaService.post.findMany.mockResolvedValue([
+      {
         id: 15,
         title: 'English Post',
         thumbnailUrl: null,
-        parentPostId: 1,
-        authorId: 99,
-        languageId: 5,
         status: PostStatus.DRAFT,
-      });
+        parentPostId: 1,
+        languageId: 5,
 
-    mockPrismaService.post.findMany
-      .mockResolvedValue([
-        {
-          id: 15,
-          title: 'English Post',
-          thumbnailUrl: null,
-          status: PostStatus.DRAFT,
-          parentPostId: 1,
-          languageId: 5,
-
-          language: {
-            id: 5,
-            code: 'en',
-            name: 'English',
-            flag: 'us',
-          },
+        language: {
+          id: 5,
+          code: 'en',
+          name: 'English',
+          flag: 'us',
         },
+      },
 
-        {
-          id: 1,
-          title: 'Bài tiếng Việt',
-          thumbnailUrl: null,
-          status: PostStatus.PUBLISH,
-          parentPostId: null,
-          languageId: 4,
+      {
+        id: 1,
+        title: 'Bài tiếng Việt',
+        thumbnailUrl: null,
+        status: PostStatus.PUBLISH,
+        parentPostId: null,
+        languageId: 4,
 
-          language: {
-            id: 4,
-            code: 'vi',
-            name: 'Tiếng Việt',
-            flag: 'vn',
-          },
+        language: {
+          id: 4,
+          code: 'vi',
+          name: 'Tiếng Việt',
+          flag: 'vn',
         },
-      ]);
+      },
+    ]);
 
-    const result =
-      await service.findOne(
-        99,
-        15,
-      );
+    const result = await service.findOne(99, 15);
 
-    expect(
-      mockHelper.findOwnedPost,
-    ).toHaveBeenCalledWith(
+    expect(mockHelper.findOwnedPost).toHaveBeenCalledWith(
       99,
       15,
       expect.any(Object),
     );
 
-    expect(
-      mockPrismaService.post.findMany,
-    ).toHaveBeenCalledWith(
+    expect(mockPrismaService.post.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           authorId: 99,
@@ -927,30 +753,24 @@ describe('BlogownerPostsService', () => {
       }),
     );
 
-    expect(
-      result.translations,
-    ).toHaveLength(2);
+    expect(result.translations).toHaveLength(2);
 
-    expect(
-      result.translations,
-    ).toEqual(
+    expect(result.translations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: 1,
 
-          language:
-            expect.objectContaining({
-              code: 'vi',
-            }),
+          language: expect.objectContaining({
+            code: 'vi',
+          }),
         }),
 
         expect.objectContaining({
           id: 15,
 
-          language:
-            expect.objectContaining({
-              code: 'en',
-            }),
+          language: expect.objectContaining({
+            code: 'en',
+          }),
         }),
       ]),
     );
@@ -970,11 +790,9 @@ describe('BlogownerPostsService', () => {
         authorId: 3,
         parentPostId: null,
 
-        title:
-          'Hướng dẫn NestJS',
+        title: 'Hướng dẫn NestJS',
 
-        content:
-          '<p>Nội dung tiếng Việt</p>',
+        content: '<p>Nội dung tiếng Việt</p>',
 
         thumbnailUrl: null,
 
@@ -999,45 +817,32 @@ describe('BlogownerPostsService', () => {
        */
       .mockResolvedValueOnce(null);
 
-    mockPrismaService.language.findFirst
-      .mockResolvedValue({
-        id: 5,
-        code: 'en',
-        name: 'English',
-        flag: 'us',
-      });
+    mockPrismaService.language.findFirst.mockResolvedValue({
+      id: 5,
+      code: 'en',
+      name: 'English',
+      flag: 'us',
+    });
 
-    mockPrismaService.category.findMany
-      .mockResolvedValue([
-        {
-          categoryGroupId: 10,
-        },
-      ]);
+    mockPrismaService.category.findMany.mockResolvedValue([
+      {
+        categoryGroupId: 10,
+      },
+    ]);
 
-    mockTranslationService.translatePost
-      .mockResolvedValue({
-        title: 'NestJS Guide',
-        content:
-          '<p>English content</p>',
-      });
+    mockTranslationService.translatePost.mockResolvedValue({
+      title: 'NestJS Guide',
+      content: '<p>English content</p>',
+    });
 
-    const result =
-      await service.translatePreview(
-        3,
-        1,
-        {
-          targetLanguageId: 5,
-        },
-      );
+    const result = await service.translatePreview(3, 1, {
+      targetLanguageId: 5,
+    });
 
-    expect(
-      mockTranslationService.translatePost,
-    ).toHaveBeenCalledWith({
-      title:
-        'Hướng dẫn NestJS',
+    expect(mockTranslationService.translatePost).toHaveBeenCalledWith({
+      title: 'Hướng dẫn NestJS',
 
-      content:
-        '<p>Nội dung tiếng Việt</p>',
+      content: '<p>Nội dung tiếng Việt</p>',
 
       sourceLanguageCode: 'vi',
       targetLanguageCode: 'en',
@@ -1047,17 +852,11 @@ describe('BlogownerPostsService', () => {
      * Preview tuyệt đối không được tạo
      * hoặc update Post.
      */
-    expect(
-      mockPostsService.create,
-    ).not.toHaveBeenCalled();
+    expect(mockPostsService.create).not.toHaveBeenCalled();
 
-    expect(
-      mockPrismaService.post.update,
-    ).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
 
-    expect(
-      result.translation,
-    ).toEqual({
+    expect(result.translation).toEqual({
       language: {
         id: 5,
         code: 'en',
@@ -1066,171 +865,140 @@ describe('BlogownerPostsService', () => {
       },
 
       title: 'NestJS Guide',
-      content:
-        '<p>English content</p>',
+      content: '<p>English content</p>',
     });
   });
   it('should reject translate preview when target language is inactive', async () => {
-  mockPrismaService.post.findFirst.mockResolvedValueOnce({
-    id: 1,
-    authorId: 3,
-    parentPostId: null,
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 1,
+      authorId: 3,
+      parentPostId: null,
 
-    title: 'Hướng dẫn NestJS',
-    content: '<p>Nội dung tiếng Việt</p>',
-    thumbnailUrl: null,
+      title: 'Hướng dẫn NestJS',
+      content: '<p>Nội dung tiếng Việt</p>',
+      thumbnailUrl: null,
 
-    language: {
-      id: 4,
-      code: 'vi',
-      name: 'Tiếng Việt',
-      flag: 'vn',
-    },
+      language: {
+        id: 4,
+        code: 'vi',
+        name: 'Tiếng Việt',
+        flag: 'vn',
+      },
 
-    postCategories: [
-      {
-        category: {
-          categoryGroupId: 10,
+      postCategories: [
+        {
+          category: {
+            categoryGroupId: 10,
+          },
         },
-      },
-    ],
-  });
+      ],
+    });
 
-  /**
-   * Query target language với:
-   * deletedAt: null,
-   * isActive: true
-   *
-   * Không tìm thấy => language bị disable
-   * hoặc không tồn tại.
-   */
-  mockPrismaService.language.findFirst.mockResolvedValue(null);
+    /**
+     * Query target language với:
+     * deletedAt: null,
+     * isActive: true
+     *
+     * Không tìm thấy => language bị disable
+     * hoặc không tồn tại.
+     */
+    mockPrismaService.language.findFirst.mockResolvedValue(null);
 
-  await expect(
-    service.translatePreview(
-      3,
-      1,
-      {
+    await expect(
+      service.translatePreview(3, 1, {
         targetLanguageId: 5,
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrismaService.language.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 5,
+        deletedAt: null,
+        isActive: true,
       },
-    ),
-  ).rejects.toThrow(BadRequestException);
 
-  expect(
-    mockPrismaService.language.findFirst,
-  ).toHaveBeenCalledWith({
-    where: {
-      id: 5,
-      deletedAt: null,
-      isActive: true,
-    },
+      select: expect.any(Object),
+    });
 
-    select: expect.any(Object),
+    expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
+
+    expect(mockPrismaService.category.findMany).not.toHaveBeenCalled();
+
+    expect(mockPostsService.create).not.toHaveBeenCalled();
+
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
   });
-
-  expect(
-    mockTranslationService.translatePost,
-  ).not.toHaveBeenCalled();
-
-  expect(
-    mockPrismaService.category.findMany,
-  ).not.toHaveBeenCalled();
-
-  expect(
-    mockPostsService.create,
-  ).not.toHaveBeenCalled();
-
-  expect(
-    mockPrismaService.post.update,
-  ).not.toHaveBeenCalled();
-});
 
   /**
    * CREATE / RESTORE TRANSLATION
    */
 
   it('should reject creating translation when target language is inactive', async () => {
-  mockPrismaService.post.findFirst.mockResolvedValueOnce({
-    id: 1,
-    title: 'Bài tiếng Việt',
-    content: 'Nội dung tiếng Việt',
-    thumbnailUrl: null,
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 1,
+      title: 'Bài tiếng Việt',
+      content: 'Nội dung tiếng Việt',
+      thumbnailUrl: null,
 
-    authorId: 3,
-    parentPostId: null,
-    languageId: 4,
+      authorId: 3,
+      parentPostId: null,
+      languageId: 4,
 
-    postCategories: [
-      {
-        categoryId: 13,
+      postCategories: [
+        {
+          categoryId: 13,
 
-        category: {
-          id: 13,
-          categoryGroupId: 5,
+          category: {
+            id: 13,
+            categoryGroupId: 5,
+          },
         },
-      },
-    ],
+      ],
 
-    postTags: [
-      {
-        postId: 1,
-        tagId: 1,
-      },
-    ],
-  });
+      postTags: [
+        {
+          postId: 1,
+          tagId: 1,
+        },
+      ],
+    });
 
-  mockPrismaService.language.findFirst.mockResolvedValue(null);
+    mockPrismaService.language.findFirst.mockResolvedValue(null);
 
-  await expect(
-    service.translate(
-      3,
-      1,
-      {
+    await expect(
+      service.translate(3, 1, {
         targetLanguageId: 5,
         title: 'English Post',
         content: 'English content',
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrismaService.language.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 5,
+        deletedAt: null,
+        isActive: true,
       },
-    ),
-  ).rejects.toThrow(BadRequestException);
+    });
 
-  expect(
-    mockPrismaService.language.findFirst,
-  ).toHaveBeenCalledWith({
-    where: {
-      id: 5,
-      deletedAt: null,
-      isActive: true,
-    },
+    /**
+     * Phải fail trước khi tìm translation cũ,
+     * map category hoặc tạo/update Post.
+     */
+    expect(mockPrismaService.post.findFirst).toHaveBeenCalledTimes(1);
+
+    expect(mockPrismaService.category.findMany).not.toHaveBeenCalled();
+
+    expect(mockPostsService.create).not.toHaveBeenCalled();
+
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
   });
-
-  /**
-   * Phải fail trước khi tìm translation cũ,
-   * map category hoặc tạo/update Post.
-   */
-  expect(
-    mockPrismaService.post.findFirst,
-  ).toHaveBeenCalledTimes(1);
-
-  expect(
-    mockPrismaService.category.findMany,
-  ).not.toHaveBeenCalled();
-
-  expect(
-    mockPostsService.create,
-  ).not.toHaveBeenCalled();
-
-  expect(
-    mockPrismaService.post.update,
-  ).not.toHaveBeenCalled();
-});
   it('should restore a deleted translation instead of creating a new post', async () => {
     mockPrismaService.post.findFirst
       .mockResolvedValueOnce({
         id: 1,
-        title:
-          'Bài tiếng Việt',
-        content:
-          'Nội dung tiếng Việt',
+        title: 'Bài tiếng Việt',
+        content: 'Nội dung tiếng Việt',
         thumbnailUrl: null,
 
         authorId: 3,
@@ -1262,8 +1030,7 @@ describe('BlogownerPostsService', () => {
 
       .mockResolvedValueOnce({
         id: 15,
-        title:
-          'Old English Post',
+        title: 'Old English Post',
 
         parentPostId: 1,
         authorId: 3,
@@ -1271,80 +1038,60 @@ describe('BlogownerPostsService', () => {
 
         status: PostStatus.DRAFT,
 
-        deletedAt: new Date(
-          '2026-07-29T08:45:00.000Z',
-        ),
+        deletedAt: new Date('2026-07-29T08:45:00.000Z'),
       });
 
-    mockPrismaService.language.findFirst
-      .mockResolvedValue({
-        id: 5,
-        code: 'en',
-        name: 'English',
-        flag: 'us',
-      });
+    mockPrismaService.language.findFirst.mockResolvedValue({
+      id: 5,
+      code: 'en',
+      name: 'English',
+      flag: 'us',
+    });
 
-    mockPrismaService.category.findMany
-      .mockResolvedValue([
-        {
-          id: 20,
-          categoryGroupId: 5,
-        },
-      ]);
+    mockPrismaService.category.findMany.mockResolvedValue([
+      {
+        id: 20,
+        categoryGroupId: 5,
+      },
+    ]);
 
-    mockPrismaService.post.update
-      .mockResolvedValue({
+    mockPrismaService.post.update.mockResolvedValue({
+      id: 15,
+    });
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
         id: 15,
-      });
 
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(
-        new BlogownerPostEntity({
-          id: 15,
+        title: 'Complete Guide to Prisma and NestJS - New',
 
-          title:
-            'Complete Guide to Prisma and NestJS - New',
+        content: 'This is the recreated English translation.',
 
-          content:
-            'This is the recreated English translation.',
+        status: PostStatus.DRAFT,
 
-          status: PostStatus.DRAFT,
+        parentPostId: 1,
+        authorId: 3,
+        languageId: 5,
+      }),
+    );
 
-          parentPostId: 1,
-          authorId: 3,
-          languageId: 5,
-        }),
-      );
+    const result = await service.translate(3, 1, {
+      targetLanguageId: 5,
 
-    const result =
-      await service.translate(
-        3,
-        1,
-        {
-          targetLanguageId: 5,
+      title: 'Complete Guide to Prisma and NestJS - New',
 
-          title:
-            'Complete Guide to Prisma and NestJS - New',
+      content: 'This is the recreated English translation.',
+    });
 
-          content:
-            'This is the recreated English translation.',
-        },
-      );
-
-    expect(
-      mockPrismaService.post.update,
-    ).toHaveBeenCalledWith({
+    expect(mockPrismaService.post.update).toHaveBeenCalledWith({
       where: {
         id: 15,
       },
 
       data: {
-        title:
-          'Complete Guide to Prisma and NestJS - New',
+        title: 'Complete Guide to Prisma and NestJS - New',
 
-        content:
-          'This is the recreated English translation.',
+        content: 'This is the recreated English translation.',
 
         thumbnailUrl: null,
 
@@ -1383,38 +1130,24 @@ describe('BlogownerPostsService', () => {
       },
     });
 
-    expect(
-      mockPostsService.create,
-    ).not.toHaveBeenCalled();
+    expect(mockPostsService.create).not.toHaveBeenCalled();
 
-    expect(
-      service.findOne,
-    ).toHaveBeenCalledWith(
-      3,
-      15,
-    );
+    expect(service.findOne).toHaveBeenCalledWith(3, 15);
 
     expect(result.id).toBe(15);
 
-    expect(result.status).toBe(
-      PostStatus.DRAFT,
-    );
+    expect(result.status).toBe(PostStatus.DRAFT);
 
-    expect(
-      result.parentPostId,
-    ).toBe(1);
+    expect(result.parentPostId).toBe(1);
 
-    expect(
-      result.languageId,
-    ).toBe(5);
+    expect(result.languageId).toBe(5);
   });
 
   it('should throw conflict when translation already exists and is not deleted', async () => {
     mockPrismaService.post.findFirst
       .mockResolvedValueOnce({
         id: 1,
-        title:
-          'Bài tiếng Việt',
+        title: 'Bài tiếng Việt',
         content: 'Nội dung',
         thumbnailUrl: null,
 
@@ -1450,43 +1183,28 @@ describe('BlogownerPostsService', () => {
         deletedAt: null,
       });
 
-    mockPrismaService.language.findFirst
-      .mockResolvedValue({
-        id: 5,
-        code: 'en',
-        name: 'English',
-        flag: 'us',
-      });
+    mockPrismaService.language.findFirst.mockResolvedValue({
+      id: 5,
+      code: 'en',
+      name: 'English',
+      flag: 'us',
+    });
 
     await expect(
-      service.translate(
-        3,
-        1,
-        {
-          targetLanguageId: 5,
-          title:
-            'Another English version',
-          content:
-            'Another content',
-        },
-      ),
+      service.translate(3, 1, {
+        targetLanguageId: 5,
+        title: 'Another English version',
+        content: 'Another content',
+      }),
     ).rejects.toThrow(
-      new ConflictException(
-        'Bài viết đã có phiên bản cho ngôn ngữ được chọn.',
-      ),
+      new ConflictException('Bài viết đã có phiên bản cho ngôn ngữ được chọn.'),
     );
 
-    expect(
-      mockPrismaService.post.update,
-    ).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
 
-    expect(
-      mockPostsService.create,
-    ).not.toHaveBeenCalled();
+    expect(mockPostsService.create).not.toHaveBeenCalled();
 
-    expect(
-      mockPrismaService.category.findMany,
-    ).not.toHaveBeenCalled();
+    expect(mockPrismaService.category.findMany).not.toHaveBeenCalled();
   });
 
   it('should create a new translation when target language does not exist', async () => {
@@ -1494,11 +1212,9 @@ describe('BlogownerPostsService', () => {
       .mockResolvedValueOnce({
         id: 1,
 
-        title:
-          'Bài tiếng Việt',
+        title: 'Bài tiếng Việt',
 
-        content:
-          'Nội dung tiếng Việt',
+        content: 'Nội dung tiếng Việt',
 
         thumbnailUrl: null,
 
@@ -1531,24 +1247,34 @@ describe('BlogownerPostsService', () => {
 
       .mockResolvedValueOnce(null);
 
-    mockPrismaService.language.findFirst
-      .mockResolvedValue({
-        id: 5,
-        code: 'en',
-        name: 'English',
-        flag: 'us',
-      });
+    mockPrismaService.language.findFirst.mockResolvedValue({
+      id: 5,
+      code: 'en',
+      name: 'English',
+      flag: 'us',
+    });
 
-    mockPrismaService.category.findMany
-      .mockResolvedValue([
-        {
-          id: 20,
-          categoryGroupId: 5,
-        },
-      ]);
+    mockPrismaService.category.findMany.mockResolvedValue([
+      {
+        id: 20,
+        categoryGroupId: 5,
+      },
+    ]);
 
-    mockPostsService.create
-      .mockResolvedValue({
+    mockPostsService.create.mockResolvedValue({
+      id: 16,
+
+      title: 'English Post',
+
+      status: PostStatus.DRAFT,
+
+      parentPostId: 1,
+      authorId: 3,
+      languageId: 5,
+    });
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
         id: 16,
 
         title: 'English Post',
@@ -1558,244 +1284,166 @@ describe('BlogownerPostsService', () => {
         parentPostId: 1,
         authorId: 3,
         languageId: 5,
-      });
-
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(
-        new BlogownerPostEntity({
-          id: 16,
-
-          title:
-            'English Post',
-
-          status:
-            PostStatus.DRAFT,
-
-          parentPostId: 1,
-          authorId: 3,
-          languageId: 5,
-        }),
-      );
-
-    const result =
-      await service.translate(
-        3,
-        1,
-        {
-          targetLanguageId: 5,
-          title:
-            'English Post',
-          content:
-            'English content',
-        },
-      );
-
-    expect(
-      mockPostsService.create,
-    ).toHaveBeenCalledWith(
-      3,
-      {
-        title:
-          'English Post',
-
-        content:
-          'English content',
-
-        thumbnailUrl:
-          undefined,
-
-        languageId: 5,
-
-        categoryIds: [20],
-
-        tagIds: [1, 2],
-
-        parentPostId: 1,
-
-        status:
-          PostStatus.DRAFT,
-      },
+      }),
     );
 
-    expect(
-      mockPrismaService.post.update,
-    ).not.toHaveBeenCalled();
+    const result = await service.translate(3, 1, {
+      targetLanguageId: 5,
+      title: 'English Post',
+      content: 'English content',
+    });
 
-    expect(
-      service.findOne,
-    ).toHaveBeenCalledWith(
-      3,
-      16,
-    );
+    expect(mockPostsService.create).toHaveBeenCalledWith(3, {
+      title: 'English Post',
+
+      content: 'English content',
+
+      thumbnailUrl: undefined,
+
+      languageId: 5,
+
+      categoryIds: [20],
+
+      tagIds: [1, 2],
+
+      parentPostId: 1,
+
+      status: PostStatus.DRAFT,
+    });
+
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+
+    expect(service.findOne).toHaveBeenCalledWith(3, 16);
 
     expect(result.id).toBe(16);
   });
 
   /**
- * UPDATE POST
- */
-
-it('should reject an empty update without changing post status', async () => {
-  mockHelper.findOwnedPost.mockResolvedValue({
-    id: 3,
-    authorId: 3,
-    status: PostStatus.REJECT,
-
-    rejectionReason:
-      'Nội dung chưa đạt yêu cầu.',
-  });
-
-  await expect(
-    service.update(
-      3,
-      3,
-      {},
-    ),
-  ).rejects.toThrow(
-    new BadRequestException(
-      'Không có dữ liệu nào để cập nhật.',
-    ),
-  );
-
-  expect(
-    mockHelper.assertEditable,
-  ).toHaveBeenCalledWith(
-    PostStatus.REJECT,
-  );
-
-  /**
-   * Không được tính trạng thái tiếp theo
-   * nếu request thực tế không chỉnh sửa gì.
+   * UPDATE POST
    */
-  expect(
-    mockHelper.getNextStatusOnEdit,
-  ).not.toHaveBeenCalled();
 
-  expect(
-    mockPostsService.update,
-  ).not.toHaveBeenCalled();
+  it('should reject an empty update without changing post status', async () => {
+    const root = {
+      id: 3,
+      authorId: 3,
+      status: PostStatus.REJECT,
+      languageId: 4,
+      thumbnailUrl: null,
 
-  expect(
-    mockHelper.uploadThumbnail,
-  ).not.toHaveBeenCalled();
+      rejectionReason: 'Nội dung chưa đạt yêu cầu.',
+    };
 
-  expect(
-    mockHelper.uploadMediaFiles,
-  ).not.toHaveBeenCalled();
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 3,
+      root,
+      translations: [],
+      posts: [root],
+    });
 
-  expect(
-    mockHelper.resetReviewOnEdit,
-  ).not.toHaveBeenCalled();
+    await expect(service.update(3, 3, {})).rejects.toThrow(
+      new BadRequestException('Không có dữ liệu nào để cập nhật.'),
+    );
 
-  expect(
-    mockPrismaService.post.update,
-  ).not.toHaveBeenCalled();
-});
+    expect(mockHelper.assertEditable).toHaveBeenCalledWith(PostStatus.REJECT);
 
-it('should reset review metadata before uploading media when editing a published post', async () => {
-  const mediaFile = {
-    mimetype: 'image/png',
-    buffer: Buffer.from('fake-media'),
-    originalname: 'media.png',
-  } as Express.Multer.File;
+    /**
+     * Không được tính trạng thái tiếp theo
+     * nếu request thực tế không chỉnh sửa gì.
+     */
+    expect(mockHelper.getNextStatusOnEdit).not.toHaveBeenCalled();
 
-  mockHelper.findOwnedPost.mockResolvedValue({
-    id: 1,
-    authorId: 3,
-    status: PostStatus.PUBLISH,
-    thumbnailUrl: null,
+    expect(mockPostsService.update).not.toHaveBeenCalled();
 
-    reviewedById: 8,
-    reviewedAt: new Date(
-      '2026-07-30T08:00:00.000Z',
-    ),
+    expect(mockHelper.uploadThumbnail).not.toHaveBeenCalled();
+
+    expect(mockHelper.uploadMediaFiles).not.toHaveBeenCalled();
+
+    expect(mockHelper.resetReviewOnEdit).not.toHaveBeenCalled();
+
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
   });
 
-  mockHelper.getNextStatusOnEdit.mockReturnValue(
-    PostStatus.PENDING_REVIEW,
-  );
+  it('should reset review metadata before uploading media when editing a published post', async () => {
+    const mediaFile = {
+      mimetype: 'image/png',
+      buffer: Buffer.from('fake-media'),
+      originalname: 'media.png',
+    } as Express.Multer.File;
 
-  mockPostsService.update.mockResolvedValue({
-    id: 1,
-  });
+    const root = {
+      id: 1,
+      authorId: 3,
+      status: PostStatus.PUBLISH,
+      languageId: 4,
+      thumbnailUrl: null,
 
-  mockHelper.resetReviewOnEdit.mockResolvedValue(
-    undefined,
-  );
+      reviewedById: 8,
+      reviewedAt: new Date('2026-07-30T08:00:00.000Z'),
+    };
 
-  /**
-   * Giả lập media upload thất bại sau khi
-   * nội dung/status đã được update.
-   */
-  mockHelper.uploadMediaFiles.mockRejectedValue(
-    new Error('Media upload failed'),
-  );
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 1,
+      root,
+      translations: [],
+      posts: [root],
+    });
 
-  await expect(
-    service.update(
-      3,
+    mockPostsService.update.mockResolvedValue({
+      id: 1,
+    });
+
+    /**
+     * Giả lập media upload thất bại sau khi
+     * nội dung/status đã được update.
+     */
+    mockHelper.uploadMediaFiles.mockRejectedValue(
+      new Error('Media upload failed'),
+    );
+
+    await expect(
+      service.update(
+        3,
+        1,
+        {
+          title: 'Updated published post',
+        },
+        undefined,
+        [mediaFile],
+      ),
+    ).rejects.toThrow('Media upload failed');
+
+    /**
+     * Bài PUBLISH phải được đưa về DRAFT trong lúc xử lý
+     * (chỉ khi toàn bộ group xử lý xong mới đổi sang
+     * finalStatus qua updateOwnedPostGroupStatus).
+     */
+    expect(mockPostsService.update).toHaveBeenCalledWith(
       1,
-      {
+      expect.objectContaining({
         title: 'Updated published post',
-      },
-      undefined,
-      [mediaFile],
-    ),
-  ).rejects.toThrow('Media upload failed');
+        status: PostStatus.DRAFT,
+        reviewedById: null,
+        reviewedAt: null,
+        rejectionReason: null,
+      }),
+    );
 
-  /**
-   * Bài PUBLISH phải được chuyển về
-   * PENDING_REVIEW trước.
-   */
-  expect(
-    mockPostsService.update,
-  ).toHaveBeenCalledWith(
-    1,
-    expect.objectContaining({
-      title: 'Updated published post',
-      status: PostStatus.PENDING_REVIEW,
-    }),
-  );
+    expect(mockHelper.uploadMediaFiles).toHaveBeenCalledWith(1, [mediaFile]);
 
-  /**
-   * Review metadata phải được reset
-   * dù upload media sau đó thất bại.
-   */
-  expect(
-    mockHelper.resetReviewOnEdit,
-  ).toHaveBeenCalledWith(
-    1,
-    PostStatus.PUBLISH,
-  );
+    /**
+     * Quan trọng nhất:
+     * nội dung/status phải được update TRƯỚC khi upload media.
+     */
+    expect(mockPostsService.update.mock.invocationCallOrder[0]).toBeLessThan(
+      mockHelper.uploadMediaFiles.mock.invocationCallOrder[0],
+    );
 
-  expect(
-    mockHelper.uploadMediaFiles,
-  ).toHaveBeenCalledWith(
-    1,
-    [mediaFile],
-  );
-
-  /**
-   * Quan trọng nhất:
-   * reset review phải chạy TRƯỚC upload media.
-   */
-  expect(
-    mockHelper.resetReviewOnEdit.mock
-      .invocationCallOrder[0],
-  ).toBeLessThan(
-    mockHelper.uploadMediaFiles.mock
-      .invocationCallOrder[0],
-  );
-
-  /**
-   * Vì upload media bị lỗi nên không được
-   * đi tiếp tới findOne().
-   */
-  expect(
-    mockPrismaService.post.findFirst,
-  ).not.toHaveBeenCalled();
-});
+    /**
+     * Vì upload media bị lỗi nên không được
+     * đi tiếp tới findOne().
+     */
+    expect(mockPrismaService.post.findFirst).not.toHaveBeenCalled();
+  });
   /**
    * THUMBNAIL
    */
@@ -1803,196 +1451,153 @@ it('should reset review metadata before uploading media when editing a published
   it('should upload new thumbnail before deleting old thumbnail', async () => {
     const thumbnailFile = {
       mimetype: 'image/png',
-      buffer:
-        Buffer.from(
-          'fake-image',
-        ),
-      originalname:
-        'new-thumbnail.png',
+      buffer: Buffer.from('fake-image'),
+      originalname: 'new-thumbnail.png',
     } as Express.Multer.File;
 
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
-        id: 1,
-        authorId: 3,
+    const root = {
+      id: 1,
+      authorId: 3,
 
-        status:
-          PostStatus.DRAFT,
+      status: PostStatus.DRAFT,
+
+      languageId: 4,
+
+      thumbnailUrl:
+        'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
+    };
+
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 1,
+      root,
+      translations: [],
+      posts: [root],
+    });
+
+    mockCloudinaryService.uploadFile.mockResolvedValue({
+      secure_url:
+        'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/1/thumbnail/new-thumbnail.png',
+
+      public_id: 'nestjs_blog/posts/1/thumbnail/new-thumbnail',
+    });
+
+    mockPostsService.update.mockResolvedValue({
+      id: 1,
+    });
+
+    mockHelper.updateOwnedPostGroupStatus.mockResolvedValue(undefined);
+
+    mockHelper.uploadMediaFiles.mockResolvedValue(undefined);
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
+        id: 1,
+        status: PostStatus.DRAFT,
 
         thumbnailUrl:
-          'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
-      });
-
-    mockHelper.getNextStatusOnEdit
-      .mockReturnValue(
-        PostStatus.DRAFT,
-      );
-
-    mockCloudinaryService.uploadFile
-      .mockResolvedValue({
-        secure_url:
           'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/1/thumbnail/new-thumbnail.png',
-
-        public_id:
-          'nestjs_blog/posts/1/thumbnail/new-thumbnail',
-      });
-
-    mockPostsService.update
-      .mockResolvedValue({
-        id: 1,
-      });
-
-    mockHelper.resetReviewOnEdit
-      .mockResolvedValue(undefined);
-
-    mockHelper.uploadMediaFiles
-      .mockResolvedValue(undefined);
-
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(
-        new BlogownerPostEntity({
-          id: 1,
-          status:
-            PostStatus.DRAFT,
-
-          thumbnailUrl:
-            'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/1/thumbnail/new-thumbnail.png',
-        }),
-      );
+      }),
+    );
 
     await service.update(
       3,
       1,
       {
-        title:
-          'Updated title',
+        title: 'Updated title',
       },
       thumbnailFile,
     );
 
-    expect(
-      mockCloudinaryService.uploadFile,
-    ).toHaveBeenCalledWith(
+    expect(mockCloudinaryService.uploadFile).toHaveBeenCalledWith(
       thumbnailFile,
       'nestjs_blog/posts/1/thumbnail',
     );
 
-    expect(
-      mockPostsService.update,
-    ).toHaveBeenCalledWith(
+    expect(mockPostsService.update).toHaveBeenCalledWith(
       1,
       expect.objectContaining({
-        title:
-          'Updated title',
+        title: 'Updated title',
 
         thumbnailUrl:
           'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/1/thumbnail/new-thumbnail.png',
 
-        status:
-          PostStatus.DRAFT,
+        status: PostStatus.DRAFT,
       }),
     );
 
-    expect(
-      mockCloudinaryService.deleteFile,
-    ).toHaveBeenCalledWith(
+    expect(mockCloudinaryService.deleteFile).toHaveBeenCalledWith(
       'nestjs_blog/posts/1/thumbnail/old-thumbnail',
       'image',
     );
 
     expect(
-      mockCloudinaryService.uploadFile
-        .mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      mockPostsService.update.mock
-        .invocationCallOrder[0],
-    );
+      mockCloudinaryService.uploadFile.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockPostsService.update.mock.invocationCallOrder[0]);
 
-    expect(
-      mockPostsService.update.mock
-        .invocationCallOrder[0],
-    ).toBeLessThan(
-      mockCloudinaryService.deleteFile
-        .mock.invocationCallOrder[0],
+    expect(mockPostsService.update.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCloudinaryService.deleteFile.mock.invocationCallOrder[0],
     );
   });
 
   it('should delete newly uploaded thumbnail when database update fails', async () => {
     const thumbnailFile = {
       mimetype: 'image/png',
-      buffer:
-        Buffer.from(
-          'fake-image',
-        ),
-      originalname:
-        'new-thumbnail.png',
+      buffer: Buffer.from('fake-image'),
+      originalname: 'new-thumbnail.png',
     } as Express.Multer.File;
 
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
-        id: 1,
-        authorId: 3,
+    const root = {
+      id: 1,
+      authorId: 3,
 
-        status:
-          PostStatus.DRAFT,
+      status: PostStatus.DRAFT,
 
-        thumbnailUrl:
-          'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
-      });
+      languageId: 4,
 
-    mockHelper.getNextStatusOnEdit
-      .mockReturnValue(
-        PostStatus.DRAFT,
-      );
+      thumbnailUrl:
+        'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
+    };
 
-    mockCloudinaryService.uploadFile
-      .mockResolvedValue({
-        secure_url:
-          'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/1/thumbnail/new-thumbnail.png',
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 1,
+      root,
+      translations: [],
+      posts: [root],
+    });
 
-        public_id:
-          'nestjs_blog/posts/1/thumbnail/new-thumbnail',
-      });
+    mockCloudinaryService.uploadFile.mockResolvedValue({
+      secure_url:
+        'https://res.cloudinary.com/demo/image/upload/v456/nestjs_blog/posts/1/thumbnail/new-thumbnail.png',
 
-    mockPostsService.update
-      .mockRejectedValue(
-        new Error(
-          'Database update failed',
-        ),
-      );
+      public_id: 'nestjs_blog/posts/1/thumbnail/new-thumbnail',
+    });
+
+    mockPostsService.update.mockRejectedValue(
+      new Error('Database update failed'),
+    );
 
     await expect(
       service.update(
         3,
         1,
         {
-          title:
-            'Updated title',
+          title: 'Updated title',
         },
         thumbnailFile,
       ),
-    ).rejects.toThrow(
-      'Database update failed',
-    );
+    ).rejects.toThrow('Database update failed');
 
-    expect(
-      mockCloudinaryService.deleteFile,
-    ).toHaveBeenCalledWith(
+    expect(mockCloudinaryService.deleteFile).toHaveBeenCalledWith(
       'nestjs_blog/posts/1/thumbnail/new-thumbnail',
       'image',
     );
 
-    expect(
-      mockCloudinaryService.deleteFile,
-    ).not.toHaveBeenCalledWith(
+    expect(mockCloudinaryService.deleteFile).not.toHaveBeenCalledWith(
       'nestjs_blog/posts/1/thumbnail/old-thumbnail',
       'image',
     );
 
-    expect(
-      mockHelper.resetReviewOnEdit,
-    ).not.toHaveBeenCalled();
+    expect(mockHelper.resetReviewOnEdit).not.toHaveBeenCalled();
   });
 
   /**
@@ -2000,92 +1605,66 @@ it('should reset review metadata before uploading media when editing a published
    */
 
   it('should require a rejected post to be edited before submitting again', async () => {
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
-        id: 3,
-        authorId: 3,
-        status:
-          PostStatus.REJECT,
+    const root = {
+      id: 3,
+      authorId: 3,
+      status: PostStatus.REJECT,
 
-        rejectionReason:
-          'Nội dung chưa đạt yêu cầu.',
-      });
+      rejectionReason: 'Nội dung chưa đạt yêu cầu.',
+    };
 
-    await expect(
-      service.submitForReview(
-        3,
-        3,
-      ),
-    ).rejects.toThrow(
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 3,
+      root,
+      translations: [],
+      posts: [root],
+    });
+
+    await expect(service.submitForReview(3, 3)).rejects.toThrow(
       new BadRequestException(
         'Bài viết bị từ chối phải được chỉnh sửa trước khi gửi duyệt lại.',
       ),
     );
 
-    expect(
-      mockPrismaService.post.update,
-    ).not.toHaveBeenCalled();
+    expect(mockHelper.updateOwnedPostGroupStatus).not.toHaveBeenCalled();
   });
 
   it('should submit a draft post for review', async () => {
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
-        id: 3,
-        authorId: 3,
-        status:
-          PostStatus.DRAFT,
-      });
+    const root = {
+      id: 3,
+      authorId: 3,
+      status: PostStatus.DRAFT,
+    };
 
-    mockPrismaService.post.update
-      .mockResolvedValue({
-        id: 3,
-        status:
-          PostStatus.PENDING_REVIEW,
-      });
-
-    jest
-      .spyOn(service, 'findOne')
-      .mockResolvedValue(
-        new BlogownerPostEntity({
-          id: 3,
-          authorId: 3,
-
-          status:
-            PostStatus.PENDING_REVIEW,
-        }),
-      );
-
-    const result =
-      await service.submitForReview(
-        3,
-        3,
-      );
-
-    expect(
-      mockPrismaService.post.update,
-    ).toHaveBeenCalledWith({
-      where: {
-        id: 3,
-      },
-
-      data: {
-        status:
-          PostStatus.PENDING_REVIEW,
-
-        ...RESET_REVIEW_DATA,
-      },
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 3,
+      root,
+      translations: [],
+      posts: [root],
     });
 
-    expect(
-      service.findOne,
-    ).toHaveBeenCalledWith(
-      3,
-      3,
+    mockHelper.updateOwnedPostGroupStatus.mockResolvedValue(undefined);
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
+        id: 3,
+        authorId: 3,
+
+        status: PostStatus.PENDING_REVIEW,
+      }),
     );
 
-    expect(result.status).toBe(
+    const result = await service.submitForReview(3, 3);
+
+    expect(mockHelper.updateOwnedPostGroupStatus).toHaveBeenCalledWith(
+      3,
+      3,
       PostStatus.PENDING_REVIEW,
     );
+
+    expect(service.findOne).toHaveBeenCalledWith(3, 3);
+
+    expect(result.status).toBe(PostStatus.PENDING_REVIEW);
   });
 
   /**
@@ -2102,9 +1681,7 @@ it('should reset review metadata before uploading media when editing a published
       viewCount: 300,
     });
 
-    mockHelper.getNextStatusOnEdit.mockReturnValue(
-      PostStatus.PENDING_REVIEW,
-    );
+    mockHelper.getNextStatusOnEdit.mockReturnValue(PostStatus.PENDING_REVIEW);
 
     mockPrismaService.language.findFirst.mockResolvedValue({
       id: 27,
@@ -2136,10 +1713,7 @@ it('should reset review metadata before uploading media when editing a published
           },
         },
       ],
-      postTags: [
-        { tagId: 46 },
-        { tagId: 53 },
-      ],
+      postTags: [{ tagId: 46 }, { tagId: 53 }],
     });
 
     mockPrismaService.category.findMany.mockResolvedValue([
@@ -2167,9 +1741,7 @@ it('should reset review metadata before uploading media when editing a published
 
     const result = await service.syncFromRoot(3, 514);
 
-    expect(mockHelper.assertEditable).toHaveBeenCalledWith(
-      PostStatus.PUBLISH,
-    );
+    expect(mockHelper.assertEditable).toHaveBeenCalledWith(PostStatus.PUBLISH);
 
     expect(mockTranslationService.translatePost).toHaveBeenCalledWith({
       title: 'Kiến trúc Angular hiện đại',
@@ -2190,17 +1762,11 @@ it('should reset review metadata before uploading media when editing a published
         ...RESET_REVIEW_DATA,
         postCategories: {
           deleteMany: {},
-          create: [
-            { categoryId: 110 },
-            { categoryId: 115 },
-          ],
+          create: [{ categoryId: 110 }, { categoryId: 115 }],
         },
         postTags: {
           deleteMany: {},
-          create: [
-            { tagId: 46 },
-            { tagId: 53 },
-          ],
+          create: [{ tagId: 46 }, { tagId: 53 }],
         },
       },
     });
@@ -2302,7 +1868,6 @@ it('should reset review metadata before uploading media when editing a published
     expect(mockPrismaService.post.update).not.toHaveBeenCalled();
   });
 
-
   /**
    * SYNC ALL TRANSLATIONS FROM ROOT
    */
@@ -2399,8 +1964,7 @@ it('should reset review metadata before uploading media when editing a published
           id: 515,
           languageCode: 'fr',
           status: PostStatus.PENDING_REVIEW,
-          reason:
-            'Bản dịch đang chờ Moderator duyệt nên không được đồng bộ.',
+          reason: 'Bản dịch đang chờ Moderator duyệt nên không được đồng bộ.',
         },
       ],
       failed: [],
@@ -2473,14 +2037,11 @@ it('should reset review metadata before uploading media when editing a published
       status: PostStatus.DRAFT,
     });
 
-    await expect(
-      service.syncAllTranslations(3, 514),
-    ).rejects.toThrow(
+    await expect(service.syncAllTranslations(3, 514)).rejects.toThrow(
       'Chỉ bài gốc mới có thể đồng bộ tất cả bản dịch.',
     );
 
     expect(mockPrismaService.post.findMany).not.toHaveBeenCalled();
     expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
   });
-
 });

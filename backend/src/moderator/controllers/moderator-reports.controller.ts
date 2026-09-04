@@ -21,10 +21,7 @@ import {
   Roles,
   RolesGuard,
 } from '@app/core';
-import type {
-  AuthenticatedUser,
-  PaginationParams,
-} from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 
 import {
   GetModeratorReportsDto,
@@ -54,10 +51,7 @@ export class ModeratorReportsController {
     @Query() query: GetModeratorReportsDto,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.moderatorReportsService.findAll(
-      query,
-      pagination,
-    );
+    return this.moderatorReportsService.findAll(query, pagination);
   }
 
   /**
@@ -66,9 +60,7 @@ export class ModeratorReportsController {
    * GET /api/v1/moderator/reports/:reportId
    */
   @Get(':reportId')
-  findOne(
-    @Param('reportId', ParseIntPipe) reportId: number,
-  ) {
+  findOne(@Param('reportId', ParseIntPipe) reportId: number) {
     return this.moderatorReportsService.findOne(reportId);
   }
 
@@ -86,11 +78,7 @@ export class ModeratorReportsController {
     @Param('reportId', ParseIntPipe) reportId: number,
     @Body() dto: ResolveModeratorReportDto,
   ) {
-    return this.moderatorReportsService.resolve(
-      moderator.id,
-      reportId,
-      dto,
-    );
+    return this.moderatorReportsService.resolve(moderator.id, reportId, dto);
   }
 
   /**
@@ -107,10 +95,6 @@ export class ModeratorReportsController {
     @Param('reportId', ParseIntPipe) reportId: number,
     @Body() dto: RejectModeratorReportDto,
   ) {
-    return this.moderatorReportsService.reject(
-      moderator.id,
-      reportId,
-      dto,
-    );
+    return this.moderatorReportsService.reject(moderator.id, reportId, dto);
   }
 }

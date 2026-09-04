@@ -32,7 +32,7 @@ function normalizeIntegerArray(value: unknown): unknown {
 
   const values = Array.isArray(normalized) ? normalized : [normalized];
 
-  return values.map((item) => {
+  return values.map((item: unknown) => {
     if (typeof item === 'number') {
       return item;
     }
@@ -53,10 +53,10 @@ function normalizeIntegerArray(value: unknown): unknown {
  * - submitForReview=false: cả group là DRAFT.
  * - submitForReview=true: cả group là PENDING_REVIEW.
  */
-export class CreateBlogownerPostDto extends OmitType(
-  CreatePostDto,
-  ['status', 'parentPostId'] as const,
-) {
+export class CreateBlogownerPostDto extends OmitType(CreatePostDto, [
+  'status',
+  'parentPostId',
+] as const) {
   @IsOptional()
   @Transform(({ value }) => normalizeIntegerArray(value), {
     toClassOnly: true,
@@ -72,7 +72,7 @@ export class CreateBlogownerPostDto extends OmitType(
   translationLanguageIds?: number[];
 
   @IsOptional()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === 'true') return true;
     if (value === 'false') return false;
     return value;

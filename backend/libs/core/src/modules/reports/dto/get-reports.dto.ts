@@ -1,15 +1,6 @@
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  Min,
-} from 'class-validator';
-import {
-  ReportReason,
-  ReportStatus,
-  ReportTargetType,
-} from '@prisma/client';
+import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { ReportReason, ReportStatus, ReportTargetType } from '@prisma/client';
 
 export class GetReportsDto {
   @IsOptional()

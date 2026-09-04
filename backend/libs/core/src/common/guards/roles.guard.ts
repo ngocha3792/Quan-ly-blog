@@ -1,59 +1,37 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 
 import { Reflector } from '@nestjs/core';
 
 import { UserRole } from '@prisma/client';
 
-import {
-  ROLES_KEY,
-  RoleHierarchy,
-} from '../decorators/roles.decorator';
+import { ROLES_KEY, RoleHierarchy } from '../decorators/roles.decorator';
+import { AuthenticatedRequest } from '../interfaces';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-  ) {}
+  constructor(private readonly reflector: Reflector) {}
 
-  canActivate(
-    context: ExecutionContext,
-  ): boolean {
+  canActivate(context: ExecutionContext): boolean {
     /**
      * Lấy role yêu cầu từ @Roles(...)
      *
      * Ví dụ:
      * @Roles(UserRole.BLOG_OWNER)
      */
-    const requiredRoles =
-      this.reflector.getAllAndOverride<
-        UserRole[]
-      >(
-        ROLES_KEY,
-        [
-          context.getHandler(),
-          context.getClass(),
-        ],
-      );
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     /**
      * API không gắn @Roles()
      * → không kiểm tra role.
      */
-    if (
-      !requiredRoles ||
-      requiredRoles.length === 0
-    ) {
+    if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
-    const request =
-      context
-        .switchToHttp()
-        .getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const user = request.user;
 
@@ -61,11 +39,9 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    const userRole =
-      user.role as UserRole;
+    const userRole = user.role;
 
-    const userWeight =
-      RoleHierarchy[userRole] ?? 0;
+    const userWeight = RoleHierarchy[userRole] ?? 0;
 
     /**
      * Cho phép nếu role của user
@@ -80,18 +56,10 @@ export class RolesGuard implements CanActivate {
      * ADMIN      = 4  → PASS
      * NORMAL     = 1  → FAIL
      */
-    return requiredRoles.some(
-      (requiredRole) => {
-        const requiredWeight =
-          RoleHierarchy[
-            requiredRole
-          ] ?? 0;
+    return requiredRoles.some((requiredRole) => {
+      const requiredWeight = RoleHierarchy[requiredRole] ?? 0;
 
-        return (
-          userWeight >=
-          requiredWeight
-        );
-      },
-    );
+      return userWeight >= requiredWeight;
+    });
   }
 }

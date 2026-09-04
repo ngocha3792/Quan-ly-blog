@@ -33,7 +33,7 @@ export class CategoryGroupTranslationDto {
   })
   languageId!: number;
 
-  @Transform(({ value }) =>
+  @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString({
@@ -68,10 +68,8 @@ export class CategoryGroupTranslationDto {
  * }
  */
 export class CreateCategoryGroupTranslationsDto {
-  @Transform(({ value }) =>
-    typeof value === 'string'
-      ? value.trim().toLowerCase()
-      : value,
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   @IsString({
     message: 'Mã nhóm danh mục phải là chuỗi.',
@@ -80,8 +78,7 @@ export class CreateCategoryGroupTranslationsDto {
     message: 'Mã nhóm danh mục không được để trống.',
   })
   @MaxLength(50, {
-    message:
-      'Mã nhóm danh mục không được vượt quá 50 ký tự.',
+    message: 'Mã nhóm danh mục không được vượt quá 50 ký tự.',
   })
   @Matches(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, {
     message:
@@ -96,8 +93,7 @@ export class CreateCategoryGroupTranslationsDto {
     message: 'Phải có ít nhất một bản dịch danh mục.',
   })
   @ArrayUnique(
-    (translation: CategoryGroupTranslationDto) =>
-      translation.languageId,
+    (translation: CategoryGroupTranslationDto) => translation.languageId,
     {
       message:
         'Mỗi ngôn ngữ chỉ được xuất hiện một lần trong danh sách bản dịch.',

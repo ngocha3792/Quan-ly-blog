@@ -49,10 +49,18 @@ describe('UserPostsController', () => {
   describe('getBookmarkedPosts', () => {
     it('should call getBookmarkedPosts with current user ID', async () => {
       const mockResult = { items: [], meta: {} as any };
-      postInteractionService.getBookmarkedPosts.mockResolvedValueOnce(mockResult);
+      postInteractionService.getBookmarkedPosts.mockResolvedValueOnce(
+        mockResult,
+      );
 
-      const result = await controller.getBookmarkedPosts({ id: 1 } as any, {} as any);
-      expect(postInteractionService.getBookmarkedPosts).toHaveBeenCalledWith(1, {});
+      const result = await controller.getBookmarkedPosts(
+        { id: 1 } as any,
+        {} as any,
+      );
+      expect(postInteractionService.getBookmarkedPosts).toHaveBeenCalledWith(
+        1,
+        {},
+      );
       expect(result).toBe(mockResult);
     });
   });
@@ -62,7 +70,10 @@ describe('UserPostsController', () => {
       const mockResult = { items: [], meta: {} as any };
       postInteractionService.getLikedPosts.mockResolvedValueOnce(mockResult);
 
-      const result = await controller.getLikedPosts({ id: 1 } as any, {} as any);
+      const result = await controller.getLikedPosts(
+        { id: 1 } as any,
+        {} as any,
+      );
       expect(postInteractionService.getLikedPosts).toHaveBeenCalledWith(1, {});
       expect(result).toBe(mockResult);
     });

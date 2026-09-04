@@ -1,14 +1,6 @@
-import {
-  Exclude,
-  Expose,
-  Type,
-} from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
 
-import {
-  CategoryEntity,
-  CategoryGroupEntity,
-  LanguageEntity,
-} from '@app/core';
+import { CategoryEntity, CategoryGroupEntity, LanguageEntity } from '@app/core';
 
 /**
  * Thông tin ngôn ngữ đi kèm bản dịch category.
@@ -19,9 +11,7 @@ class ModeratorCategoryLanguageEntity extends LanguageEntity {
   @Exclude()
   declare deletedAt: Date | null;
 
-  constructor(
-    partial: Partial<ModeratorCategoryLanguageEntity>,
-  ) {
+  constructor(partial: Partial<ModeratorCategoryLanguageEntity>) {
     super(partial);
     Object.assign(this, partial);
   }
@@ -58,9 +48,7 @@ class ModeratorCategoryTranslationEntity extends CategoryEntity {
   @Type(() => ModeratorCategoryLanguageEntity)
   declare language?: ModeratorCategoryLanguageEntity;
 
-  constructor(
-    partial: Partial<ModeratorCategoryTranslationEntity>,
-  ) {
+  constructor(partial: Partial<ModeratorCategoryTranslationEntity>) {
     super(partial);
     Object.assign(this, partial);
   }
@@ -102,22 +90,17 @@ export class ModeratorCategoryGroupEntity extends CategoryGroupEntity {
    */
   @Expose()
   @Type(() => ModeratorCategoryTranslationEntity)
-  get translations():
-    | ModeratorCategoryTranslationEntity[]
-    | undefined {
+  get translations(): ModeratorCategoryTranslationEntity[] | undefined {
     if (!this.categories) {
       return undefined;
     }
 
     return this.categories.map(
-      (category) =>
-        new ModeratorCategoryTranslationEntity(category),
+      (category) => new ModeratorCategoryTranslationEntity(category),
     );
   }
 
-  constructor(
-    partial: Partial<ModeratorCategoryGroupEntity>,
-  ) {
+  constructor(partial: Partial<ModeratorCategoryGroupEntity>) {
     super(partial);
     Object.assign(this, partial);
   }

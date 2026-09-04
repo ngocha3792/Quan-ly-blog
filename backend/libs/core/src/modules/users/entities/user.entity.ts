@@ -1,16 +1,8 @@
-import {
-  User,
-  UserRole,
-  UserStatus,
-} from '@prisma/client';
+import { User, UserRole, UserStatus } from '@prisma/client';
 
-import {
-  Exclude,
-} from 'class-transformer';
+import { Exclude } from 'class-transformer';
 
-export class UserEntity
-  implements User
-{
+export class UserEntity implements User {
   id: number;
   username: string;
   email: string;
@@ -40,9 +32,7 @@ export class UserEntity
   updatedAt: Date;
   deletedAt: Date | null;
 
-  constructor(
-    partial: Partial<UserEntity>,
-  ) {
+  constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
 }

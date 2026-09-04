@@ -12,7 +12,6 @@ export class GetTagsDto {
   @IsString()
   lang?: string;
 
-
   @IsOptional()
   @Type(() => Number)
   page?: number;

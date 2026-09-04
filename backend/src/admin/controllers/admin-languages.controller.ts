@@ -20,9 +20,7 @@ import { CreateAdminLanguageDto, UpdateAdminLanguageDto } from '../dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class AdminLanguagesController {
-  constructor(
-    private readonly adminLanguagesService: AdminLanguagesService,
-  ) { }
+  constructor(private readonly adminLanguagesService: AdminLanguagesService) {}
 
   @Roles(UserRole.SUPER_ADMIN)
   @Get()

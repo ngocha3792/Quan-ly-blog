@@ -22,7 +22,7 @@ describe('UserPostEntity', () => {
       ],
     };
 
-    const entity = new UserPostEntity(rawPost as any);
+    const entity = new UserPostEntity(rawPost);
 
     expect(entity.id).toBe(1);
     expect(entity.title).toBe('Test Post');

@@ -48,10 +48,7 @@ export class ModeratorCategoriesController {
     @Query() query: GetCategoryGroupsDto,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.moderatorCategoriesService.findAll(
-      query,
-      pagination,
-    );
+    return this.moderatorCategoriesService.findAll(query, pagination);
   }
 
   /**
@@ -60,9 +57,7 @@ export class ModeratorCategoriesController {
    * GET /api/v1/moderator/category-groups/:groupId
    */
   @Get(':groupId')
-  findOne(
-    @Param('groupId', ParseIntPipe) groupId: number,
-  ) {
+  findOne(@Param('groupId', ParseIntPipe) groupId: number) {
     return this.moderatorCategoriesService.findOne(groupId);
   }
 
@@ -72,9 +67,7 @@ export class ModeratorCategoriesController {
    * POST /api/v1/moderator/category-groups
    */
   @Post()
-  create(
-    @Body() dto: CreateCategoryGroupTranslationsDto,
-  ) {
+  create(@Body() dto: CreateCategoryGroupTranslationsDto) {
     return this.moderatorCategoriesService.create(dto);
   }
 
@@ -88,10 +81,7 @@ export class ModeratorCategoriesController {
     @Param('groupId', ParseIntPipe) groupId: number,
     @Body() dto: UpdateCategoryGroupTranslationsDto,
   ) {
-    return this.moderatorCategoriesService.update(
-      groupId,
-      dto,
-    );
+    return this.moderatorCategoriesService.update(groupId, dto);
   }
 
   /**
@@ -100,9 +90,7 @@ export class ModeratorCategoriesController {
    * DELETE /api/v1/moderator/category-groups/:groupId
    */
   @Delete(':groupId')
-  remove(
-    @Param('groupId', ParseIntPipe) groupId: number,
-  ) {
+  remove(@Param('groupId', ParseIntPipe) groupId: number) {
     return this.moderatorCategoriesService.remove(groupId);
   }
 }

@@ -80,8 +80,19 @@ export class CleanupService {
       },
     };
 
+    /**
+     * Mọi Prisma delegate có deletedAt đều cùng shape deleteMany() này —
+     * khai một interface tối thiểu thay vì "as any" để vẫn type-check
+     * được lời gọi chung cho nhiều model khác nhau.
+     */
+    interface SoftDeletableDelegate {
+      deleteMany(args: {
+        where: { deletedAt: { lte: Date } };
+      }): Promise<{ count: number }>;
+    }
+
     // Danh sách các bảng có deletedAt
-    const tables = [
+    const tables: { name: string; delegate: SoftDeletableDelegate }[] = [
       { name: 'User', delegate: this.prisma.user },
       { name: 'Language', delegate: this.prisma.language },
       { name: 'Category', delegate: this.prisma.category },
@@ -91,7 +102,7 @@ export class CleanupService {
     ];
 
     for (const table of tables) {
-      const deleted = await (table.delegate as any).deleteMany({
+      const deleted = await table.delegate.deleteMany({
         where: whereClause,
       });
       if (deleted.count > 0) {

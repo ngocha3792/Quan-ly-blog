@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import { UserNotFoundException, LanguagesService } from '@app/core';
+import { LanguagesService } from '@app/core';
 import { UsersPublicService } from './users-public.service';
 import { PostsPublicService } from './posts-public.service';
 import { UserRole, UserStatus } from '@prisma/client';
@@ -82,12 +82,12 @@ describe('UsersPublicService', () => {
           following: {
             status: UserStatus.ACTIVE,
             role: {
-            in: [
-              UserRole.BLOG_OWNER,
-              UserRole.CONTENT_MODERATOR,
-              UserRole.SUPER_ADMIN,
-            ],
-          },
+              in: [
+                UserRole.BLOG_OWNER,
+                UserRole.CONTENT_MODERATOR,
+                UserRole.SUPER_ADMIN,
+              ],
+            },
             deletedAt: null,
           },
         },

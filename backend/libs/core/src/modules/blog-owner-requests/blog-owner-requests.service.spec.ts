@@ -180,7 +180,7 @@ describe('BlogOwnerRequestsService', () => {
 
       const result = await service.update(1, reviewerId, {
         status: BlogOwnerRequestStatus.REJECTED,
-      } as any);
+      });
 
       expect(prisma.blogOwnerRequest.update).toHaveBeenCalledWith({
         where: { id: 1 },

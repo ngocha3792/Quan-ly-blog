@@ -172,7 +172,7 @@ describe('CategoriesService', () => {
         categoryGroupId: 1,
       });
 
-      const result = await service.update(1, { name: 'New' } as any);
+      const result = await service.update(1, { name: 'New' });
 
       expect(prisma.category.update).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -195,7 +195,7 @@ describe('CategoriesService', () => {
         categoryGroupId: 2,
       });
 
-      const result = await service.update(1, { categoryGroupId: 2 } as any);
+      const result = await service.update(1, { categoryGroupId: 2 });
 
       expect(prisma.category.update).toHaveBeenCalledWith({
         where: { id: 1 },

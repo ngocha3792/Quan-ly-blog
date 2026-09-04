@@ -35,9 +35,7 @@ import {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class AdminUsersController {
-  constructor(
-    private readonly adminUsersService: AdminUsersService,
-  ) {}
+  constructor(private readonly adminUsersService: AdminUsersService) {}
 
   @Roles(UserRole.SUPER_ADMIN)
   @Get()

@@ -135,73 +135,65 @@ describe('ModeratorApiModule', () => {
   });
 
   it('should resolve ModeratorPostsController', () => {
-    const controller =
-      testingModule!.get<ModeratorPostsController>(
-        ModeratorPostsController,
-      );
+    const controller = testingModule!.get<ModeratorPostsController>(
+      ModeratorPostsController,
+    );
 
     expect(controller).toBeDefined();
   });
 
   it('should resolve ModeratorPostsService', () => {
-    const service =
-      testingModule!.get<ModeratorPostsService>(
-        ModeratorPostsService,
-      );
+    const service = testingModule!.get<ModeratorPostsService>(
+      ModeratorPostsService,
+    );
 
     expect(service).toBeDefined();
   });
 
   it('should resolve ModeratorReportsController', () => {
-    const controller =
-      testingModule!.get<ModeratorReportsController>(
-        ModeratorReportsController,
-      );
+    const controller = testingModule!.get<ModeratorReportsController>(
+      ModeratorReportsController,
+    );
 
     expect(controller).toBeDefined();
   });
 
   it('should resolve ModeratorReportsService', () => {
-    const service =
-      testingModule!.get<ModeratorReportsService>(
-        ModeratorReportsService,
-      );
+    const service = testingModule!.get<ModeratorReportsService>(
+      ModeratorReportsService,
+    );
 
     expect(service).toBeDefined();
   });
 
   it('should resolve ModeratorCategoriesController', () => {
-    const controller =
-      testingModule!.get<ModeratorCategoriesController>(
-        ModeratorCategoriesController,
-      );
+    const controller = testingModule!.get<ModeratorCategoriesController>(
+      ModeratorCategoriesController,
+    );
 
     expect(controller).toBeDefined();
   });
 
   it('should resolve ModeratorCategoriesService', () => {
-    const service =
-      testingModule!.get<ModeratorCategoriesService>(
-        ModeratorCategoriesService,
-      );
+    const service = testingModule!.get<ModeratorCategoriesService>(
+      ModeratorCategoriesService,
+    );
 
     expect(service).toBeDefined();
   });
   it('should resolve ModeratorDashboardController', () => {
-  const controller =
-    testingModule!.get<ModeratorDashboardController>(
+    const controller = testingModule!.get<ModeratorDashboardController>(
       ModeratorDashboardController,
     );
 
-  expect(controller).toBeDefined();
-});
+    expect(controller).toBeDefined();
+  });
 
-it('should resolve ModeratorDashboardService', () => {
-  const service =
-    testingModule!.get<ModeratorDashboardService>(
+  it('should resolve ModeratorDashboardService', () => {
+    const service = testingModule!.get<ModeratorDashboardService>(
       ModeratorDashboardService,
     );
 
-  expect(service).toBeDefined();
-});
+    expect(service).toBeDefined();
+  });
 });

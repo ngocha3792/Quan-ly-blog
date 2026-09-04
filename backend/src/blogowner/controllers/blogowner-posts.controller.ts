@@ -33,7 +33,6 @@ import {
   AutoTranslateBlogownerPostDto,
   CreateBlogownerPostDto,
   GetBlogownerPostsDto,
-  TranslateBlogownerPostDto,
   UpdateBlogownerPostDto,
 } from '../dto';
 
@@ -44,7 +43,7 @@ import { BlogownerPostsService } from '../services/blogowner-posts.service';
 @Roles(UserRole.BLOG_OWNER)
 @UseInterceptors(ClassSerializerInterceptor)
 export class BlogownerPostsController {
-  constructor(private readonly blogownerPostsService: BlogownerPostsService) { }
+  constructor(private readonly blogownerPostsService: BlogownerPostsService) {}
 
   /**
    * Lấy toàn bộ bài viết của Blog Owner đang đăng nhập.
@@ -58,11 +57,7 @@ export class BlogownerPostsController {
     @Query() query: GetBlogownerPostsDto,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.blogownerPostsService.findAll(
-      user.id,
-      query,
-      pagination,
-    );
+    return this.blogownerPostsService.findAll(user.id, query, pagination);
   }
 
   /**
@@ -79,19 +74,19 @@ export class BlogownerPostsController {
   }
 
   /**
- * Tạo bài viết.
- *
- * POST /api/v1/blog-owner/posts
- * authorId = user đang đăng nhập
- * 
- * - submitForReview = false / undefined
- *   -> DRAFT
- *
- * - submitForReview = true
- *   -> PENDING_REVIEW sau khi tạo/upload hoàn tất
- *
- * Blog Owner không được PUBLISH trực tiếp.
- */
+   * Tạo bài viết.
+   *
+   * POST /api/v1/blog-owner/posts
+   * authorId = user đang đăng nhập
+   *
+   * - submitForReview = false / undefined
+   *   -> DRAFT
+   *
+   * - submitForReview = true
+   *   -> PENDING_REVIEW sau khi tạo/upload hoàn tất
+   *
+   * Blog Owner không được PUBLISH trực tiếp.
+   */
 
   @Post()
   @UseInterceptors(
@@ -201,31 +196,26 @@ export class BlogownerPostsController {
     return this.blogownerPostsService.submitForReview(user.id, postId);
   }
 
-
-
-
-
   /**
- * Dịch tự động title + content bằng Google.
- *
- * Chỉ trả preview, chưa lưu translation.
- *
- * POST /api/v1/blog-owner/posts/:id/translate-preview
- */
-@Post(':id/translate-preview')
-@HttpCode(HttpStatus.OK)
-translatePreview(
-  @CurrentUser() user: AuthenticatedUser,
-  @Param('id', ParseIntPipe)
-  sourcePostId: number,
-  @Body()
-  dto: AutoTranslateBlogownerPostDto,
-) {
-  return this.blogownerPostsService.translatePreview(
-    user.id,
-    sourcePostId,
-    dto,
-  );
-}
-
+   * Dịch tự động title + content bằng Google.
+   *
+   * Chỉ trả preview, chưa lưu translation.
+   *
+   * POST /api/v1/blog-owner/posts/:id/translate-preview
+   */
+  @Post(':id/translate-preview')
+  @HttpCode(HttpStatus.OK)
+  translatePreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseIntPipe)
+    sourcePostId: number,
+    @Body()
+    dto: AutoTranslateBlogownerPostDto,
+  ) {
+    return this.blogownerPostsService.translatePreview(
+      user.id,
+      sourcePostId,
+      dto,
+    );
+  }
 }

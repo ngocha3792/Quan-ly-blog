@@ -1,0 +1,137 @@
+name: blog-shared
+
+# Layer "sống lâu dài" của production — nginx, postgres, certbot,
+# libretranslate, frontend. KHÔNG chứa "api" (xem compose.slot.yml, chạy
+# 2 lần với -p blog-api-blue / -p blog-api-green cho blue-green deploy).
+#
+# Bootstrap lần đầu trên VPS — xem DEPLOYMENT.md mục "Bootstrap blue-green
+# lần đầu" để biết thứ tự đầy đủ (tạo releases/, symlink upstream ban đầu,
+# docker login ghcr.io...). Tóm tắt lệnh chạy file này:
+#   docker compose --env-file .env.production -f compose.shared.yml pull
+#   docker compose --env-file .env.production -f compose.shared.yml up -d
+#
+# api/migrate không nằm ở đây — xem compose.slot.yml + scripts/deploy-blue-green.sh.
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: blog-nginx
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx-blogy:/etc/nginx/blogy:ro
+      - ./docker/certs:/etc/nginx/certs:ro
+      - certbot_webroot:/var/www/certbot:ro
+    networks:
+      - edge
+    depends_on:
+      frontend:
+        condition: service_healthy
+    # Không depends_on "api" — api sống ở compose project khác (blue/green),
+    # không do compose.shared.yml quản lý vòng đời. scripts/deploy-blue-green.sh
+    # tự đảm bảo slot mới healthy trước khi đổi symlink + reload nginx.
+
+  # One-shot lấy/renew certificate Let's Encrypt (webroot mode — Nginx phục
+  # vụ challenge qua volume certbot_webroot dùng chung). Xem DEPLOYMENT.md
+  # mục "HTTPS" cho lệnh cấp lần đầu/renew.
+  certbot:
+    image: certbot/certbot:latest
+    container_name: blog-certbot
+    volumes:
+      - ./docker/certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: blog-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - blog_postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Không publish 5432 ra ngoài Internet, không join network "edge" —
+    # nginx (network "edge") không có đường trực tiếp tới Postgres.
+
+  # Angular SSR (blog-frontend). 1 instance duy nhất — không blue-green vì
+  # không có migration/state cần bảo vệ kiểu app; giá trị của blue-green ở
+  # đây thấp hơn nhiều so với API.
+  frontend:
+    image: ${FRONTEND_IMAGE:-blog-frontend-runtime:latest}
+    container_name: blog-frontend
+    networks:
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:4000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # Dịch tự động (LibreTranslate) — xem docker/libretranslate/README.md và
+  # DEPLOYMENT.md mục "Dịch tự động" cho lý do build riêng + số đo RAM.
+  libretranslate:
+    image: ${TRANSLATE_IMAGE:-libretranslate-cpu-slim:4lang}
+    container_name: blog-libretranslate
+    restart: unless-stopped
+    environment:
+      LT_DISABLE_WEB_UI: 'true'
+      LT_UPDATE_MODELS: 'false'
+      LT_THREADS: '1'
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: ${TRANSLATE_MEM_LIMIT:-1300M}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python3',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:5000/languages', timeout=5)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+networks:
+  # Nginx <-> frontend, và (từ compose.slot.yml) nginx <-> api-blue/api-green.
+  edge:
+    name: blog-edge
+  # Postgres, LibreTranslate, và (từ compose.slot.yml) api-blue/api-green +
+  # migrate. internal: true — không container nào ở đây gọi được ra
+  # Internet hay bị gọi trực tiếp từ nginx.
+  backend:
+    name: blog-backend-net
+    internal: true
+
+volumes:
+  blog_postgres_data:
+  certbot_webroot:

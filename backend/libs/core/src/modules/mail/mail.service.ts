@@ -9,7 +9,7 @@ export class MailService {
   constructor(
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   /**
    * Gửi email khôi phục mật khẩu cho người dùng.
@@ -52,11 +52,8 @@ export class MailService {
       this.logger.log(`Đã gửi email khôi phục mật khẩu tới: ${email}`);
       return true;
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(
-        `Lỗi khi gửi email khôi phục tới ${email}: ${message}`,
-      );
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Lỗi khi gửi email khôi phục tới ${email}: ${message}`);
       // Log ra link reset trong dev/test mode để dễ dàng debug khi chưa cấu hình SMTP thực tế
       this.logger.debug(
         `[DEBUG OPTION] Reset Link: ${resetLink} (Token: ${token})`,

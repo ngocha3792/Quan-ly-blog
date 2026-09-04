@@ -72,9 +72,9 @@ export class AdminUserPostEntity extends PostEntity {
   @Expose()
   override get tags():
     | Array<{
-      id: number;
-      name: string;
-    }>
+        id: number;
+        name: string;
+      }>
     | undefined {
     return super.tags;
   }

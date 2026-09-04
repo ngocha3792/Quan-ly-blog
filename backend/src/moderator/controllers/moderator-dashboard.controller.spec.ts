@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import {
-  JwtAuthGuard,
-  RolesGuard,
-} from '@app/core';
+import { JwtAuthGuard, RolesGuard } from '@app/core';
 
 import { ModeratorDashboardService } from '../services/moderator-dashboard.service';
 import { ModeratorDashboardController } from './moderator-dashboard.controller';
@@ -42,10 +39,9 @@ describe('ModeratorDashboardController', () => {
 
       .compile();
 
-    controller =
-      module.get<ModeratorDashboardController>(
-        ModeratorDashboardController,
-      );
+    controller = module.get<ModeratorDashboardController>(
+      ModeratorDashboardController,
+    );
   });
 
   it('should be defined', () => {
@@ -83,14 +79,13 @@ describe('ModeratorDashboardController', () => {
       last7Days: [],
     };
 
-    mockModeratorDashboardService.getDashboard
-      .mockResolvedValueOnce(dashboardData);
+    mockModeratorDashboardService.getDashboard.mockResolvedValueOnce(
+      dashboardData,
+    );
 
     const result = await controller.getDashboard();
 
-    expect(
-      mockModeratorDashboardService.getDashboard,
-    ).toHaveBeenCalledTimes(1);
+    expect(mockModeratorDashboardService.getDashboard).toHaveBeenCalledTimes(1);
 
     expect(result).toEqual(dashboardData);
   });

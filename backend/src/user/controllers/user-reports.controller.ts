@@ -10,12 +10,7 @@ import {
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
-import {
-  CurrentUser,
-  JwtAuthGuard,
-  Roles,
-  RolesGuard,
-} from '@app/core';
+import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from '@app/core';
 import type { AuthenticatedUser } from '@app/core';
 
 import { CreateUserReportDto } from '../dto';
@@ -27,9 +22,7 @@ import { UserReportEntity } from '../entities';
 @Roles(UserRole.NORMAL, UserRole.BLOG_OWNER)
 @UseInterceptors(ClassSerializerInterceptor)
 export class UserReportsController {
-  constructor(
-    private readonly userReportsService: UserReportsService,
-  ) {}
+  constructor(private readonly userReportsService: UserReportsService) {}
 
   /**
    * POST /api/v1/user/posts/:postId/reports
@@ -64,4 +57,4 @@ export class UserReportsController {
     );
     return new UserReportEntity(report);
   }
-}
+}

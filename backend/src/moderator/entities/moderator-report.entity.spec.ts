@@ -11,9 +11,7 @@ import { ModeratorReportEntity } from './moderator-report.entity';
 
 describe('ModeratorReportEntity', () => {
   it('should expose report context and hide reviewedById', () => {
-    const date = new Date(
-      '2026-07-28T00:00:00.000Z',
-    );
+    const date = new Date('2026-07-28T00:00:00.000Z');
 
     const entity = new ModeratorReportEntity({
       id: 1,
@@ -72,12 +70,8 @@ describe('ModeratorReportEntity', () => {
     });
 
     expect(result.post.id).toBe(6);
-    expect(result.post.title).toBe(
-      'Bài viết bị báo cáo',
-    );
-    expect(result.post.author.username).toBe(
-      'pro_blogger',
-    );
+    expect(result.post.title).toBe('Bài viết bị báo cáo');
+    expect(result.post.author.username).toBe('pro_blogger');
 
     expect(result.comment).toBeNull();
     expect(result.reviewedBy).toBeNull();
@@ -154,7 +148,7 @@ describe('ModeratorReportEntity', () => {
         },
         replies: [],
       },
-    } as any);
+    });
 
     const result = instanceToPlain(entity);
 

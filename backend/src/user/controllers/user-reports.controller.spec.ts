@@ -1,14 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  ReportReason,
-  UserRole,
-} from '@prisma/client';
+import { ReportReason, UserRole } from '@prisma/client';
 
-import {
-  JwtAuthGuard,
-  RolesGuard,
-  AuthenticatedUser,
-} from '@app/core';
+import { JwtAuthGuard, RolesGuard, AuthenticatedUser } from '@app/core';
 
 import { UserReportsService } from '../services/user-reports.service';
 import { UserReportsController } from './user-reports.controller';
@@ -56,9 +49,7 @@ describe('UserReportsController', () => {
       })
       .compile();
 
-    controller = module.get<UserReportsController>(
-      UserReportsController,
-    );
+    controller = module.get<UserReportsController>(UserReportsController);
   });
 
   it('should be defined', () => {
@@ -71,18 +62,12 @@ describe('UserReportsController', () => {
       postId: 1,
     });
 
-    const result = await controller.reportPost(
-      currentUser,
-      1,
-      {
-        reason: ReportReason.SPAM,
-        description: 'Bài viết có dấu hiệu spam.',
-      },
-    );
+    const result = await controller.reportPost(currentUser, 1, {
+      reason: ReportReason.SPAM,
+      description: 'Bài viết có dấu hiệu spam.',
+    });
 
-    expect(
-      userReportsService.reportPost,
-    ).toHaveBeenCalledWith(4, 1, {
+    expect(userReportsService.reportPost).toHaveBeenCalledWith(4, 1, {
       reason: ReportReason.SPAM,
       description: 'Bài viết có dấu hiệu spam.',
     });
@@ -96,18 +81,12 @@ describe('UserReportsController', () => {
       commentId: 2,
     });
 
-    const result = await controller.reportComment(
-      currentUser,
-      2,
-      {
-        reason: ReportReason.HARASSMENT,
-        description: 'Bình luận công kích.',
-      },
-    );
+    const result = await controller.reportComment(currentUser, 2, {
+      reason: ReportReason.HARASSMENT,
+      description: 'Bình luận công kích.',
+    });
 
-    expect(
-      userReportsService.reportComment,
-    ).toHaveBeenCalledWith(4, 2, {
+    expect(userReportsService.reportComment).toHaveBeenCalledWith(4, 2, {
       reason: ReportReason.HARASSMENT,
       description: 'Bình luận công kích.',
     });

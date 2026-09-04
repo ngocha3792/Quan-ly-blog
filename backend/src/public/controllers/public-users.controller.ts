@@ -10,9 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 
-import {
-  Throttle,
-} from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 
 import {
   AuthsService,
@@ -24,14 +22,9 @@ import {
 } from '@app/core';
 
 @Controller('/')
-@UseInterceptors(
-  ClassSerializerInterceptor,
-)
+@UseInterceptors(ClassSerializerInterceptor)
 export class PublicUsersController {
-  constructor(
-    private readonly authsService:
-      AuthsService,
-  ) {}
+  constructor(private readonly authsService: AuthsService) {}
 
   @Public()
   @Post('register')
@@ -45,9 +38,7 @@ export class PublicUsersController {
     @Body()
     registerDto: RegisterDto,
   ) {
-    return this.authsService.register(
-      registerDto,
-    );
+    return this.authsService.register(registerDto);
   }
 
   @Public()
@@ -69,11 +60,7 @@ export class PublicUsersController {
     @Headers('user-agent')
     userAgent: string,
   ) {
-    return this.authsService.login(
-      loginDto,
-      ip,
-      userAgent,
-    );
+    return this.authsService.login(loginDto, ip, userAgent);
   }
 
   @Public()
@@ -87,13 +74,9 @@ export class PublicUsersController {
   })
   forgotPassword(
     @Body()
-    forgotPasswordDto:
-      ForgotPasswordDto,
+    forgotPasswordDto: ForgotPasswordDto,
   ) {
-    return this.authsService
-      .forgotPassword(
-        forgotPasswordDto,
-      );
+    return this.authsService.forgotPassword(forgotPasswordDto);
   }
 
   @Public()
@@ -107,12 +90,8 @@ export class PublicUsersController {
   })
   resetPassword(
     @Body()
-    resetPasswordDto:
-      ResetPasswordDto,
+    resetPasswordDto: ResetPasswordDto,
   ) {
-    return this.authsService
-      .resetPassword(
-        resetPasswordDto,
-      );
+    return this.authsService.resetPassword(resetPasswordDto);
   }
 }

@@ -3,10 +3,7 @@ import { Exclude, Type } from 'class-transformer';
 
 import { UserEntity } from '../../users/entities/user.entity';
 
-type CommentUserSummary = Pick<
-  User,
-  'id' | 'username' | 'avatarUrl'
->;
+type CommentUserSummary = Pick<User, 'id' | 'username' | 'avatarUrl'>;
 
 export class CommentEntity implements Comment {
   id!: number;
@@ -41,9 +38,7 @@ export class CommentEntity implements Comment {
 
     if (partial.replies) {
       this.replies = partial.replies.map((reply) =>
-        reply instanceof CommentEntity
-          ? reply
-          : new CommentEntity(reply),
+        reply instanceof CommentEntity ? reply : new CommentEntity(reply),
       );
     }
   }

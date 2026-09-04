@@ -43,8 +43,12 @@ describe('UserAuthController', () => {
     it('should call authsService.refreshToken', async () => {
       authsService.refreshToken.mockResolvedValueOnce({ accessToken: 'token' });
       const dto = { refreshToken: 'ref' };
-      const res = await controller.refreshToken(dto as any, '127.0.0.1', 'agent');
-      expect(authsService.refreshToken).toHaveBeenCalledWith(dto, '127.0.0.1', 'agent');
+      const res = await controller.refreshToken(dto, '127.0.0.1', 'agent');
+      expect(authsService.refreshToken).toHaveBeenCalledWith(
+        dto,
+        '127.0.0.1',
+        'agent',
+      );
       expect(res).toEqual({ accessToken: 'token' });
     });
   });
@@ -53,7 +57,7 @@ describe('UserAuthController', () => {
     it('should call authsService.logout', async () => {
       authsService.logout.mockResolvedValueOnce({ success: true });
       const dto = { refreshToken: 'ref' };
-      const res = await controller.logout(dto as any);
+      const res = await controller.logout(dto);
       expect(authsService.logout).toHaveBeenCalledWith(dto);
       expect(res).toEqual({ success: true });
     });

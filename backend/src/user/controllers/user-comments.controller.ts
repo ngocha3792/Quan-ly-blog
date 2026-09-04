@@ -49,11 +49,7 @@ export class UserCommentsController {
     @Param('postId', ParseIntPipe) postId: number,
     @Body() dto: CreateUserCommentDto,
   ) {
-    return this.userCommentsService.create(
-      user.id,
-      postId,
-      dto,
-    );
+    return this.userCommentsService.create(user.id, postId, dto);
   }
 
   /**
@@ -67,11 +63,7 @@ export class UserCommentsController {
     @Param('commentId', ParseIntPipe) commentId: number,
     @Body() dto: UpdateCommentDto,
   ) {
-    return this.userCommentsService.update(
-      commentId,
-      user.id,
-      dto,
-    );
+    return this.userCommentsService.update(commentId, user.id, dto);
   }
 
   /**
@@ -84,9 +76,6 @@ export class UserCommentsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('commentId', ParseIntPipe) commentId: number,
   ) {
-    return this.userCommentsService.remove(
-      commentId,
-      user.id,
-    );
+    return this.userCommentsService.remove(commentId, user.id);
   }
 }

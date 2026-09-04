@@ -7,22 +7,19 @@ import { CreateCategoryGroupTranslationsDto } from './create-category-group-tran
 
 describe('CreateCategoryGroupTranslationsDto', () => {
   it('should accept a valid multilingual category group', async () => {
-    const dto = plainToInstance(
-      CreateCategoryGroupTranslationsDto,
-      {
-        code: 'programming',
-        translations: [
-          {
-            languageId: 4,
-            name: 'Lập trình',
-          },
-          {
-            languageId: 1,
-            name: 'Programming',
-          },
-        ],
-      },
-    );
+    const dto = plainToInstance(CreateCategoryGroupTranslationsDto, {
+      code: 'programming',
+      translations: [
+        {
+          languageId: 4,
+          name: 'Lập trình',
+        },
+        {
+          languageId: 1,
+          name: 'Programming',
+        },
+      ],
+    });
 
     const errors = await validate(dto);
 
@@ -30,18 +27,15 @@ describe('CreateCategoryGroupTranslationsDto', () => {
   });
 
   it('should normalize category group code to lowercase', async () => {
-    const dto = plainToInstance(
-      CreateCategoryGroupTranslationsDto,
-      {
-        code: 'Programming',
-        translations: [
-          {
-            languageId: 4,
-            name: 'Lập trình',
-          },
-        ],
-      },
-    );
+    const dto = plainToInstance(CreateCategoryGroupTranslationsDto, {
+      code: 'Programming',
+      translations: [
+        {
+          languageId: 4,
+          name: 'Lập trình',
+        },
+      ],
+    });
 
     const errors = await validate(dto);
 
@@ -50,22 +44,19 @@ describe('CreateCategoryGroupTranslationsDto', () => {
   });
 
   it('should reject duplicate language IDs', async () => {
-    const dto = plainToInstance(
-      CreateCategoryGroupTranslationsDto,
-      {
-        code: 'technology-news',
-        translations: [
-          {
-            languageId: 4,
-            name: 'Công nghệ',
-          },
-          {
-            languageId: 4,
-            name: 'Tin công nghệ',
-          },
-        ],
-      },
-    );
+    const dto = plainToInstance(CreateCategoryGroupTranslationsDto, {
+      code: 'technology-news',
+      translations: [
+        {
+          languageId: 4,
+          name: 'Công nghệ',
+        },
+        {
+          languageId: 4,
+          name: 'Tin công nghệ',
+        },
+      ],
+    });
 
     const errors = await validate(dto);
 
@@ -74,19 +65,14 @@ describe('CreateCategoryGroupTranslationsDto', () => {
     );
 
     expect(translationsError).toBeDefined();
-    expect(
-      translationsError?.constraints?.arrayUnique,
-    ).toBeDefined();
+    expect(translationsError?.constraints?.arrayUnique).toBeDefined();
   });
 
   it('should reject an empty translations array', async () => {
-    const dto = plainToInstance(
-      CreateCategoryGroupTranslationsDto,
-      {
-        code: 'technology',
-        translations: [],
-      },
-    );
+    const dto = plainToInstance(CreateCategoryGroupTranslationsDto, {
+      code: 'technology',
+      translations: [],
+    });
 
     const errors = await validate(dto);
 
@@ -95,30 +81,23 @@ describe('CreateCategoryGroupTranslationsDto', () => {
     );
 
     expect(translationsError).toBeDefined();
-    expect(
-      translationsError?.constraints?.arrayMinSize,
-    ).toBeDefined();
+    expect(translationsError?.constraints?.arrayMinSize).toBeDefined();
   });
 
   it('should reject an invalid category group code', async () => {
-    const dto = plainToInstance(
-      CreateCategoryGroupTranslationsDto,
-      {
-        code: 'Công nghệ mới',
-        translations: [
-          {
-            languageId: 4,
-            name: 'Công nghệ mới',
-          },
-        ],
-      },
-    );
+    const dto = plainToInstance(CreateCategoryGroupTranslationsDto, {
+      code: 'Công nghệ mới',
+      translations: [
+        {
+          languageId: 4,
+          name: 'Công nghệ mới',
+        },
+      ],
+    });
 
     const errors = await validate(dto);
 
-    const codeError = errors.find(
-      (error) => error.property === 'code',
-    );
+    const codeError = errors.find((error) => error.property === 'code');
 
     expect(codeError).toBeDefined();
     expect(codeError?.constraints?.matches).toBeDefined();

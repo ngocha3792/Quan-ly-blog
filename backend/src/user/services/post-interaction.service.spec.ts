@@ -155,7 +155,11 @@ describe('PostInteractionService', () => {
         },
       ]);
 
-      const result = await service.getBookmarkedPosts(1, { page: 1, take: 10, skip: 0 });
+      const result = await service.getBookmarkedPosts(1, {
+        page: 1,
+        take: 10,
+        skip: 0,
+      });
 
       expect(result.meta.totalItems).toBe(1);
       expect(result.items[0].id).toBe(10);
@@ -176,7 +180,11 @@ describe('PostInteractionService', () => {
         },
       ]);
 
-      const result = await service.getLikedPosts(1, { page: 1, take: 10, skip: 0 });
+      const result = await service.getLikedPosts(1, {
+        page: 1,
+        take: 10,
+        skip: 0,
+      });
 
       expect(result.meta.totalItems).toBe(1);
       expect(result.items[0].id).toBe(20);

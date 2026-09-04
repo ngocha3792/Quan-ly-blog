@@ -64,40 +64,32 @@ export class BlogownerPostHelperService {
   }
 
   /**
- * Từ bất kỳ postId nào của Blog Owner, xác định ID bài gốc.
- *
- * - Nếu postId là bài gốc: rootPostId = post.id.
- * - Nếu postId là bản dịch: rootPostId = post.parentPostId.
- */
-async resolveOwnedRootPostId(
-  ownerId: number,
-  postId: number,
-): Promise<number> {
-  const post = await this.findOwnedPost(ownerId, postId);
+   * Từ bất kỳ postId nào của Blog Owner, xác định ID bài gốc.
+   *
+   * - Nếu postId là bài gốc: rootPostId = post.id.
+   * - Nếu postId là bản dịch: rootPostId = post.parentPostId.
+   */
+  async resolveOwnedRootPostId(
+    ownerId: number,
+    postId: number,
+  ): Promise<number> {
+    const post = await this.findOwnedPost(ownerId, postId);
 
-  return post.parentPostId ?? post.id;
-}
+    return post.parentPostId ?? post.id;
+  }
 
-/**
- * Lấy toàn bộ nhóm bài viết của Blog Owner.
- *
- * Một group gồm:
- * - root: bài gốc;
- * - translations: toàn bộ bản dịch active;
- * - posts: root + translations.
- */
-async findOwnedPostGroup(
-  ownerId: number,
-  postId: number,
-) {
-  const rootPostId =
-    await this.resolveOwnedRootPostId(
-      ownerId,
-      postId,
-    );
+  /**
+   * Lấy toàn bộ nhóm bài viết của Blog Owner.
+   *
+   * Một group gồm:
+   * - root: bài gốc;
+   * - translations: toàn bộ bản dịch active;
+   * - posts: root + translations.
+   */
+  async findOwnedPostGroup(ownerId: number, postId: number) {
+    const rootPostId = await this.resolveOwnedRootPostId(ownerId, postId);
 
-  const posts =
-    await this.prisma.post.findMany({
+    const posts = await this.prisma.post.findMany({
       where: {
         authorId: ownerId,
         deletedAt: null,
@@ -118,69 +110,60 @@ async findOwnedPostGroup(
       },
     });
 
-  const root = posts.find(
-    (post) =>
-      post.id === rootPostId &&
-      post.parentPostId === null,
-  );
-
-  if (!root) {
-    throw new PostNotFoundException(
-      rootPostId.toString(),
+    const root = posts.find(
+      (post) => post.id === rootPostId && post.parentPostId === null,
     );
+
+    if (!root) {
+      throw new PostNotFoundException(rootPostId.toString());
+    }
+
+    const translations = posts.filter(
+      (post) => post.parentPostId === rootPostId,
+    );
+
+    return {
+      rootPostId,
+      root,
+      translations,
+      posts,
+    };
   }
 
-  const translations = posts.filter(
-    (post) =>
-      post.parentPostId === rootPostId,
-  );
+  /**
+   * Đổi trạng thái toàn bộ group:
+   *
+   * root + tất cả translations active.
+   */
+  async updateOwnedPostGroupStatus(
+    ownerId: number,
+    postId: number,
+    status: PostStatus,
+  ): Promise<void> {
+    const { rootPostId } = await this.findOwnedPostGroup(ownerId, postId);
 
-  return {
-    rootPostId,
-    root,
-    translations,
-    posts,
-  };
-}
+    await this.prisma.post.updateMany({
+      where: {
+        authorId: ownerId,
+        deletedAt: null,
 
-/**
- * Đổi trạng thái toàn bộ group:
- *
- * root + tất cả translations active.
- */
-async updateOwnedPostGroupStatus(
-  ownerId: number,
-  postId: number,
-  status: PostStatus,
-): Promise<void> {
-  const { rootPostId } =
-    await this.findOwnedPostGroup(
-      ownerId,
-      postId,
-    );
+        OR: [
+          {
+            id: rootPostId,
+            parentPostId: null,
+          },
+          {
+            parentPostId: rootPostId,
+          },
+        ],
+      },
 
-  await this.prisma.post.updateMany({
-    where: {
-      authorId: ownerId,
-      deletedAt: null,
-
-      OR: [
-        {
-          id: rootPostId,
-          parentPostId: null,
-        },
-        {
-          parentPostId: rootPostId,
-        },
-      ],
-    },
-
-    data: {
-      status,
-      ...RESET_REVIEW_DATA,
-    },
-  });
-}
+      data: {
+        status,
+        ...RESET_REVIEW_DATA,
+      },
+    });
+  }
 
   /**
    * Kiểm tra bài có đang ở trạng thái cho phép chỉnh sửa không.
@@ -286,66 +269,54 @@ async updateOwnedPostGroupStatus(
    * Upload danh sách media files đi kèm bài viết.
    */
   async uploadMediaFiles(
-  postId: number,
-  files?: Express.Multer.File[],
-): Promise<void> {
-  if (!files || files.length === 0) {
-    return;
-  }
-
-  /**
-   * Lưu ID của những media đã upload thành công.
-   *
-   * Nếu một file phía sau thất bại, các media đã upload
-   * trước đó sẽ được rollback để tránh dữ liệu dở dang.
-   */
-  const uploadedMediaIds: number[] = [];
-
-  try {
-    for (const file of files) {
-      const uploadedMedia =
-        await this.mediaService.uploadMedia(
-          postId,
-          file,
-        );
-
-      uploadedMediaIds.push(
-        uploadedMedia.id,
-      );
+    postId: number,
+    files?: Express.Multer.File[],
+  ): Promise<void> {
+    if (!files || files.length === 0) {
+      return;
     }
-  } catch (error: unknown) {
+
     /**
-     * Rollback theo thứ tự ngược lại:
+     * Lưu ID của những media đã upload thành công.
      *
-     * media 1 ✅
-     * media 2 ✅
-     * media 3 ❌
-     *
-     * rollback:
-     * media 2 → media 1
+     * Nếu một file phía sau thất bại, các media đã upload
+     * trước đó sẽ được rollback để tránh dữ liệu dở dang.
      */
-    for (
-      let index = uploadedMediaIds.length - 1;
-      index >= 0;
-      index -= 1
-    ) {
-      try {
-        await this.mediaService.deleteMedia(
-          uploadedMediaIds[index],
-        );
-      } catch {
-        /**
-         * Không ghi đè lỗi upload ban đầu.
-         *
-         * Nếu cleanup một media thất bại, vẫn tiếp tục
-         * cleanup các media còn lại.
-         */
-      }
-    }
+    const uploadedMediaIds: number[] = [];
 
-    throw error;
+    try {
+      for (const file of files) {
+        const uploadedMedia = await this.mediaService.uploadMedia(postId, file);
+
+        uploadedMediaIds.push(uploadedMedia.id);
+      }
+    } catch (error: unknown) {
+      /**
+       * Rollback theo thứ tự ngược lại:
+       *
+       * media 1 ✅
+       * media 2 ✅
+       * media 3 ❌
+       *
+       * rollback:
+       * media 2 → media 1
+       */
+      for (let index = uploadedMediaIds.length - 1; index >= 0; index -= 1) {
+        try {
+          await this.mediaService.deleteMedia(uploadedMediaIds[index]);
+        } catch {
+          /**
+           * Không ghi đè lỗi upload ban đầu.
+           *
+           * Nếu cleanup một media thất bại, vẫn tiếp tục
+           * cleanup các media còn lại.
+           */
+        }
+      }
+
+      throw error;
+    }
   }
-}
 
   /**
    * Xóa thumbnail cũ trên Cloudinary sau khi cập nhật thumbnail mới.
@@ -365,4 +336,3 @@ async updateOwnedPostGroupStatus(
     }
   }
 }
-

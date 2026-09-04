@@ -7,17 +7,13 @@ import {
 
 export class CommentNotFoundException extends NotFoundException {
   constructor(commentId: string) {
-    super(
-      `Không tìm thấy bình luận với ID: ${commentId}`,
-    );
+    super(`Không tìm thấy bình luận với ID: ${commentId}`);
   }
 }
 
 export class NotCommentOwnerException extends ForbiddenException {
   constructor() {
-    super(
-      'Bạn không có quyền chỉnh sửa hoặc xóa bình luận của người khác.',
-    );
+    super('Bạn không có quyền chỉnh sửa hoặc xóa bình luận của người khác.');
   }
 }
 

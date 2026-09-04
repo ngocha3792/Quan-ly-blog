@@ -12,10 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  JwtAuthGuard,
-  CurrentUser,
-} from '@app/core';
+import { JwtAuthGuard, CurrentUser } from '@app/core';
 import type { AuthenticatedUser } from '@app/core';
 import { UpdateProfileDto } from '../dto';
 import { UserProfileService } from '../services/user-profile.service';

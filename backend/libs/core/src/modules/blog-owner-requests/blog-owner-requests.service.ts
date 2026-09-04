@@ -7,7 +7,7 @@ import {
 } from './dto';
 import { BlogOwnerRequestEntity } from './entities/blog-owner-request.entity';
 import { PaginationParams, PaginatedResult } from '@app/core/common/interfaces';
-import { Prisma, BlogOwnerRequestStatus, UserRole } from '@prisma/client';
+import { Prisma, BlogOwnerRequestStatus } from '@prisma/client';
 import {
   BlogOwnerRequestNotFoundException,
   ExistActionNotAllowedException,
@@ -108,7 +108,7 @@ export class BlogOwnerRequestsService {
     reviewerId: number,
     updateDto: UpdateBlogOwnerRequestDto,
   ) {
-    const request = await this.findOne(id); // Kích hoạt Exception nếu không tồn tại
+    await this.findOne(id); // Kích hoạt Exception nếu không tồn tại
 
     const updatedRequest = await this.prisma.blogOwnerRequest.update({
       where: { id },

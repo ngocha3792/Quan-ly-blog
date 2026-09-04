@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  PostStatus,
-  Prisma,
-} from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
 
 import {
   CommentEntity,
@@ -12,18 +9,11 @@ import {
   PrismaService,
 } from '@app/core';
 
-import type {
-  PaginatedResult,
-  PaginationParams,
-} from '@app/core';
+import type { PaginatedResult, PaginationParams } from '@app/core';
 
-import {
-  GetCommentRepliesDto,
-} from '../dto';
+import { GetCommentRepliesDto } from '../dto';
 
-import {
-  PublicCommentEntity,
-} from '../entities';
+import { PublicCommentEntity } from '../entities';
 
 const PUBLIC_REPLY_PREVIEW_LIMIT = 3;
 
@@ -50,8 +40,7 @@ const PUBLIC_REPLY_SELECT = {
   deletedAt: true,
 
   user: {
-    select:
-      PUBLIC_COMMENT_USER_SELECT,
+    select: PUBLIC_COMMENT_USER_SELECT,
   },
 } satisfies Prisma.CommentSelect;
 
@@ -72,8 +61,7 @@ const PUBLIC_COMMENT_SELECT = {
   deletedAt: true,
 
   user: {
-    select:
-      PUBLIC_COMMENT_USER_SELECT,
+    select: PUBLIC_COMMENT_USER_SELECT,
   },
 
   replies: {
@@ -89,11 +77,9 @@ const PUBLIC_COMMENT_SELECT = {
       id: 'asc',
     },
 
-    take:
-      PUBLIC_REPLY_PREVIEW_LIMIT,
+    take: PUBLIC_REPLY_PREVIEW_LIMIT,
 
-    select:
-      PUBLIC_REPLY_SELECT,
+    select: PUBLIC_REPLY_SELECT,
   },
 
   _count: {
@@ -119,10 +105,7 @@ type CursorPaginatedReplies = {
 
 @Injectable()
 export class CommentsPublicService {
-  constructor(
-    private readonly prisma:
-      PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Danh sách root comments.
@@ -136,35 +119,20 @@ export class CommentsPublicService {
   async findAllByPost(
     postId: number,
     query: GetCommentsDto,
-    paginationParams:
-      PaginationParams,
-  ): Promise<
-    PaginatedResult<PublicCommentEntity>
-  > {
-    const {
-      skip,
-      take,
-      page,
-    } = paginationParams;
+    paginationParams: PaginationParams,
+  ): Promise<PaginatedResult<PublicCommentEntity>> {
+    const { skip, take, page } = paginationParams;
 
-    await this.ensurePublicPost(
+    await this.ensurePublicPost(postId);
+
+    const where: Prisma.CommentWhereInput = {
       postId,
-    );
+      parentId: null,
+      deletedAt: null,
+    };
 
-    const where:
-      Prisma.CommentWhereInput = {
-        postId,
-        parentId: null,
-        deletedAt: null,
-      };
-
-    const sortDirection:
-      'asc' | 'desc' =
-      (
-        query.sortOrder ||
-        query.order ||
-        'desc'
-      ).toLowerCase() === 'asc'
+    const sortDirection: 'asc' | 'desc' =
+      (query.sortOrder || query.order || 'desc').toLowerCase() === 'asc'
         ? 'asc'
         : 'desc';
 
@@ -174,42 +142,33 @@ export class CommentsPublicService {
      * Nếu 2 comments có createdAt giống nhau
      * thì pagination vẫn deterministic.
      */
-    const orderBy:
-      Prisma.CommentOrderByWithRelationInput[] =
+    const orderBy: Prisma.CommentOrderByWithRelationInput[] =
       query.sortBy === 'updatedAt'
         ? [
             {
-              updatedAt:
-                sortDirection,
+              updatedAt: sortDirection,
             },
             {
-              id:
-                sortDirection,
+              id: sortDirection,
             },
           ]
         : [
             {
-              createdAt:
-                sortDirection,
+              createdAt: sortDirection,
             },
             {
-              id:
-                sortDirection,
+              id: sortDirection,
             },
           ];
 
-    const [
-      comments,
-      totalItems,
-    ] = await Promise.all([
+    const [comments, totalItems] = await Promise.all([
       this.prisma.comment.findMany({
         where,
         skip,
         take,
         orderBy,
 
-        select:
-          PUBLIC_COMMENT_SELECT,
+        select: PUBLIC_COMMENT_SELECT,
       }),
 
       this.prisma.comment.count({
@@ -218,22 +177,13 @@ export class CommentsPublicService {
     ]);
 
     return {
-      items: comments.map(
-        (comment) =>
-          new PublicCommentEntity(
-            comment,
-          ),
-      ),
+      items: comments.map((comment) => new PublicCommentEntity(comment)),
 
       meta: {
         totalItems,
-        itemCount:
-          comments.length,
+        itemCount: comments.length,
         itemsPerPage: take,
-        totalPages:
-          Math.ceil(
-            totalItems / take,
-          ),
+        totalPages: Math.ceil(totalItems / take),
         currentPage: page,
       },
     };
@@ -252,12 +202,8 @@ export class CommentsPublicService {
     postId: number,
     commentId: number,
     query: GetCommentRepliesDto,
-  ): Promise<
-    CursorPaginatedReplies
-  > {
-    await this.ensurePublicPost(
-      postId,
-    );
+  ): Promise<CursorPaginatedReplies> {
+    await this.ensurePublicPost(postId);
 
     /**
      * Comment cha phải:
@@ -265,42 +211,30 @@ export class CommentsPublicService {
      * - là root comment
      * - chưa bị xóa
      */
-    const parentComment =
-      await this.prisma.comment.findFirst(
-        {
-          where: {
-            id: commentId,
-            postId,
-            parentId: null,
-            deletedAt: null,
-          },
+    const parentComment = await this.prisma.comment.findFirst({
+      where: {
+        id: commentId,
+        postId,
+        parentId: null,
+        deletedAt: null,
+      },
 
-          select: {
-            id: true,
-          },
-        },
-      );
+      select: {
+        id: true,
+      },
+    });
 
     if (!parentComment) {
-      throw new CommentNotFoundException(
-        commentId.toString(),
-      );
+      throw new CommentNotFoundException(commentId.toString());
     }
 
-    const limit = Math.min(
-      Math.max(
-        query.limit ?? 20,
-        1,
-      ),
-      50,
-    );
+    const limit = Math.min(Math.max(query.limit ?? 20, 1), 50);
 
-    const where:
-      Prisma.CommentWhereInput = {
-        postId,
-        parentId: commentId,
-        deletedAt: null,
-      };
+    const where: Prisma.CommentWhereInput = {
+      postId,
+      parentId: commentId,
+      deletedAt: null,
+    };
 
     /**
      * Cursor là ID cuối cùng client đã nhận.
@@ -325,57 +259,33 @@ export class CommentsPublicService {
      * Lấy limit + 1 để biết
      * còn trang tiếp theo hay không.
      */
-    const replies =
-      await this.prisma.comment.findMany(
-        {
-          where,
+    const replies = await this.prisma.comment.findMany({
+      where,
 
-          orderBy: {
-            id: 'asc',
-          },
+      orderBy: {
+        id: 'asc',
+      },
 
-          take:
-            limit + 1,
+      take: limit + 1,
 
-          select:
-            PUBLIC_REPLY_SELECT,
-        },
-      );
+      select: PUBLIC_REPLY_SELECT,
+    });
 
-    const hasMore =
-      replies.length > limit;
+    const hasMore = replies.length > limit;
 
-    const pageItems =
-      hasMore
-        ? replies.slice(
-            0,
-            limit,
-          )
-        : replies;
+    const pageItems = hasMore ? replies.slice(0, limit) : replies;
 
-    const lastItem =
-      pageItems[
-        pageItems.length - 1
-      ];
+    const lastItem = pageItems[pageItems.length - 1];
 
     return {
-      items: pageItems.map(
-        (reply) =>
-          new CommentEntity(
-            reply,
-          ),
-      ),
+      items: pageItems.map((reply) => new CommentEntity(reply)),
 
       meta: {
-        itemCount:
-          pageItems.length,
+        itemCount: pageItems.length,
 
         hasMore,
 
-        nextCursor:
-          hasMore && lastItem
-            ? lastItem.id
-            : null,
+        nextCursor: hasMore && lastItem ? lastItem.id : null,
       },
     };
   }
@@ -387,38 +297,30 @@ export class CommentsPublicService {
    * Bao gồm invariant từ bước 5:
    * language phải active.
    */
-  private async ensurePublicPost(
-    postId: number,
-  ): Promise<void> {
-    const post =
-      await this.prisma.post.findFirst(
-        {
-          where: {
-            id: postId,
+  private async ensurePublicPost(postId: number): Promise<void> {
+    const post = await this.prisma.post.findFirst({
+      where: {
+        id: postId,
 
-            status:
-              PostStatus.PUBLISH,
+        status: PostStatus.PUBLISH,
 
+        deletedAt: null,
+
+        language: {
+          is: {
+            isActive: true,
             deletedAt: null,
-
-            language: {
-              is: {
-                isActive: true,
-                deletedAt: null,
-              },
-            },
-          },
-
-          select: {
-            id: true,
           },
         },
-      );
+      },
+
+      select: {
+        id: true,
+      },
+    });
 
     if (!post) {
-      throw new PostNotFoundException(
-        postId.toString(),
-      );
+      throw new PostNotFoundException(postId.toString());
     }
   }
 }

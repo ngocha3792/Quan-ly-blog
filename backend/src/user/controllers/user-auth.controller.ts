@@ -22,7 +22,7 @@ import type { AuthenticatedUser } from '@app/core';
 @Controller('auth')
 @UseInterceptors(ClassSerializerInterceptor)
 export class UserAuthController {
-  constructor(private readonly authsService: AuthsService) { }
+  constructor(private readonly authsService: AuthsService) {}
 
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
@@ -47,4 +47,3 @@ export class UserAuthController {
     return this.authsService.logoutAll(user.id);
   }
 }
-

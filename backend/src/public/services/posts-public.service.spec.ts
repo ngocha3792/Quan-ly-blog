@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'node:crypto';
 import { PostsPublicService } from './posts-public.service';
-import { PrismaService, PostsService, LanguagesService } from '@app/core';
+import {
+  PrismaService,
+  PostsService,
+  LanguagesService,
+  JWTUtil,
+} from '@app/core';
 import { PostStatus, Prisma } from '@prisma/client';
 
 describe('PostsPublicService', () => {
@@ -13,6 +18,7 @@ describe('PostsPublicService', () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      aggregate: jest.fn(),
     },
     postViewLog: {
       findFirst: jest.fn(),
@@ -34,6 +40,10 @@ describe('PostsPublicService', () => {
 
   const mockConfigService = {
     get: jest.fn(),
+  };
+
+  const mockJwtUtil = {
+    verifyAccessToken: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -59,6 +69,15 @@ describe('PostsPublicService', () => {
       return cb;
     });
 
+    /**
+     * post.viewCount trả về được tính bằng getGroupViewCount() (SUM view
+     * của root + translations), gọi vô điều kiện ở cuối findOne(). Mặc
+     * định 0 — test nào cần số cụ thể sẽ override bằng mockResolvedValueOnce.
+     */
+    mockPrismaService.post.aggregate.mockResolvedValue({
+      _sum: { viewCount: 0 },
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PostsPublicService,
@@ -66,6 +85,7 @@ describe('PostsPublicService', () => {
         { provide: PostsService, useValue: mockPostsService },
         { provide: LanguagesService, useValue: mockLanguagesService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: JWTUtil, useValue: mockJwtUtil },
       ],
     }).compile();
 
@@ -78,9 +98,7 @@ describe('PostsPublicService', () => {
 
   describe('findAll', () => {
     it('should return empty result when requested language is not public', async () => {
-      mockLanguagesService.getActiveIdByCode.mockResolvedValueOnce(
-        undefined,
-      );
+      mockLanguagesService.getActiveIdByCode.mockResolvedValueOnce(undefined);
 
       const query = {};
 
@@ -90,11 +108,7 @@ describe('PostsPublicService', () => {
         take: 10,
       };
 
-      const result = await service.findAll(
-        query as any,
-        pagination,
-        'ja',
-      );
+      const result = await service.findAll(query, pagination, 'ja');
 
       expect(result).toEqual({
         items: [],
@@ -180,12 +194,7 @@ describe('PostsPublicService', () => {
         id: 99,
       });
 
-      await service.findOne(
-        1,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-      );
+      await service.findOne(1, null, '127.0.0.1', 'Mozilla/5.0', null);
 
       expect(mockPostsService.findOne).toHaveBeenCalledWith(
         1,
@@ -226,20 +235,17 @@ describe('PostsPublicService', () => {
         // IPv4 mapped IPv6
         '::ffff:127.0.0.1',
         'Mozilla/5.0 Test Browser',
+        null,
       );
 
       expect(result.id).toBe(1);
 
-      const expectedViewerKey = `v1:${createHmac(
+      const expectedViewerKey = `v2:${createHmac(
         'sha256',
         'test-viewer-key-secret',
       )
         .update(
-          [
-            'post:1',
-            'ip:127.0.0.1',
-            'ua:Mozilla/5.0 Test Browser',
-          ].join('\n'),
+          ['post:1', 'ip:127.0.0.1', 'ua:Mozilla/5.0 Test Browser'].join('\n'),
         )
         .digest('hex')}`;
 
@@ -268,6 +274,94 @@ describe('PostsPublicService', () => {
       expect(expectedViewerKey).not.toContain('127.0.0.1');
     });
 
+    it('should key the view by account id instead of IP/User-Agent when a valid Bearer token is sent', async () => {
+      mockPostsService.findOne.mockResolvedValueOnce({
+        id: 1,
+        title: 'Test Post',
+        status: PostStatus.PUBLISH,
+        languageId: 1,
+      });
+
+      mockJwtUtil.verifyAccessToken.mockReturnValueOnce({ sub: '42' });
+
+      mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
+      mockPrismaService.postViewLog.create.mockResolvedValueOnce({ id: 100 });
+      mockPrismaService.post.update.mockResolvedValueOnce({
+        id: 1,
+        viewCount: 1,
+      });
+
+      await service.findOne(
+        1,
+        null,
+        '127.0.0.1',
+        'Mozilla/5.0',
+        'Bearer some-valid-token',
+      );
+
+      const expectedViewerKey = `v2:${createHmac(
+        'sha256',
+        'test-viewer-key-secret',
+      )
+        .update(['post:1', 'user:42'].join('\n'))
+        .digest('hex')}`;
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(mockJwtUtil.verifyAccessToken).toHaveBeenCalledWith(
+        'some-valid-token',
+      );
+
+      expect(mockPrismaService.postViewLog.create).toHaveBeenCalledWith({
+        data: {
+          postId: 1,
+          viewerKey: expectedViewerKey,
+        },
+      });
+    });
+
+    it('should fall back to the anonymous fingerprint when the Bearer token is invalid', async () => {
+      mockPostsService.findOne.mockResolvedValueOnce({
+        id: 1,
+        title: 'Test Post',
+        status: PostStatus.PUBLISH,
+        languageId: 1,
+      });
+
+      mockJwtUtil.verifyAccessToken.mockImplementation(() => {
+        throw new Error('invalid token');
+      });
+
+      mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce({
+        id: 99,
+      });
+
+      const result = await service.findOne(
+        1,
+        null,
+        '127.0.0.1',
+        'Mozilla/5.0',
+        'Bearer bad-token',
+      );
+
+      expect(result.id).toBe(1);
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      const expectedViewerKey = `v2:${createHmac(
+        'sha256',
+        'test-viewer-key-secret',
+      )
+        .update(['post:1', 'ip:127.0.0.1', 'ua:Mozilla/5.0'].join('\n'))
+        .digest('hex')}`;
+
+      expect(mockPrismaService.postViewLog.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ viewerKey: expectedViewerKey }),
+        }),
+      );
+    });
+
     it('should deduplicate view if viewed within 5 minutes', async () => {
       mockPostsService.findOne.mockResolvedValueOnce(mockPost);
       mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce({
@@ -279,6 +373,7 @@ describe('PostsPublicService', () => {
         null,
         '127.0.0.1',
         'Mozilla/5.0',
+        null,
       );
 
       expect(result.id).toBe(1);
@@ -298,12 +393,7 @@ describe('PostsPublicService', () => {
         languageId: 1,
       });
 
-      const result = await service.findOne(
-        1,
-        null,
-        null,
-        null,
-      );
+      const result = await service.findOne(1, null, null, null, null);
 
       expect(result.id).toBe(1);
 
@@ -332,6 +422,7 @@ describe('PostsPublicService', () => {
         null,
         '127.0.0.1',
         'Mozilla/5.0',
+        null,
       );
 
       expect(result.id).toBe(1);
@@ -424,9 +515,7 @@ describe('PostsPublicService', () => {
     });
 
     it('should not run ranking query for an inactive language', async () => {
-      mockLanguagesService.getActiveIdByCode.mockResolvedValueOnce(
-        undefined,
-      );
+      mockLanguagesService.getActiveIdByCode.mockResolvedValueOnce(undefined);
 
       const result = await service.getTopPosts(10, 'ja');
 
@@ -440,19 +529,40 @@ describe('PostsPublicService', () => {
     it('should produce different keys for the same viewer on different posts', () => {
       const firstKey = (service as any).buildViewerKey(
         1,
+        null,
         '127.0.0.1',
         'Mozilla/5.0',
       );
 
       const secondKey = (service as any).buildViewerKey(
         2,
+        null,
         '127.0.0.1',
         'Mozilla/5.0',
       );
 
-      expect(firstKey).toMatch(/^v1:[a-f0-9]{64}$/);
-      expect(secondKey).toMatch(/^v1:[a-f0-9]{64}$/);
+      expect(firstKey).toMatch(/^v2:[a-f0-9]{64}$/);
+      expect(secondKey).toMatch(/^v2:[a-f0-9]{64}$/);
       expect(firstKey).not.toBe(secondKey);
+    });
+
+    it('should produce different keys for a logged-in viewer than for a guest with the same IP/User-Agent', () => {
+      const guestKey = (service as any).buildViewerKey(
+        1,
+        null,
+        '127.0.0.1',
+        'Mozilla/5.0',
+      );
+
+      const accountKey = (service as any).buildViewerKey(
+        1,
+        42,
+        '127.0.0.1',
+        'Mozilla/5.0',
+      );
+
+      expect(accountKey).toMatch(/^v2:[a-f0-9]{64}$/);
+      expect(accountKey).not.toBe(guestKey);
     });
   });
 

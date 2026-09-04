@@ -26,27 +26,23 @@ describe('MediaService', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
 
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          MediaService,
-
-          {
-            provide: PrismaService,
-            useValue: mockPrismaService,
-          },
-
-          {
-            provide: CloudinaryService,
-            useValue: mockCloudinaryService,
-          },
-        ],
-      }).compile();
-
-    service =
-      module.get<MediaService>(
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
         MediaService,
-      );
+
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+
+        {
+          provide: CloudinaryService,
+          useValue: mockCloudinaryService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<MediaService>(MediaService);
   });
 
   it('should be defined', () => {
@@ -59,11 +55,9 @@ describe('MediaService', () => {
       postId: 1,
       mediaType: MediaType.IMAGE,
 
-      mediaUrl:
-        'https://res.cloudinary.com/demo/image/upload/test.png',
+      mediaUrl: 'https://res.cloudinary.com/demo/image/upload/test.png',
 
-      publicId:
-        'nestjs_blog/posts/1/test',
+      publicId: 'nestjs_blog/posts/1/test',
 
       deletedAt: null,
     });
@@ -77,21 +71,16 @@ describe('MediaService', () => {
       result: 'ok',
     });
 
-    const result =
-      await service.deleteMedia(10);
+    const result = await service.deleteMedia(10);
 
-    expect(
-      mockPrismaService.media.findFirst,
-    ).toHaveBeenCalledWith({
+    expect(mockPrismaService.media.findFirst).toHaveBeenCalledWith({
       where: {
         id: 10,
         deletedAt: null,
       },
     });
 
-    expect(
-      mockPrismaService.media.update,
-    ).toHaveBeenCalledWith({
+    expect(mockPrismaService.media.update).toHaveBeenCalledWith({
       where: {
         id: 10,
       },
@@ -101,9 +90,7 @@ describe('MediaService', () => {
       },
     });
 
-    expect(
-      mockCloudinaryService.deleteFile,
-    ).toHaveBeenCalledWith(
+    expect(mockCloudinaryService.deleteFile).toHaveBeenCalledWith(
       'nestjs_blog/posts/1/test',
       'image',
     );
@@ -112,11 +99,9 @@ describe('MediaService', () => {
      * DB phải soft-delete trước rồi mới cleanup Cloudinary.
      */
     expect(
-      mockPrismaService.media.update.mock
-        .invocationCallOrder[0],
+      mockPrismaService.media.update.mock.invocationCallOrder[0],
     ).toBeLessThan(
-      mockCloudinaryService.deleteFile.mock
-        .invocationCallOrder[0],
+      mockCloudinaryService.deleteFile.mock.invocationCallOrder[0],
     );
 
     expect(result).toEqual({
@@ -131,11 +116,9 @@ describe('MediaService', () => {
 
       mediaType: MediaType.VIDEO,
 
-      mediaUrl:
-        'https://res.cloudinary.com/demo/video/upload/test.mp4',
+      mediaUrl: 'https://res.cloudinary.com/demo/video/upload/test.mp4',
 
-      publicId:
-        'nestjs_blog/posts/1/video',
+      publicId: 'nestjs_blog/posts/1/video',
 
       deletedAt: null,
     });
@@ -151,32 +134,22 @@ describe('MediaService', () => {
 
     await service.deleteMedia(20);
 
-    expect(
-      mockCloudinaryService.deleteFile,
-    ).toHaveBeenCalledWith(
+    expect(mockCloudinaryService.deleteFile).toHaveBeenCalledWith(
       'nestjs_blog/posts/1/video',
       'video',
     );
   });
 
   it('should throw not found when media is already deleted or does not exist', async () => {
-    mockPrismaService.media.findFirst.mockResolvedValue(
-      null,
-    );
+    mockPrismaService.media.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.deleteMedia(10),
-    ).rejects.toBeInstanceOf(
+    await expect(service.deleteMedia(10)).rejects.toBeInstanceOf(
       NotFoundException,
     );
 
-    expect(
-      mockPrismaService.media.update,
-    ).not.toHaveBeenCalled();
+    expect(mockPrismaService.media.update).not.toHaveBeenCalled();
 
-    expect(
-      mockCloudinaryService.deleteFile,
-    ).not.toHaveBeenCalled();
+    expect(mockCloudinaryService.deleteFile).not.toHaveBeenCalled();
   });
 
   it('should keep media soft deleted when Cloudinary cleanup fails', async () => {
@@ -186,11 +159,9 @@ describe('MediaService', () => {
 
       mediaType: MediaType.IMAGE,
 
-      mediaUrl:
-        'https://res.cloudinary.com/demo/image/upload/test.png',
+      mediaUrl: 'https://res.cloudinary.com/demo/image/upload/test.png',
 
-      publicId:
-        'nestjs_blog/posts/1/test',
+      publicId: 'nestjs_blog/posts/1/test',
 
       deletedAt: null,
     });
@@ -204,18 +175,12 @@ describe('MediaService', () => {
       new Error('Cloudinary unavailable'),
     );
 
-    await expect(
-      service.deleteMedia(10),
-    ).resolves.toEqual({
+    await expect(service.deleteMedia(10)).resolves.toEqual({
       message: 'Đã xóa media thành công',
     });
 
-    expect(
-      mockPrismaService.media.update,
-    ).toHaveBeenCalled();
+    expect(mockPrismaService.media.update).toHaveBeenCalled();
 
-    expect(
-      mockCloudinaryService.deleteFile,
-    ).toHaveBeenCalled();
+    expect(mockCloudinaryService.deleteFile).toHaveBeenCalled();
   });
 });

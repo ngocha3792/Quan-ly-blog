@@ -21,11 +21,13 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
 
     // Dịch mã lỗi của Prisma
     switch (exception.code) {
-      case 'P2002': // Lỗi vi phạm Unique Constraint (Trùng lặp dữ liệu)
+      case 'P2002': {
+        // Lỗi vi phạm Unique Constraint (Trùng lặp dữ liệu)
         status = HttpStatus.CONFLICT;
         const target = exception.meta?.target as string[];
         message = `Dữ liệu bị trùng lặp ở trường: ${target ? target.join(', ') : 'không xác định'}.`;
         break;
+      }
       case 'P2025': // Lỗi không tìm thấy Record khi Update/Delete
         status = HttpStatus.NOT_FOUND;
         message = 'Dữ liệu bạn muốn thao tác không tồn tại trong hệ thống.';

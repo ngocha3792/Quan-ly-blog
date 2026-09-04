@@ -31,26 +31,21 @@ describe('BlogownerOptionsService', () => {
      * vào prisma.$transaction().
      */
     mockPrismaService.$transaction.mockImplementation(
-      async (operations: Promise<unknown>[]) =>
-        Promise.all(operations),
+      async (operations: Promise<unknown>[]) => Promise.all(operations),
     );
 
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          BlogownerOptionsService,
-
-          {
-            provide: PrismaService,
-            useValue: mockPrismaService,
-          },
-        ],
-      }).compile();
-
-    service =
-      module.get<BlogownerOptionsService>(
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
         BlogownerOptionsService,
-      );
+
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<BlogownerOptionsService>(BlogownerOptionsService);
   });
 
   it('should be defined', () => {
@@ -111,21 +106,15 @@ describe('BlogownerOptionsService', () => {
       },
     ];
 
-    mockPrismaService.language.findMany
-      .mockResolvedValueOnce(languages);
+    mockPrismaService.language.findMany.mockResolvedValueOnce(languages);
 
-    mockPrismaService.category.findMany
-      .mockResolvedValueOnce(categories);
+    mockPrismaService.category.findMany.mockResolvedValueOnce(categories);
 
-    mockPrismaService.tag.findMany
-      .mockResolvedValueOnce(tags);
+    mockPrismaService.tag.findMany.mockResolvedValueOnce(tags);
 
-    const result =
-      await service.getPostOptions();
+    const result = await service.getPostOptions();
 
-    expect(
-      mockPrismaService.language.findMany,
-    ).toHaveBeenCalledWith({
+    expect(mockPrismaService.language.findMany).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
         isActive: true,
@@ -150,9 +139,7 @@ describe('BlogownerOptionsService', () => {
       ],
     });
 
-    expect(
-      mockPrismaService.category.findMany,
-    ).toHaveBeenCalledWith({
+    expect(mockPrismaService.category.findMany).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
 
@@ -201,9 +188,7 @@ describe('BlogownerOptionsService', () => {
       ],
     });
 
-    expect(
-      mockPrismaService.tag.findMany,
-    ).toHaveBeenCalledWith({
+    expect(mockPrismaService.tag.findMany).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
       },
@@ -218,9 +203,7 @@ describe('BlogownerOptionsService', () => {
       },
     });
 
-    expect(
-      mockPrismaService.$transaction,
-    ).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
 
     expect(result).toEqual({
       languages,
@@ -230,20 +213,15 @@ describe('BlogownerOptionsService', () => {
   });
 
   it('should request the default language before other active languages', async () => {
-    mockPrismaService.language.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.language.findMany.mockResolvedValueOnce([]);
 
-    mockPrismaService.category.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.category.findMany.mockResolvedValueOnce([]);
 
-    mockPrismaService.tag.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.tag.findMany.mockResolvedValueOnce([]);
 
     await service.getPostOptions();
 
-    expect(
-      mockPrismaService.language.findMany,
-    ).toHaveBeenCalledWith(
+    expect(mockPrismaService.language.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [
           {
@@ -258,17 +236,13 @@ describe('BlogownerOptionsService', () => {
   });
 
   it('should return empty arrays when no active options exist', async () => {
-    mockPrismaService.language.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.language.findMany.mockResolvedValueOnce([]);
 
-    mockPrismaService.category.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.category.findMany.mockResolvedValueOnce([]);
 
-    mockPrismaService.tag.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.tag.findMany.mockResolvedValueOnce([]);
 
-    const result =
-      await service.getPostOptions();
+    const result = await service.getPostOptions();
 
     expect(result).toEqual({
       languages: [],
@@ -278,20 +252,14 @@ describe('BlogownerOptionsService', () => {
   });
 
   it('should propagate a database error', async () => {
-    const databaseError =
-      new Error('Database unavailable');
+    const databaseError = new Error('Database unavailable');
 
-    mockPrismaService.language.findMany
-      .mockRejectedValueOnce(databaseError);
+    mockPrismaService.language.findMany.mockRejectedValueOnce(databaseError);
 
-    mockPrismaService.category.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.category.findMany.mockResolvedValueOnce([]);
 
-    mockPrismaService.tag.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.tag.findMany.mockResolvedValueOnce([]);
 
-    await expect(
-      service.getPostOptions(),
-    ).rejects.toBe(databaseError);
+    await expect(service.getPostOptions()).rejects.toBe(databaseError);
   });
 });

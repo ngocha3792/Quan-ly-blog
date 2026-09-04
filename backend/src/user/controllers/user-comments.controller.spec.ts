@@ -55,9 +55,7 @@ describe('UserCommentsController', () => {
       })
       .compile();
 
-    controller = module.get<UserCommentsController>(
-      UserCommentsController,
-    );
+    controller = module.get<UserCommentsController>(UserCommentsController);
   });
 
   it('should be defined', () => {
@@ -73,21 +71,13 @@ describe('UserCommentsController', () => {
       content: 'Bình luận mới',
     });
 
-    const result = await controller.create(
-      currentUser,
-      1,
-      {
-        content: 'Bình luận mới',
-      },
-    );
+    const result = await controller.create(currentUser, 1, {
+      content: 'Bình luận mới',
+    });
 
-    expect(userCommentsService.create).toHaveBeenCalledWith(
-      4,
-      1,
-      {
-        content: 'Bình luận mới',
-      },
-    );
+    expect(userCommentsService.create).toHaveBeenCalledWith(4, 1, {
+      content: 'Bình luận mới',
+    });
 
     expect(result.id).toBe(2);
   });
@@ -101,23 +91,15 @@ describe('UserCommentsController', () => {
       content: 'Phản hồi mới',
     });
 
-    const result = await controller.create(
-      currentUser,
-      1,
-      {
-        content: 'Phản hồi mới',
-        parentId: 1,
-      },
-    );
+    const result = await controller.create(currentUser, 1, {
+      content: 'Phản hồi mới',
+      parentId: 1,
+    });
 
-    expect(userCommentsService.create).toHaveBeenCalledWith(
-      4,
-      1,
-      {
-        content: 'Phản hồi mới',
-        parentId: 1,
-      },
-    );
+    expect(userCommentsService.create).toHaveBeenCalledWith(4, 1, {
+      content: 'Phản hồi mới',
+      parentId: 1,
+    });
 
     expect(result.parentId).toBe(1);
   });
@@ -128,21 +110,13 @@ describe('UserCommentsController', () => {
       content: 'Nội dung đã sửa',
     });
 
-    const result = await controller.update(
-      currentUser,
-      2,
-      {
-        content: 'Nội dung đã sửa',
-      },
-    );
+    const result = await controller.update(currentUser, 2, {
+      content: 'Nội dung đã sửa',
+    });
 
-    expect(userCommentsService.update).toHaveBeenCalledWith(
-      2,
-      4,
-      {
-        content: 'Nội dung đã sửa',
-      },
-    );
+    expect(userCommentsService.update).toHaveBeenCalledWith(2, 4, {
+      content: 'Nội dung đã sửa',
+    });
 
     expect(result.content).toBe('Nội dung đã sửa');
   });
@@ -153,10 +127,7 @@ describe('UserCommentsController', () => {
       deletedAt: new Date(),
     });
 
-    const result = await controller.remove(
-      currentUser,
-      2,
-    );
+    const result = await controller.remove(currentUser, 2);
 
     expect(userCommentsService.remove).toHaveBeenCalledWith(2, 4);
     expect(result.id).toBe(2);

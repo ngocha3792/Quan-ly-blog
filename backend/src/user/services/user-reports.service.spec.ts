@@ -59,9 +59,7 @@ describe('UserReportsService', () => {
       ],
     }).compile();
 
-    service = module.get<UserReportsService>(
-      UserReportsService,
-    );
+    service = module.get<UserReportsService>(UserReportsService);
   });
 
   it('should be defined', () => {
@@ -70,9 +68,7 @@ describe('UserReportsService', () => {
 
   describe('reportPost', () => {
     it('should reject a post that is not public', async () => {
-      mockPrismaService.post.findFirst.mockResolvedValueOnce(
-        null,
-      );
+      mockPrismaService.post.findFirst.mockResolvedValueOnce(null);
 
       await expect(
         service.reportPost(4, 999, {
@@ -148,9 +144,7 @@ describe('UserReportsService', () => {
         authorId: 3,
       });
 
-      mockPrismaService.report.findFirst.mockResolvedValueOnce(
-        null,
-      );
+      mockPrismaService.report.findFirst.mockResolvedValueOnce(null);
 
       reportsService.create.mockResolvedValueOnce({
         id: 20,
@@ -179,9 +173,7 @@ describe('UserReportsService', () => {
 
   describe('reportComment', () => {
     it('should reject a comment that is not public', async () => {
-      mockPrismaService.comment.findFirst.mockResolvedValueOnce(
-        null,
-      );
+      mockPrismaService.comment.findFirst.mockResolvedValueOnce(null);
 
       await expect(
         service.reportComment(3, 999, {
@@ -261,9 +253,7 @@ describe('UserReportsService', () => {
         postId: 1,
       });
 
-      mockPrismaService.report.findFirst.mockResolvedValueOnce(
-        null,
-      );
+      mockPrismaService.report.findFirst.mockResolvedValueOnce(null);
 
       reportsService.create.mockResolvedValueOnce({
         id: 21,

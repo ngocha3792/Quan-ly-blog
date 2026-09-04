@@ -6,7 +6,6 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
-  HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
@@ -24,9 +23,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
     // Xử lý thông báo lỗi (Message)
     // Nếu là lỗi từ class-validator (DTO), message thường là một mảng (Array).
     // Nếu là lỗi Custom do ta tự định nghĩa, message là một chuỗi (String).
-    let errorMessage = 'Đã có lỗi xảy ra';
-    if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-      errorMessage = (exceptionResponse as any).message || exceptionResponse;
+    let errorMessage: string | string[] = 'Đã có lỗi xảy ra';
+    if (
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'message' in exceptionResponse
+    ) {
+      const { message } = exceptionResponse as { message: string | string[] };
+      errorMessage = message;
     } else if (typeof exceptionResponse === 'string') {
       errorMessage = exceptionResponse;
     }

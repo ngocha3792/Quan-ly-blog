@@ -37,9 +37,7 @@ describe('CommentsPublicService', () => {
       ],
     }).compile();
 
-    service = module.get<CommentsPublicService>(
-      CommentsPublicService,
-    );
+    service = module.get<CommentsPublicService>(CommentsPublicService);
 
     prisma = module.get<PrismaService>(PrismaService);
   });
@@ -52,11 +50,15 @@ describe('CommentsPublicService', () => {
     mockPrismaService.post.findFirst.mockResolvedValueOnce(null);
 
     await expect(
-      service.findAllByPost(999, {}, {
-        skip: 0,
-        take: 10,
-        page: 1,
-      }),
+      service.findAllByPost(
+        999,
+        {},
+        {
+          skip: 0,
+          take: 10,
+          page: 1,
+        },
+      ),
     ).rejects.toThrow(PostNotFoundException);
 
     expect(prisma.comment.findMany).not.toHaveBeenCalled();
@@ -209,11 +211,15 @@ describe('CommentsPublicService', () => {
     mockPrismaService.comment.findMany.mockResolvedValueOnce([]);
     mockPrismaService.comment.count.mockResolvedValueOnce(0);
 
-    const result = await service.findAllByPost(1, {}, {
-      skip: 0,
-      take: 10,
-      page: 1,
-    });
+    const result = await service.findAllByPost(
+      1,
+      {},
+      {
+        skip: 0,
+        take: 10,
+        page: 1,
+      },
+    );
 
     expect(result.items).toEqual([]);
 

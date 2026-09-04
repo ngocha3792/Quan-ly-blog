@@ -27,9 +27,9 @@ import { ReviewBlogOwnerRequestDto } from '../dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class AdminRequestsController {
-  constructor(private readonly adminRequestsService: AdminRequestsService) { }
+  constructor(private readonly adminRequestsService: AdminRequestsService) {}
 
-  @Roles(UserRole.SUPER_ADMIN,UserRole.CONTENT_MODERATOR)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.CONTENT_MODERATOR)
   @Get()
   findAll(
     @Query() query: GetBlogOwnerRequestsDto,
@@ -38,7 +38,7 @@ export class AdminRequestsController {
     return this.adminRequestsService.findAllRequests(query, paginationParams);
   }
 
-  @Roles(UserRole.SUPER_ADMIN,UserRole.CONTENT_MODERATOR)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.CONTENT_MODERATOR)
   @Patch(':id')
   reviewRequest(
     @Param('id', ParseIntPipe) id: number,

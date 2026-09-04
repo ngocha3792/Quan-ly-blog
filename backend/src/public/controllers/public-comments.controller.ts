@@ -8,38 +8,20 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 
-import {
-  GetCommentsDto,
-  Public,
-} from '@app/core';
+import { GetCommentsDto, Public } from '@app/core';
 
-import type {
-  PaginationParams,
-} from '@app/core';
+import type { PaginationParams } from '@app/core';
 
-import {
-  Pagination,
-} from '@app/core/common/decorators';
+import { Pagination } from '@app/core/common/decorators';
 
-import {
-  GetCommentRepliesDto,
-} from '../dto';
+import { GetCommentRepliesDto } from '../dto';
 
-import {
-  CommentsPublicService,
-} from '../services/comments-public.service';
+import { CommentsPublicService } from '../services/comments-public.service';
 
-@Controller(
-  '/posts/:postId/comments',
-)
-@UseInterceptors(
-  ClassSerializerInterceptor,
-)
+@Controller('/posts/:postId/comments')
+@UseInterceptors(ClassSerializerInterceptor)
 export class PublicCommentsController {
-  constructor(
-    private readonly commentsPublicService:
-      CommentsPublicService,
-  ) {}
+  constructor(private readonly commentsPublicService: CommentsPublicService) {}
 
   /**
    * GET
@@ -51,25 +33,20 @@ export class PublicCommentsController {
   @Public()
   @Get()
   findAllByPost(
-    @Param(
-      'postId',
-      ParseIntPipe,
-    )
+    @Param('postId', ParseIntPipe)
     postId: number,
 
     @Query()
     query: GetCommentsDto,
 
     @Pagination()
-    paginationParams:
-      PaginationParams,
+    paginationParams: PaginationParams,
   ) {
-    return this.commentsPublicService
-      .findAllByPost(
-        postId,
-        query,
-        paginationParams,
-      );
+    return this.commentsPublicService.findAllByPost(
+      postId,
+      query,
+      paginationParams,
+    );
   }
 
   /**
@@ -81,26 +58,19 @@ export class PublicCommentsController {
   @Public()
   @Get(':commentId/replies')
   findRepliesByComment(
-    @Param(
-      'postId',
-      ParseIntPipe,
-    )
+    @Param('postId', ParseIntPipe)
     postId: number,
 
-    @Param(
-      'commentId',
-      ParseIntPipe,
-    )
+    @Param('commentId', ParseIntPipe)
     commentId: number,
 
     @Query()
     query: GetCommentRepliesDto,
   ) {
-    return this.commentsPublicService
-      .findRepliesByComment(
-        postId,
-        commentId,
-        query,
-      );
+    return this.commentsPublicService.findRepliesByComment(
+      postId,
+      commentId,
+      query,
+    );
   }
 }

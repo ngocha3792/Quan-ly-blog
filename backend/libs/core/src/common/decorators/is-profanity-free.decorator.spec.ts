@@ -8,9 +8,7 @@ describe('IsProfanityFreeConstraint', () => {
   });
 
   it('should accept normal Vietnamese content', () => {
-    expect(
-      validator.validate('Đây là một bài viết bình thường.'),
-    ).toBe(true);
+    expect(validator.validate('Đây là một bài viết bình thường.')).toBe(true);
   });
 
   it('should reject a forbidden word', () => {
@@ -18,15 +16,15 @@ describe('IsProfanityFreeConstraint', () => {
   });
 
   it('should reject a forbidden word inside a sentence', () => {
-    expect(
-      validator.validate('Nội dung này có từ dm không phù hợp.'),
-    ).toBe(false);
+    expect(validator.validate('Nội dung này có từ dm không phù hợp.')).toBe(
+      false,
+    );
   });
 
   it('should ignore uppercase and lowercase differences', () => {
-    expect(
-      validator.validate('Nội dung này có từ DM không phù hợp.'),
-    ).toBe(false);
+    expect(validator.validate('Nội dung này có từ DM không phù hợp.')).toBe(
+      false,
+    );
   });
 
   it('should not reject admin because it contains dm', () => {

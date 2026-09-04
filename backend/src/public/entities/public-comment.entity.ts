@@ -1,7 +1,4 @@
-import {
-  Exclude,
-  Expose,
-} from 'class-transformer';
+import { Exclude, Expose } from 'class-transformer';
 
 import { CommentEntity } from '@app/core';
 
@@ -36,15 +33,10 @@ export class PublicCommentEntity extends CommentEntity {
    */
   @Expose()
   get hasMoreReplies(): boolean {
-    return (
-      this.replyCount >
-      (this.replies?.length ?? 0)
-    );
+    return this.replyCount > (this.replies?.length ?? 0);
   }
 
-  constructor(
-    partial: Partial<PublicCommentEntity>,
-  ) {
+  constructor(partial: Partial<PublicCommentEntity>) {
     super(partial);
   }
 }

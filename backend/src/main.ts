@@ -6,6 +6,7 @@ import { PrismaClientExceptionFilter } from '@app/core/common/filters/prisma-cli
 import { TransformInterceptor } from '@app/core/common/interceptors/transform.interceptor';
 import { TrimPipe } from '@app/core/common/pipes/trim.pipe';
 import { ConfigService } from '@nestjs/config';
+import type { Application } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,19 +15,11 @@ async function bootstrap() {
   // Cho phép Nest chạy onModuleDestroy (đóng Prisma pool...) khi nhận SIGTERM/SIGINT.
   app.enableShutdownHooks();
 
-  const trustProxyHops =
-    configService.get<number>(
-      'app.trustProxyHops',
-    ) || 0;
+  const trustProxyHops = configService.get<number>('app.trustProxyHops') || 0;
 
   if (trustProxyHops > 0) {
-    app
-      .getHttpAdapter()
-      .getInstance()
-      .set(
-        'trust proxy',
-        trustProxyHops,
-      );
+    const httpInstance = app.getHttpAdapter().getInstance() as Application;
+    httpInstance.set('trust proxy', trustProxyHops);
   }
 
   // Lấy Global Prefix từ cấu hình (env: API_PREFIX)

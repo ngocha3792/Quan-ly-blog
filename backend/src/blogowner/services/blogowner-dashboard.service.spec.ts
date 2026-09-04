@@ -36,9 +36,7 @@ describe('BlogownerDashboardService', () => {
     /**
      * 10:00 ngày 29/07/2026 tại Việt Nam.
      */
-    jest.setSystemTime(
-      new Date('2026-07-29T03:00:00.000Z'),
-    );
+    jest.setSystemTime(new Date('2026-07-29T03:00:00.000Z'));
   });
 
   afterAll(() => {
@@ -53,26 +51,21 @@ describe('BlogownerDashboardService', () => {
      * trả kết quả theo đúng thứ tự.
      */
     mockPrismaService.$transaction.mockImplementation(
-      async (operations: Promise<unknown>[]) =>
-        Promise.all(operations),
+      async (operations: Promise<unknown>[]) => Promise.all(operations),
     );
 
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          BlogownerDashboardService,
-
-          {
-            provide: PrismaService,
-            useValue: mockPrismaService,
-          },
-        ],
-      }).compile();
-
-    service =
-      module.get<BlogownerDashboardService>(
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
         BlogownerDashboardService,
-      );
+
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<BlogownerDashboardService>(BlogownerDashboardService);
   });
 
   it('should be defined', () => {
@@ -95,29 +88,23 @@ describe('BlogownerDashboardService', () => {
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(1);
 
-    mockPrismaService.post.aggregate
-      .mockResolvedValueOnce({
-        _sum: {
-          viewCount: 140,
-        },
-      });
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: {
+        viewCount: 140,
+      },
+    });
 
-    mockPrismaService.postLike.count
-      .mockResolvedValueOnce(11);
+    mockPrismaService.postLike.count.mockResolvedValueOnce(11);
 
-    mockPrismaService.comment.count
-      .mockResolvedValueOnce(7);
+    mockPrismaService.comment.count.mockResolvedValueOnce(7);
 
-    mockPrismaService.postDailyMetric.findMany
-      .mockResolvedValueOnce([
-        {
-          metricDate: new Date(
-            '2026-07-29T00:00:00.000Z',
-          ),
-          viewCount: 20,
-          likeCount: 3,
-        },
-      ]);
+    mockPrismaService.postDailyMetric.findMany.mockResolvedValueOnce([
+      {
+        metricDate: new Date('2026-07-29T00:00:00.000Z'),
+        viewCount: 20,
+        likeCount: 3,
+      },
+    ]);
 
     /**
      * Lần 1: top theo views.
@@ -132,9 +119,7 @@ describe('BlogownerDashboardService', () => {
           status: PostStatus.PUBLISH,
           viewCount: 100,
 
-          updatedAt: new Date(
-            '2026-07-29T00:00:00.000Z',
-          ),
+          updatedAt: new Date('2026-07-29T00:00:00.000Z'),
 
           language: {
             id: 1,
@@ -157,9 +142,7 @@ describe('BlogownerDashboardService', () => {
           status: PostStatus.PUBLISH,
           viewCount: 40,
 
-          updatedAt: new Date(
-            '2026-07-29T00:00:00.000Z',
-          ),
+          updatedAt: new Date('2026-07-29T00:00:00.000Z'),
 
           language: {
             id: 2,
@@ -174,12 +157,9 @@ describe('BlogownerDashboardService', () => {
         },
       ]);
 
-    const result =
-      await service.getDashboard(99);
+    const result = await service.getDashboard(99);
 
-    expect(
-      result.featuredPosts.byViews,
-    ).toEqual([
+    expect(result.featuredPosts.byViews).toEqual([
       {
         id: 10,
         title: 'Top view',
@@ -197,9 +177,7 @@ describe('BlogownerDashboardService', () => {
       },
     ]);
 
-    expect(
-      result.featuredPosts.byLikes,
-    ).toEqual([
+    expect(result.featuredPosts.byLikes).toEqual([
       {
         id: 20,
         title: 'Top like',
@@ -226,21 +204,17 @@ describe('BlogownerDashboardService', () => {
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0);
 
-    mockPrismaService.post.aggregate
-      .mockResolvedValueOnce({
-        _sum: {
-          viewCount: null,
-        },
-      });
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: {
+        viewCount: null,
+      },
+    });
 
-    mockPrismaService.postLike.count
-      .mockResolvedValueOnce(0);
+    mockPrismaService.postLike.count.mockResolvedValueOnce(0);
 
-    mockPrismaService.comment.count
-      .mockResolvedValueOnce(0);
+    mockPrismaService.comment.count.mockResolvedValueOnce(0);
 
-    mockPrismaService.postDailyMetric.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.postDailyMetric.findMany.mockResolvedValueOnce([]);
 
     mockPrismaService.post.findMany
       .mockResolvedValueOnce([])
@@ -248,9 +222,7 @@ describe('BlogownerDashboardService', () => {
 
     await service.getDashboard(99);
 
-    expect(
-      mockPrismaService.post.findMany,
-    ).toHaveBeenNthCalledWith(
+    expect(mockPrismaService.post.findMany).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
         take: 5,
@@ -266,9 +238,7 @@ describe('BlogownerDashboardService', () => {
       }),
     );
 
-    expect(
-      mockPrismaService.post.findMany,
-    ).toHaveBeenNthCalledWith(
+    expect(mockPrismaService.post.findMany).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         take: 5,

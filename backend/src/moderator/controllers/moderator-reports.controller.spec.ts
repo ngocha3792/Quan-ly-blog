@@ -6,14 +6,8 @@ import {
   UserRole,
 } from '@prisma/client';
 
-import {
-  JwtAuthGuard,
-  RolesGuard,
-  AuthenticatedUser,
-} from '@app/core';
-import type {
-  PaginationParams,
-} from '@app/core';
+import { JwtAuthGuard, RolesGuard, AuthenticatedUser } from '@app/core';
+import type { PaginationParams } from '@app/core';
 
 import { ModeratorReportsService } from '../services/moderator-reports.service';
 import { ModeratorReportsController } from './moderator-reports.controller';
@@ -103,19 +97,15 @@ describe('ModeratorReportsController', () => {
       reason: ReportReason.SPAM,
     };
 
-    const result = await controller.findAll(
+    const result = await controller.findAll(query, pagination);
+
+    expect(moderatorReportsService.findAll).toHaveBeenCalledWith(
       query,
       pagination,
     );
 
-    expect(
-      moderatorReportsService.findAll,
-    ).toHaveBeenCalledWith(query, pagination);
-
     expect(result.items).toHaveLength(1);
-    expect(result.items[0].status).toBe(
-      ReportStatus.PENDING,
-    );
+    expect(result.items[0].status).toBe(ReportStatus.PENDING);
   });
 
   it('should return report detail', async () => {
@@ -127,9 +117,7 @@ describe('ModeratorReportsController', () => {
 
     const result = await controller.findOne(1);
 
-    expect(
-      moderatorReportsService.findOne,
-    ).toHaveBeenCalledWith(1);
+    expect(moderatorReportsService.findOne).toHaveBeenCalledWith(1);
 
     expect(result.id).toBe(1);
   });
@@ -145,19 +133,11 @@ describe('ModeratorReportsController', () => {
       resolutionNote: 'Nội dung có vi phạm.',
     };
 
-    const result = await controller.resolve(
-      moderator,
-      1,
-      dto,
-    );
+    const result = await controller.resolve(moderator, 1, dto);
 
-    expect(
-      moderatorReportsService.resolve,
-    ).toHaveBeenCalledWith(2, 1, dto);
+    expect(moderatorReportsService.resolve).toHaveBeenCalledWith(2, 1, dto);
 
-    expect(result.status).toBe(
-      ReportStatus.RESOLVED,
-    );
+    expect(result.status).toBe(ReportStatus.RESOLVED);
   });
 
   it('should reject a report', async () => {
@@ -171,18 +151,10 @@ describe('ModeratorReportsController', () => {
       resolutionNote: 'Không phát hiện vi phạm.',
     };
 
-    const result = await controller.reject(
-      moderator,
-      2,
-      dto,
-    );
+    const result = await controller.reject(moderator, 2, dto);
 
-    expect(
-      moderatorReportsService.reject,
-    ).toHaveBeenCalledWith(2, 2, dto);
+    expect(moderatorReportsService.reject).toHaveBeenCalledWith(2, 2, dto);
 
-    expect(result.status).toBe(
-      ReportStatus.REJECTED,
-    );
+    expect(result.status).toBe(ReportStatus.REJECTED);
   });
 });

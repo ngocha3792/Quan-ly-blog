@@ -4,19 +4,14 @@ import { UpdateUserDto, CreateUserDto, GetUsersDto } from './dto/index';
 import { UserEntity } from './entities/user.entity';
 import { BcryptUtil } from '@app/core/common/utils';
 import {
-  ExistActionNotAllowedException,
   EmailAlreadyExistsException,
   UsernameAlreadyExistsException,
   UserNotFoundException,
-  SelfActionNotAllowedException,
 } from '@app/core/common/exceptions';
 import { PaginationParams, PaginatedResult } from '@app/core/common/interfaces';
 import { Prisma, UserRole, UserStatus } from '@prisma/client';
 
-type UpdateUserInput = Pick<
-  UpdateUserDto,
-  'password' | 'bio'
-> & {
+type UpdateUserInput = Pick<UpdateUserDto, 'password' | 'bio'> & {
   /**
    * Hai field này là internal input.
    *
@@ -81,7 +76,10 @@ export class UsersService {
     });
   }
 
-  async update(id: number, updateUserDto: UpdateUserInput): Promise<UserEntity> {
+  async update(
+    id: number,
+    updateUserDto: UpdateUserInput,
+  ): Promise<UserEntity> {
     // 1. Kiểm tra xem user có tồn tại (và chưa bị xóa) không
     const user = await this.findById(id);
     if (!user) {
@@ -89,12 +87,7 @@ export class UsersService {
     }
 
     // 2. Rút trích dữ liệu từ DTO
-    const {
-      password,
-      bio,
-      avatarUrl,
-      avatarPublicId,
-    } = updateUserDto;
+    const { password, bio, avatarUrl, avatarPublicId } = updateUserDto;
     const dataToUpdate: Prisma.UserUpdateInput = {};
 
     if (bio !== undefined) {
@@ -102,15 +95,11 @@ export class UsersService {
     }
 
     if (avatarUrl !== undefined) {
-      dataToUpdate.avatarUrl =
-        avatarUrl;
+      dataToUpdate.avatarUrl = avatarUrl;
     }
 
-    if (
-      avatarPublicId !== undefined
-    ) {
-      (dataToUpdate as any).avatarPublicId =
-        avatarPublicId;
+    if (avatarPublicId !== undefined) {
+      dataToUpdate.avatarPublicId = avatarPublicId;
     }
 
     // 3. Nếu người dùng muốn đổi mật khẩu -> Băm mật khẩu mới

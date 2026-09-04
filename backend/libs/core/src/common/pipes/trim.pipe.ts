@@ -3,7 +3,7 @@ import { PipeTransform, Injectable, ArgumentMetadata } from '@nestjs/common';
 
 @Injectable()
 export class TrimPipe implements PipeTransform {
-  transform(values: any, metadata: ArgumentMetadata) {
+  transform(values: unknown, metadata: ArgumentMetadata): unknown {
     // Chỉ xử lý dữ liệu từ Body (POST, PUT, PATCH), bỏ qua Query hoặc Params
     if (metadata.type !== 'body') {
       return values;
@@ -12,7 +12,7 @@ export class TrimPipe implements PipeTransform {
   }
 
   // Hàm đệ quy để duyệt qua toàn bộ object và cắt khoảng trắng của các chuỗi
-  private cleanObject(values: any): any {
+  private cleanObject(values: unknown): unknown {
     if (typeof values === 'string') {
       return values.trim();
     }
@@ -23,10 +23,11 @@ export class TrimPipe implements PipeTransform {
     }
 
     // Nếu là mảng hoặc object, đệ quy để dọn dẹp từng phần tử bên trong
-    Object.keys(values).forEach((key) => {
-      values[key] = this.cleanObject(values[key]);
+    const record = values as Record<string, unknown>;
+    Object.keys(record).forEach((key) => {
+      record[key] = this.cleanObject(record[key]);
     });
 
-    return values;
+    return record;
   }
 }

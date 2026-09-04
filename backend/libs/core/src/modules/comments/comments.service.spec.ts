@@ -82,9 +82,9 @@ describe('CommentsService', () => {
        */
       mockPrismaService.post.findFirst.mockResolvedValueOnce(null);
 
-      await expect(
-        service.create(userId, createDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(prisma.comment.create).not.toHaveBeenCalled();
     });
@@ -106,13 +106,11 @@ describe('CommentsService', () => {
       /*
        * Không tìm thấy comment cha.
        */
-      mockPrismaService.comment.findFirst.mockResolvedValueOnce(
-        null,
-      );
+      mockPrismaService.comment.findFirst.mockResolvedValueOnce(null);
 
-      await expect(
-        service.create(userId, createDto),
-      ).rejects.toThrow(CommentNotFoundException);
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        CommentNotFoundException,
+      );
 
       expect(prisma.comment.create).not.toHaveBeenCalled();
     });
@@ -139,9 +137,9 @@ describe('CommentsService', () => {
         deletedAt: null,
       });
 
-      await expect(
-        service.create(userId, createDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(prisma.comment.create).not.toHaveBeenCalled();
     });
@@ -299,9 +297,7 @@ describe('CommentsService', () => {
 
   describe('findOne', () => {
     it('should throw CommentNotFoundException if comment not found', async () => {
-      mockPrismaService.comment.findFirst.mockResolvedValueOnce(
-        null,
-      );
+      mockPrismaService.comment.findFirst.mockResolvedValueOnce(null);
 
       await expect(service.findOne(999)).rejects.toThrow(
         CommentNotFoundException,
@@ -339,9 +335,9 @@ describe('CommentsService', () => {
         content: 'Old comment',
       });
 
-      await expect(
-        service.update(1, userId, updateDto),
-      ).rejects.toThrow(NotCommentOwnerException);
+      await expect(service.update(1, userId, updateDto)).rejects.toThrow(
+        NotCommentOwnerException,
+      );
 
       expect(prisma.comment.update).not.toHaveBeenCalled();
     });
@@ -370,9 +366,7 @@ describe('CommentsService', () => {
         ),
       ).rejects.toThrow(NotCommentOwnerException);
 
-      expect(
-        prisma.comment.update,
-      ).not.toHaveBeenCalled();
+      expect(prisma.comment.update).not.toHaveBeenCalled();
     });
 
     it('should reject unchanged content after ownership is verified', async () => {
@@ -394,14 +388,10 @@ describe('CommentsService', () => {
           content: '  Hello world  ',
         }),
       ).rejects.toThrow(
-        new BadRequestException(
-          'Nội dung bình luận không có sự thay đổi.',
-        ),
+        new BadRequestException('Nội dung bình luận không có sự thay đổi.'),
       );
 
-      expect(
-        prisma.comment.update,
-      ).not.toHaveBeenCalled();
+      expect(prisma.comment.update).not.toHaveBeenCalled();
     });
 
     it('should update only content if user is the owner', async () => {
@@ -421,11 +411,7 @@ describe('CommentsService', () => {
         content: 'Updated comment',
       });
 
-      const result = await service.update(
-        1,
-        userId,
-        updateDto,
-      );
+      const result = await service.update(1, userId, updateDto);
 
       expect(prisma.comment.update).toHaveBeenCalledWith({
         where: {
@@ -453,9 +439,9 @@ describe('CommentsService', () => {
         content: 'Test comment',
       });
 
-      await expect(
-        service.remove(1, userId),
-      ).rejects.toThrow(NotCommentOwnerException);
+      await expect(service.remove(1, userId)).rejects.toThrow(
+        NotCommentOwnerException,
+      );
 
       expect(prisma.comment.update).not.toHaveBeenCalled();
     });
@@ -504,7 +490,6 @@ describe('CommentsService', () => {
     });
   });
 });
-
 
 // import { Test, TestingModule } from '@nestjs/testing';
 // import { CommentsService } from './comments.service';

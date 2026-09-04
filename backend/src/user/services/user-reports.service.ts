@@ -87,10 +87,7 @@ export class UserReportsService {
     };
 
     try {
-      return await this.reportsService.create(
-        reporterId,
-        createReportDto,
-      );
+      return await this.reportsService.create(reporterId, createReportDto);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -131,9 +128,7 @@ export class UserReportsService {
     });
 
     if (!comment) {
-      throw new CommentNotFoundException(
-        commentId.toString(),
-      );
+      throw new CommentNotFoundException(commentId.toString());
     }
 
     /**
@@ -174,10 +169,7 @@ export class UserReportsService {
     };
 
     try {
-      return await this.reportsService.create(
-        reporterId,
-        createReportDto,
-      );
+      return await this.reportsService.create(reporterId, createReportDto);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

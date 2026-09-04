@@ -1,14 +1,7 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import {
-  CategoryGroupNotFoundException,
-  PrismaService,
-} from '@app/core';
+import { CategoryGroupNotFoundException, PrismaService } from '@app/core';
 import type {
   GetCategoryGroupsDto,
   PaginatedResult,
@@ -16,7 +9,6 @@ import type {
 } from '@app/core';
 
 import type {
-  CategoryGroupTranslationDto,
   CreateCategoryGroupTranslationsDto,
   UpdateCategoryGroupTranslationsDto,
 } from '../dto';
@@ -43,8 +35,6 @@ const MODERATOR_CATEGORY_GROUP_INCLUDE = {
     },
   },
 } satisfies Prisma.CategoryGroupInclude;
-
-
 
 @Injectable()
 export class ModeratorCategoriesService {
@@ -114,9 +104,7 @@ export class ModeratorCategoriesService {
     ]);
 
     return {
-      items: groups.map(
-        (group) => new ModeratorCategoryGroupEntity(group),
-      ),
+      items: groups.map((group) => new ModeratorCategoryGroupEntity(group)),
 
       meta: {
         totalItems,
@@ -131,9 +119,7 @@ export class ModeratorCategoriesService {
   /**
    * Xem chi tiết một CategoryGroup.
    */
-  async findOne(
-    groupId: number,
-  ): Promise<ModeratorCategoryGroupEntity> {
+  async findOne(groupId: number): Promise<ModeratorCategoryGroupEntity> {
     const group = await this.prisma.categoryGroup.findFirst({
       where: {
         id: groupId,
@@ -170,31 +156,26 @@ export class ModeratorCategoriesService {
     await this.validator.ensureCodeAvailable(code);
 
     await this.validator.ensureActiveLanguages(
-      translations.map(
-        (translation) => translation.languageId,
-      ),
+      translations.map((translation) => translation.languageId),
     );
 
-    await this.validator.ensureTranslationNamesAvailable(
-      translations,
-    );
+    await this.validator.ensureTranslationNamesAvailable(translations);
 
-    const createdGroup = await this.prisma.$transaction(
-      async (tx) =>
-        tx.categoryGroup.create({
-          data: {
-            code,
+    const createdGroup = await this.prisma.$transaction(async (tx) =>
+      tx.categoryGroup.create({
+        data: {
+          code,
 
-            categories: {
-              create: translations.map((translation) => ({
-                languageId: translation.languageId,
-                name: translation.name,
-              })),
-            },
+          categories: {
+            create: translations.map((translation) => ({
+              languageId: translation.languageId,
+              name: translation.name,
+            })),
           },
+        },
 
-          include: MODERATOR_CATEGORY_GROUP_INCLUDE,
-        }),
+        include: MODERATOR_CATEGORY_GROUP_INCLUDE,
+      }),
     );
 
     return new ModeratorCategoryGroupEntity(createdGroup);
@@ -221,10 +202,7 @@ export class ModeratorCategoriesService {
     groupId: number,
     dto: UpdateCategoryGroupTranslationsDto,
   ): Promise<ModeratorCategoryGroupEntity> {
-    if (
-      dto.code === undefined &&
-      dto.translations === undefined
-    ) {
+    if (dto.code === undefined && dto.translations === undefined) {
       throw new BadRequestException(
         'Phải cung cấp code hoặc danh sách bản dịch cần cập nhật.',
       );
@@ -235,13 +213,8 @@ export class ModeratorCategoriesService {
     const code = dto.code;
     const translations = dto.translations;
 
-    if (
-      translations !== undefined &&
-      translations.length === 0
-    ) {
-      throw new BadRequestException(
-        'Danh sách bản dịch không được để trống.',
-      );
+    if (translations !== undefined && translations.length === 0) {
+      throw new BadRequestException('Danh sách bản dịch không được để trống.');
     }
 
     if (code !== undefined) {
@@ -250,9 +223,7 @@ export class ModeratorCategoriesService {
 
     if (translations !== undefined) {
       await this.validator.ensureActiveLanguages(
-        translations.map(
-          (translation) => translation.languageId,
-        ),
+        translations.map((translation) => translation.languageId),
       );
 
       await this.validator.ensureTranslationNamesAvailable(
@@ -261,72 +232,70 @@ export class ModeratorCategoriesService {
       );
     }
 
-    const updatedGroup = await this.prisma.$transaction(
-      async (tx) => {
-        /**
-         * Luôn cập nhật group một lần.
-         *
-         * Khi chỉ đổi translations, updatedAt của group
-         * vẫn được cập nhật để phản ánh thay đổi mới nhất.
-         */
-        await tx.categoryGroup.update({
-          where: {
-            id: groupId,
-          },
+    const updatedGroup = await this.prisma.$transaction(async (tx) => {
+      /**
+       * Luôn cập nhật group một lần.
+       *
+       * Khi chỉ đổi translations, updatedAt của group
+       * vẫn được cập nhật để phản ánh thay đổi mới nhất.
+       */
+      await tx.categoryGroup.update({
+        where: {
+          id: groupId,
+        },
 
-          data:
-            code === undefined
-              ? {
-                  updatedAt: new Date(),
-                }
-              : {
-                  code,
-                },
-        });
-
-        if (translations !== undefined) {
-          for (const translation of translations) {
-            await tx.category.upsert({
-              where: {
-                categoryGroupId_languageId: {
-                  categoryGroupId: groupId,
-                  languageId: translation.languageId,
-                },
+        data:
+          code === undefined
+            ? {
+                updatedAt: new Date(),
+              }
+            : {
+                code,
               },
+      });
 
-              update: {
-                name: translation.name,
-
-                /**
-                 * Bản dịch đã bị xóa mềm sẽ được khôi phục.
-                 */
-                deletedAt: null,
-              },
-
-              create: {
+      if (translations !== undefined) {
+        for (const translation of translations) {
+          await tx.category.upsert({
+            where: {
+              categoryGroupId_languageId: {
                 categoryGroupId: groupId,
                 languageId: translation.languageId,
-                name: translation.name,
               },
-            });
-          }
+            },
+
+            update: {
+              name: translation.name,
+
+              /**
+               * Bản dịch đã bị xóa mềm sẽ được khôi phục.
+               */
+              deletedAt: null,
+            },
+
+            create: {
+              categoryGroupId: groupId,
+              languageId: translation.languageId,
+              name: translation.name,
+            },
+          });
         }
+      }
 
-        const group = await tx.categoryGroup.findUnique({
-          where: {
-            id: groupId,
-          },
+      const group = await tx.categoryGroup.findUnique({
+        where: {
+          id: groupId,
+        },
 
-          include: MODERATOR_CATEGORY_GROUP_INCLUDE,
-        });
+        include: MODERATOR_CATEGORY_GROUP_INCLUDE,
+      });
 
-        if (!group) {
-          throw new CategoryGroupNotFoundException(groupId);
-        }
+      if (!group) {
+        throw new CategoryGroupNotFoundException(groupId);
+      }
 
-        return group;
-      },
-    );
+      return group;
+    });
 
     return new ModeratorCategoryGroupEntity(updatedGroup);
   }
@@ -337,19 +306,16 @@ export class ModeratorCategoriesService {
    * Không cho xóa nếu có bài viết đang sử dụng
    * bất kỳ category nào thuộc group.
    */
-  async remove(
-    groupId: number,
-  ): Promise<ModeratorCategoryGroupEntity> {
+  async remove(groupId: number): Promise<ModeratorCategoryGroupEntity> {
     await this.validator.ensureActiveGroupExists(groupId);
 
-    const usageCount =
-      await this.prisma.postCategory.count({
-        where: {
-          category: {
-            categoryGroupId: groupId,
-          },
+    const usageCount = await this.prisma.postCategory.count({
+      where: {
+        category: {
+          categoryGroupId: groupId,
         },
-      });
+      },
+    });
 
     if (usageCount > 0) {
       throw new BadRequestException(
@@ -359,38 +325,36 @@ export class ModeratorCategoriesService {
 
     const deletedAt = new Date();
 
-    const deletedGroup = await this.prisma.$transaction(
-      async (tx) => {
-        /**
-         * Xóa mềm toàn bộ bản dịch trước.
-         */
-        await tx.category.updateMany({
-          where: {
-            categoryGroupId: groupId,
-            deletedAt: null,
-          },
+    const deletedGroup = await this.prisma.$transaction(async (tx) => {
+      /**
+       * Xóa mềm toàn bộ bản dịch trước.
+       */
+      await tx.category.updateMany({
+        where: {
+          categoryGroupId: groupId,
+          deletedAt: null,
+        },
 
-          data: {
-            deletedAt,
-          },
-        });
+        data: {
+          deletedAt,
+        },
+      });
 
-        /**
-         * Sau đó xóa mềm group.
-         */
-        return tx.categoryGroup.update({
-          where: {
-            id: groupId,
-          },
+      /**
+       * Sau đó xóa mềm group.
+       */
+      return tx.categoryGroup.update({
+        where: {
+          id: groupId,
+        },
 
-          data: {
-            deletedAt,
-          },
+        data: {
+          deletedAt,
+        },
 
-          include: MODERATOR_CATEGORY_GROUP_INCLUDE,
-        });
-      },
-    );
+        include: MODERATOR_CATEGORY_GROUP_INCLUDE,
+      });
+    });
     return new ModeratorCategoryGroupEntity(deletedGroup);
   }
 }

@@ -21,16 +21,9 @@ export class GetModeratorPostsDto extends OmitType(GetPostsDto, [
   'status',
 ] as const) {
   @IsOptional()
-  @IsIn(
-    [
-      PostStatus.PENDING_REVIEW,
-      PostStatus.PUBLISH,
-      PostStatus.REJECT,
-    ],
-    {
-      message:
-        'Moderator chỉ được lọc bài theo PENDING_REVIEW, PUBLISH hoặc REJECT.',
-    },
-  )
+  @IsIn([PostStatus.PENDING_REVIEW, PostStatus.PUBLISH, PostStatus.REJECT], {
+    message:
+      'Moderator chỉ được lọc bài theo PENDING_REVIEW, PUBLISH hoặc REJECT.',
+  })
   status?: PostStatus;
 }

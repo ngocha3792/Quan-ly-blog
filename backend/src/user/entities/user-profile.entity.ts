@@ -1,4 +1,5 @@
 import { Exclude, Expose } from 'class-transformer';
+import type { User } from '@prisma/client';
 import { UserEntity } from '@app/core';
 import { UserFollowSummaryEntity } from './user-follow-summary.entity';
 
@@ -49,7 +50,9 @@ export class UserProfileEntity extends UserEntity {
   followers?: UserFollowerSummary[];
 
   constructor(
-    partial: Partial<UserProfileEntity & { following?: any[]; followers?: any[] }>,
+    partial: Partial<
+      UserProfileEntity & { following?: any[]; followers?: any[] }
+    >,
   ) {
     super(partial);
     Object.assign(this, partial);
@@ -58,7 +61,7 @@ export class UserProfileEntity extends UserEntity {
     const rawFollowersList = partial.followers ?? partial.following;
     if (Array.isArray(rawFollowersList)) {
       this.followers = rawFollowersList
-        .map((item) => {
+        .map((item: unknown) => {
           // Trường hợp 1: Dữ liệu thô từ Prisma UserFollow { follower: { id, username, avatarUrl, bio } }
           if (
             item &&
@@ -75,7 +78,7 @@ export class UserProfileEntity extends UserEntity {
             'id' in item &&
             'username' in item
           ) {
-            return new UserFollowSummaryEntity(item);
+            return new UserFollowSummaryEntity(item as Partial<User>);
           }
           return null;
         })

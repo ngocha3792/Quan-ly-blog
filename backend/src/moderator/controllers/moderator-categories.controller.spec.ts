@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import {
-  JwtAuthGuard,
-  RolesGuard,
-} from '@app/core';
+import { JwtAuthGuard, RolesGuard } from '@app/core';
 import type { PaginationParams } from '@app/core';
 
 import { ModeratorCategoriesService } from '../services/moderator-categories.service';
@@ -61,10 +58,9 @@ describe('ModeratorCategoriesController', () => {
 
       .compile();
 
-    controller =
-      module.get<ModeratorCategoriesController>(
-        ModeratorCategoriesController,
-      );
+    controller = module.get<ModeratorCategoriesController>(
+      ModeratorCategoriesController,
+    );
   });
 
   it('should be defined', () => {
@@ -94,14 +90,12 @@ describe('ModeratorCategoriesController', () => {
       search: 'programming',
     };
 
-    const result = await controller.findAll(
+    const result = await controller.findAll(query, pagination);
+
+    expect(moderatorCategoriesService.findAll).toHaveBeenCalledWith(
       query,
       pagination,
     );
-
-    expect(
-      moderatorCategoriesService.findAll,
-    ).toHaveBeenCalledWith(query, pagination);
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0].code).toBe('programming');
@@ -117,9 +111,7 @@ describe('ModeratorCategoriesController', () => {
 
     const result = await controller.findOne(10);
 
-    expect(
-      moderatorCategoriesService.findOne,
-    ).toHaveBeenCalledWith(10);
+    expect(moderatorCategoriesService.findOne).toHaveBeenCalledWith(10);
 
     expect(result.id).toBe(10);
   });
@@ -148,9 +140,7 @@ describe('ModeratorCategoriesController', () => {
 
     const result = await controller.create(dto);
 
-    expect(
-      moderatorCategoriesService.create,
-    ).toHaveBeenCalledWith(dto);
+    expect(moderatorCategoriesService.create).toHaveBeenCalledWith(dto);
 
     expect(result.id).toBe(10);
     expect(result.translationCount).toBe(2);
@@ -173,9 +163,7 @@ describe('ModeratorCategoriesController', () => {
 
     const result = await controller.update(10, dto);
 
-    expect(
-      moderatorCategoriesService.update,
-    ).toHaveBeenCalledWith(10, dto);
+    expect(moderatorCategoriesService.update).toHaveBeenCalledWith(10, dto);
 
     expect(result.id).toBe(10);
   });
@@ -188,9 +176,7 @@ describe('ModeratorCategoriesController', () => {
 
     const result = await controller.remove(10);
 
-    expect(
-      moderatorCategoriesService.remove,
-    ).toHaveBeenCalledWith(10);
+    expect(moderatorCategoriesService.remove).toHaveBeenCalledWith(10);
 
     expect(result.id).toBe(10);
   });

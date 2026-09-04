@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserRole, BlogOwnerRequestStatus, PostStatus } from '@prisma/client';
 import { PrismaService } from '@app/core';
 import { AdminDashboardService } from './admin-dashboard.service';
 
@@ -65,11 +64,9 @@ describe('AdminDashboardService', () => {
         .mockResolvedValueOnce(320)
         .mockResolvedValueOnce(42);
 
-      mockPrismaService.language.count
-        .mockResolvedValueOnce(3);
+      mockPrismaService.language.count.mockResolvedValueOnce(3);
 
-      mockPrismaService.blogOwnerRequest.count
-        .mockResolvedValueOnce(5);
+      mockPrismaService.blogOwnerRequest.count.mockResolvedValueOnce(5);
 
       // Mock recent users (7-day user growth)
       mockPrismaService.user.findMany.mockResolvedValueOnce([

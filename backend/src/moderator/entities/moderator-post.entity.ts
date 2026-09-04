@@ -1,19 +1,7 @@
-import {
-  type Media,
-  type PostStatus,
-  type User,
-} from '@prisma/client';
-import {
-  Exclude,
-  Expose,
-  Type,
-} from 'class-transformer';
+import { type Media, type PostStatus, type User } from '@prisma/client';
+import { Exclude, Expose, Type } from 'class-transformer';
 
-import {
-  CategoryEntity,
-  PostEntity,
-  UserEntity,
-} from '@app/core';
+import { CategoryEntity, PostEntity, UserEntity } from '@app/core';
 
 type ModeratorPostCategoryRelation = {
   category: CategoryEntity;
@@ -26,19 +14,11 @@ type ModeratorPostTagRelation = {
   };
 };
 
-type ModeratorReviewerSummary = Pick<
-  User,
-  'id' | 'username' | 'avatarUrl'
->;
+type ModeratorReviewerSummary = Pick<User, 'id' | 'username' | 'avatarUrl'>;
 
 type ModeratorMediaSummary = Pick<
   Media,
-  | 'id'
-  | 'postId'
-  | 'mediaType'
-  | 'mediaUrl'
-  | 'publicId'
-  | 'createdAt'
+  'id' | 'postId' | 'mediaType' | 'mediaUrl' | 'publicId' | 'createdAt'
 >;
 
 /**

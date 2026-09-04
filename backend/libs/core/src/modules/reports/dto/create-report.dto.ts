@@ -15,7 +15,7 @@ export class CreateReportDto {
   @IsNotEmpty({ message: 'Loại mục tiêu báo cáo không được để trống' })
   targetType: ReportTargetType;
 
-  @ValidateIf((o) => o.targetType === ReportTargetType.POST)
+  @ValidateIf((o: CreateReportDto) => o.targetType === ReportTargetType.POST)
   @IsNumber({}, { message: 'Mã bài viết phải là một số' })
   @Type(() => Number)
   @IsNotEmpty({
@@ -23,7 +23,7 @@ export class CreateReportDto {
   })
   postId?: number;
 
-  @ValidateIf((o) => o.targetType === ReportTargetType.COMMENT)
+  @ValidateIf((o: CreateReportDto) => o.targetType === ReportTargetType.COMMENT)
   @IsNumber({}, { message: 'Mã bình luận phải là một số' })
   @Type(() => Number)
   @IsNotEmpty({

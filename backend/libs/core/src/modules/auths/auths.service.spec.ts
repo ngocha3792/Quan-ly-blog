@@ -9,15 +9,13 @@ import {
   TokenNotValidException,
   SessionInvalidException,
   AccountBannedException,
-  UserNotFoundException
+  UserNotFoundException,
 } from '@app/core/common/exceptions';
 
 describe('AuthsService', () => {
   let service: AuthsService;
   let prisma: PrismaService;
   let usersService: UsersService;
-  let bcryptUtil: BcryptUtil;
-  let jwtUtil: JWTUtil;
 
   const mockPrismaService = {
     userSession: {
@@ -72,8 +70,6 @@ describe('AuthsService', () => {
     service = module.get<AuthsService>(AuthsService);
     prisma = module.get<PrismaService>(PrismaService);
     usersService = module.get<UsersService>(UsersService);
-    bcryptUtil = module.get<BcryptUtil>(BcryptUtil);
-    jwtUtil = module.get<JWTUtil>(JWTUtil);
   });
 
   afterEach(() => {
@@ -149,7 +145,12 @@ describe('AuthsService', () => {
 
   describe('refreshToken', () => {
     const dto: any = { refreshToken: 'refresh' };
-    const mockUser = { id: 1, role: 'BLOG_OWNER', email: 'test@example.com', status: 'ACTIVE' };
+    const mockUser = {
+      id: 1,
+      role: 'BLOG_OWNER',
+      email: 'test@example.com',
+      status: 'ACTIVE',
+    };
 
     it('should throw UserNotFoundException if user does not exist in DB', async () => {
       mockJwtUtil.verifyRefreshToken.mockReturnValue({ sub: '1' });
@@ -161,7 +162,11 @@ describe('AuthsService', () => {
 
     it('should throw AccountBannedException if user status is LOCKED', async () => {
       mockJwtUtil.verifyRefreshToken.mockReturnValue({ sub: '1' });
-      mockUsersService.findById.mockResolvedValueOnce({ ...mockUser, status: 'LOCKED', lockReason: 'Banned' });
+      mockUsersService.findById.mockResolvedValueOnce({
+        ...mockUser,
+        status: 'LOCKED',
+        lockReason: 'Banned',
+      });
       await expect(service.refreshToken(dto)).rejects.toThrow(
         AccountBannedException,
       );
@@ -225,7 +230,11 @@ describe('AuthsService', () => {
       mockJwtUtil.generateAccessToken.mockReturnValue('new-access');
 
       const result = await service.refreshToken(dto, 'ip', 'device-1');
-      expect(mockJwtUtil.generateAccessToken).toHaveBeenCalledWith('1', 'BLOG_OWNER', 'test@example.com');
+      expect(mockJwtUtil.generateAccessToken).toHaveBeenCalledWith(
+        '1',
+        'BLOG_OWNER',
+        'test@example.com',
+      );
       expect(result).toEqual({ accessToken: 'new-access' });
     });
   });

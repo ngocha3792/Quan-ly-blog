@@ -4,17 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  Prisma,
-  ReportStatus,
-  ReportTargetType,
-} from '@prisma/client';
+import { Prisma, ReportStatus, ReportTargetType } from '@prisma/client';
 
 import { PrismaService, ReportsService } from '@app/core';
-import type {
-  PaginatedResult,
-  PaginationParams,
-} from '@app/core';
+import type { PaginatedResult, PaginationParams } from '@app/core';
 
 import {
   GetModeratorReportsDto,
@@ -206,9 +199,7 @@ export class ModeratorReportsService {
 
     return {
       ...result,
-      items: result.items.map(
-        (report) => new ModeratorReportEntity(report),
-      ),
+      items: result.items.map((report) => new ModeratorReportEntity(report)),
     };
   }
 
@@ -220,9 +211,7 @@ export class ModeratorReportsService {
    * - RESOLVED
    * - REJECTED
    */
-  async findOne(
-    reportId: number,
-  ): Promise<ModeratorReportEntity> {
+  async findOne(reportId: number): Promise<ModeratorReportEntity> {
     const report = await this.reportsService.findOne(
       reportId,
       MODERATOR_REPORT_DETAIL_INCLUDE,
@@ -243,100 +232,96 @@ export class ModeratorReportsService {
     reportId: number,
     dto: ResolveModeratorReportDto,
   ): Promise<ModeratorReportEntity> {
-    const resolvedReport = await this.prisma.$transaction(
-      async (tx) => {
-        const report = await tx.report.findUnique({
-          where: {
-            id: reportId,
-          },
-          select: {
-            id: true,
-            status: true,
-            targetType: true,
-            postId: true,
-            commentId: true,
-          },
-        });
+    const resolvedReport = await this.prisma.$transaction(async (tx) => {
+      const report = await tx.report.findUnique({
+        where: {
+          id: reportId,
+        },
+        select: {
+          id: true,
+          status: true,
+          targetType: true,
+          postId: true,
+          commentId: true,
+        },
+      });
 
-        if (!report) {
-          throw new NotFoundException(
-            `Không tìm thấy báo cáo với ID: ${reportId}.`,
-          );
-        }
+      if (!report) {
+        throw new NotFoundException(
+          `Không tìm thấy báo cáo với ID: ${reportId}.`,
+        );
+      }
 
-        if (report.status !== ReportStatus.PENDING) {
-          throw new BadRequestException(
-            `Chỉ có thể xử lý báo cáo đang ở trạng thái PENDING. Trạng thái hiện tại: ${report.status}.`,
-          );
-        }
+      if (report.status !== ReportStatus.PENDING) {
+        throw new BadRequestException(
+          `Chỉ có thể xử lý báo cáo đang ở trạng thái PENDING. Trạng thái hiện tại: ${report.status}.`,
+        );
+      }
 
-        const reviewedAt = new Date();
+      const reviewedAt = new Date();
 
-        /**
-         * Claim report đang xét.
-         *
-         * Điều kiện status=PENDING giúp chống hai Moderator
-         * cùng xử lý một report tại cùng thời điểm.
-         */
-        const claimResult = await tx.report.updateMany({
-          where: {
-            id: reportId,
-            status: ReportStatus.PENDING,
-          },
-          data: {
-            status: ReportStatus.RESOLVED,
-            reviewedById: moderatorId,
-            reviewedAt,
-            resolutionNote: dto.resolutionNote,
-          },
-        });
+      /**
+       * Claim report đang xét.
+       *
+       * Điều kiện status=PENDING giúp chống hai Moderator
+       * cùng xử lý một report tại cùng thời điểm.
+       */
+      const claimResult = await tx.report.updateMany({
+        where: {
+          id: reportId,
+          status: ReportStatus.PENDING,
+        },
+        data: {
+          status: ReportStatus.RESOLVED,
+          reviewedById: moderatorId,
+          reviewedAt,
+          resolutionNote: dto.resolutionNote,
+        },
+      });
 
-        if (claimResult.count !== 1) {
-          throw new ConflictException(
-            'Báo cáo đã được Moderator khác xử lý. Vui lòng tải lại dữ liệu.',
-          );
-        }
+      if (claimResult.count !== 1) {
+        throw new ConflictException(
+          'Báo cáo đã được Moderator khác xử lý. Vui lòng tải lại dữ liệu.',
+        );
+      }
 
-        if (report.targetType === ReportTargetType.POST) {
-          await this.resolvePostReport(
-            tx,
-            report.postId,
-            moderatorId,
-            reviewedAt,
-            dto.resolutionNote,
-          );
-        } else if (
-          report.targetType === ReportTargetType.COMMENT
-        ) {
-          await this.resolveCommentReport(
-            tx,
-            report.commentId,
-            moderatorId,
-            reviewedAt,
-            dto.resolutionNote,
-          );
-        } else {
-          throw new BadRequestException(
-            'Loại nội dung của báo cáo không hợp lệ.',
-          );
-        }
+      if (report.targetType === ReportTargetType.POST) {
+        await this.resolvePostReport(
+          tx,
+          report.postId,
+          moderatorId,
+          reviewedAt,
+          dto.resolutionNote,
+        );
+      } else if (report.targetType === ReportTargetType.COMMENT) {
+        await this.resolveCommentReport(
+          tx,
+          report.commentId,
+          moderatorId,
+          reviewedAt,
+          dto.resolutionNote,
+        );
+      } else {
+        throw new BadRequestException(
+          'Loại nội dung của báo cáo không hợp lệ.',
+        );
+      }
 
-        const result = await tx.report.findUnique({
-          where: {
-            id: reportId,
-          },
-          include: MODERATOR_REPORT_INCLUDE,
-        });
+      const result = await tx.report.findUnique({
+        where: {
+          id: reportId,
+        },
+        include: MODERATOR_REPORT_INCLUDE,
+      });
 
-        if (!result) {
-          throw new NotFoundException(
-            `Không tìm thấy báo cáo với ID: ${reportId}.`,
-          );
-        }
+      if (!result) {
+        throw new NotFoundException(
+          `Không tìm thấy báo cáo với ID: ${reportId}.`,
+        );
+      }
 
-        return result;
-      },
-    );
+      return result;
+    });
 
     return new ModeratorReportEntity(resolvedReport);
   }
@@ -352,67 +337,65 @@ export class ModeratorReportsService {
     reportId: number,
     dto: RejectModeratorReportDto,
   ): Promise<ModeratorReportEntity> {
-    const rejectedReport = await this.prisma.$transaction(
-      async (tx) => {
-        const report = await tx.report.findUnique({
-          where: {
-            id: reportId,
-          },
-          select: {
-            id: true,
-            status: true,
-          },
-        });
+    const rejectedReport = await this.prisma.$transaction(async (tx) => {
+      const report = await tx.report.findUnique({
+        where: {
+          id: reportId,
+        },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
 
-        if (!report) {
-          throw new NotFoundException(
-            `Không tìm thấy báo cáo với ID: ${reportId}.`,
-          );
-        }
+      if (!report) {
+        throw new NotFoundException(
+          `Không tìm thấy báo cáo với ID: ${reportId}.`,
+        );
+      }
 
-        if (report.status !== ReportStatus.PENDING) {
-          throw new BadRequestException(
-            `Chỉ có thể bác bỏ báo cáo đang ở trạng thái PENDING. Trạng thái hiện tại: ${report.status}.`,
-          );
-        }
+      if (report.status !== ReportStatus.PENDING) {
+        throw new BadRequestException(
+          `Chỉ có thể bác bỏ báo cáo đang ở trạng thái PENDING. Trạng thái hiện tại: ${report.status}.`,
+        );
+      }
 
-        const reviewedAt = new Date();
+      const reviewedAt = new Date();
 
-        const updateResult = await tx.report.updateMany({
-          where: {
-            id: reportId,
-            status: ReportStatus.PENDING,
-          },
-          data: {
-            status: ReportStatus.REJECTED,
-            reviewedById: moderatorId,
-            reviewedAt,
-            resolutionNote: dto.resolutionNote,
-          },
-        });
+      const updateResult = await tx.report.updateMany({
+        where: {
+          id: reportId,
+          status: ReportStatus.PENDING,
+        },
+        data: {
+          status: ReportStatus.REJECTED,
+          reviewedById: moderatorId,
+          reviewedAt,
+          resolutionNote: dto.resolutionNote,
+        },
+      });
 
-        if (updateResult.count !== 1) {
-          throw new ConflictException(
-            'Báo cáo đã được Moderator khác xử lý. Vui lòng tải lại dữ liệu.',
-          );
-        }
+      if (updateResult.count !== 1) {
+        throw new ConflictException(
+          'Báo cáo đã được Moderator khác xử lý. Vui lòng tải lại dữ liệu.',
+        );
+      }
 
-        const result = await tx.report.findUnique({
-          where: {
-            id: reportId,
-          },
-          include: MODERATOR_REPORT_INCLUDE,
-        });
+      const result = await tx.report.findUnique({
+        where: {
+          id: reportId,
+        },
+        include: MODERATOR_REPORT_INCLUDE,
+      });
 
-        if (!result) {
-          throw new NotFoundException(
-            `Không tìm thấy báo cáo với ID: ${reportId}.`,
-          );
-        }
+      if (!result) {
+        throw new NotFoundException(
+          `Không tìm thấy báo cáo với ID: ${reportId}.`,
+        );
+      }
 
-        return result;
-      },
-    );
+      return result;
+    });
 
     return new ModeratorReportEntity(rejectedReport);
   }
@@ -421,35 +404,34 @@ export class ModeratorReportsService {
    * Xử lý report nhắm tới bài viết.
    */
   private async resolvePostReport(
-  tx: Prisma.TransactionClient,
-  postId: number | null,
-  moderatorId: number,
-  reviewedAt: Date,
-  resolutionNote: string,
-): Promise<void> {
-  if (postId === null) {
-    throw new BadRequestException(
-      'Báo cáo bài viết không chứa postId hợp lệ.',
-    );
-  }
+    tx: Prisma.TransactionClient,
+    postId: number | null,
+    moderatorId: number,
+    reviewedAt: Date,
+    resolutionNote: string,
+  ): Promise<void> {
+    if (postId === null) {
+      throw new BadRequestException(
+        'Báo cáo bài viết không chứa postId hợp lệ.',
+      );
+    }
 
-  /**
-   * =============================================
-   * 1. TÌM POST ĐANG BỊ REPORT
-   * =============================================
-   *
-   * postId có thể là:
-   *
-   * ROOT:
-   *   id = 6
-   *   parentPostId = null
-   *
-   * hoặc translation:
-   *   id = 7
-   *   parentPostId = 6
-   */
-  const selectedPost =
-    await tx.post.findUnique({
+    /**
+     * =============================================
+     * 1. TÌM POST ĐANG BỊ REPORT
+     * =============================================
+     *
+     * postId có thể là:
+     *
+     * ROOT:
+     *   id = 6
+     *   parentPostId = null
+     *
+     * hoặc translation:
+     *   id = 7
+     *   parentPostId = 6
+     */
+    const selectedPost = await tx.post.findUnique({
       where: {
         id: postId,
       },
@@ -461,37 +443,31 @@ export class ModeratorReportsService {
       },
     });
 
-  if (
-    !selectedPost ||
-    selectedPost.deletedAt !== null
-  ) {
-    throw new ConflictException(
-      'Bài viết đã bị xóa, bị ẩn hoặc không còn tồn tại.',
-    );
-  }
+    if (!selectedPost || selectedPost.deletedAt !== null) {
+      throw new ConflictException(
+        'Bài viết đã bị xóa, bị ẩn hoặc không còn tồn tại.',
+      );
+    }
 
-  /**
-   * =============================================
-   * 2. XÁC ĐỊNH ROOT POST
-   * =============================================
-   */
-  const rootPostId =
-    selectedPost.parentPostId ??
-    selectedPost.id;
+    /**
+     * =============================================
+     * 2. XÁC ĐỊNH ROOT POST
+     * =============================================
+     */
+    const rootPostId = selectedPost.parentPostId ?? selectedPost.id;
 
-  /**
-   * =============================================
-   * 3. LẤY TOÀN BỘ POST GROUP
-   * =============================================
-   *
-   * Ví dụ:
-   *
-   * ROOT VI  id=6
-   * EN       id=7 parentPostId=6
-   * JA       id=8 parentPostId=6
-   */
-  const groupPosts =
-    await tx.post.findMany({
+    /**
+     * =============================================
+     * 3. LẤY TOÀN BỘ POST GROUP
+     * =============================================
+     *
+     * Ví dụ:
+     *
+     * ROOT VI  id=6
+     * EN       id=7 parentPostId=6
+     * JA       id=8 parentPostId=6
+     */
+    const groupPosts = await tx.post.findMany({
       where: {
         deletedAt: null,
 
@@ -511,34 +487,27 @@ export class ModeratorReportsService {
       },
     });
 
-  /**
-   * Post group hợp lệ bắt buộc phải còn ROOT.
-   */
-  const rootExists =
-    groupPosts.some(
-      (post) =>
-        post.id === rootPostId &&
-        post.parentPostId === null,
+    /**
+     * Post group hợp lệ bắt buộc phải còn ROOT.
+     */
+    const rootExists = groupPosts.some(
+      (post) => post.id === rootPostId && post.parentPostId === null,
     );
 
-  if (!rootExists) {
-    throw new ConflictException(
-      'Bài viết gốc đã bị xóa, bị ẩn hoặc không còn tồn tại.',
-    );
-  }
+    if (!rootExists) {
+      throw new ConflictException(
+        'Bài viết gốc đã bị xóa, bị ẩn hoặc không còn tồn tại.',
+      );
+    }
 
-  const groupPostIds =
-    groupPosts.map(
-      (post) => post.id,
-    );
+    const groupPostIds = groupPosts.map((post) => post.id);
 
-  /**
-   * =============================================
-   * 4. SOFT DELETE CẢ GROUP
-   * =============================================
-   */
-  const hideResult =
-    await tx.post.updateMany({
+    /**
+     * =============================================
+     * 4. SOFT DELETE CẢ GROUP
+     * =============================================
+     */
+    const hideResult = await tx.post.updateMany({
       where: {
         id: {
           in: groupPostIds,
@@ -552,68 +521,61 @@ export class ModeratorReportsService {
       },
     });
 
-  /**
-   * Nếu số row update khác số version vừa đọc
-   * có thể một Moderator/action khác đã thay đổi
-   * dữ liệu đồng thời.
-   *
-   * Transaction sẽ rollback toàn bộ.
-   */
-  if (
-    hideResult.count !==
-    groupPostIds.length
-  ) {
-    throw new ConflictException(
-      'Bài viết hoặc một bản dịch đã được xử lý bởi thao tác khác. Vui lòng tải lại dữ liệu.',
-    );
-  }
+    /**
+     * Nếu số row update khác số version vừa đọc
+     * có thể một Moderator/action khác đã thay đổi
+     * dữ liệu đồng thời.
+     *
+     * Transaction sẽ rollback toàn bộ.
+     */
+    if (hideResult.count !== groupPostIds.length) {
+      throw new ConflictException(
+        'Bài viết hoặc một bản dịch đã được xử lý bởi thao tác khác. Vui lòng tải lại dữ liệu.',
+      );
+    }
 
-  /**
-   * =============================================
-   * 5. RESOLVE TẤT CẢ REPORT CỦA POST GROUP
-   * =============================================
-   *
-   * Nếu:
-   *
-   * report A → ROOT
-   * report B → EN
-   * report C → JA
-   *
-   * Resolve một report đúng
-   * → bài bị ẩn cả group
-   * → các report PENDING còn lại trong group
-   *   cũng phải RESOLVED.
-   *
-   * Report đang xử lý hiện tại đã được claim
-   * RESOLVED ở phía trên nên không khớp
-   * status=PENDING nữa.
-   */
-  await tx.report.updateMany({
-    where: {
-      targetType:
-        ReportTargetType.POST,
+    /**
+     * =============================================
+     * 5. RESOLVE TẤT CẢ REPORT CỦA POST GROUP
+     * =============================================
+     *
+     * Nếu:
+     *
+     * report A → ROOT
+     * report B → EN
+     * report C → JA
+     *
+     * Resolve một report đúng
+     * → bài bị ẩn cả group
+     * → các report PENDING còn lại trong group
+     *   cũng phải RESOLVED.
+     *
+     * Report đang xử lý hiện tại đã được claim
+     * RESOLVED ở phía trên nên không khớp
+     * status=PENDING nữa.
+     */
+    await tx.report.updateMany({
+      where: {
+        targetType: ReportTargetType.POST,
 
-      postId: {
-        in: groupPostIds,
+        postId: {
+          in: groupPostIds,
+        },
+
+        status: ReportStatus.PENDING,
       },
 
-      status:
-        ReportStatus.PENDING,
-    },
+      data: {
+        status: ReportStatus.RESOLVED,
 
-    data: {
-      status:
-        ReportStatus.RESOLVED,
+        reviewedById: moderatorId,
 
-      reviewedById:
-        moderatorId,
+        reviewedAt,
 
-      reviewedAt,
-
-      resolutionNote,
-    },
-  });
-}
+        resolutionNote,
+      },
+    });
+  }
 
   /**
    * Xử lý report nhắm tới bình luận.

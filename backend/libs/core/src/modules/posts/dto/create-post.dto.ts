@@ -51,9 +51,7 @@ function normalizeArray(value: unknown): unknown {
   try {
     const parsedValue: unknown = JSON.parse(trimmedValue);
 
-    return Array.isArray(parsedValue)
-      ? parsedValue
-      : [parsedValue];
+    return Array.isArray(parsedValue) ? parsedValue : [parsedValue];
   } catch {
     return trimmedValue
       .split(',')
@@ -74,15 +72,12 @@ function transformIntegerArray(value: unknown): unknown {
     return normalizedValue;
   }
 
-  return normalizedValue.map((item) => {
+  return normalizedValue.map((item: unknown) => {
     if (typeof item === 'number') {
       return item;
     }
 
-    if (
-      typeof item === 'string' &&
-      /^-?\d+$/.test(item.trim())
-    ) {
+    if (typeof item === 'string' && /^-?\d+$/.test(item.trim())) {
       return Number(item.trim());
     }
 
@@ -97,7 +92,7 @@ function transformStringArray(value: unknown): unknown {
     return normalizedValue;
   }
 
-  return normalizedValue.map((item) =>
+  return normalizedValue.map((item: unknown) =>
     typeof item === 'string' ? item.trim() : item,
   );
 }
@@ -116,27 +111,18 @@ export class CreatePostDto {
   @IsUrl({}, { message: 'URL ảnh đại diện không hợp lệ' })
   thumbnailUrl?: string;
 
- @Transform(
-  ({ value }) =>
-    sanitizePostContent(value),
-  {
+  @Transform(({ value }) => sanitizePostContent(value), {
     toClassOnly: true,
-  },
-)
-@IsString()
-@IsNotEmpty({
-  message:
-    'Nội dung không được để trống',
-})
-@MaxLength(
-  MAX_POST_CONTENT_LENGTH,
-  {
-    message:
-      `Nội dung bài viết không được vượt quá ${MAX_POST_CONTENT_LENGTH} ký tự`,
-  },
-)
-@IsProfanityFree()
-content!: string;
+  })
+  @IsString()
+  @IsNotEmpty({
+    message: 'Nội dung không được để trống',
+  })
+  @MaxLength(MAX_POST_CONTENT_LENGTH, {
+    message: `Nội dung bài viết không được vượt quá ${MAX_POST_CONTENT_LENGTH} ký tự`,
+  })
+  @IsProfanityFree()
+  content!: string;
 
   @IsOptional()
   @IsEnum(PostStatus, {

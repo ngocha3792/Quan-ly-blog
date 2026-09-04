@@ -51,54 +51,50 @@ export class BlogownerDashboardService {
     const tomorrow = getVietnamCalendarDate(1);
 
     /**
- * Tất cả version active của Owner.
- *
- * Dùng cho:
- * - tổng view;
- * - like;
- * - comment;
- * - daily metrics.
- *
- * Vì view của EN/JA vẫn là view thật và phải được tính.
- */
-const allPostWhere:
-  Prisma.PostWhereInput = {
-    authorId: ownerId,
-    deletedAt: null,
-  };
+     * Tất cả version active của Owner.
+     *
+     * Dùng cho:
+     * - tổng view;
+     * - like;
+     * - comment;
+     * - daily metrics.
+     *
+     * Vì view của EN/JA vẫn là view thật và phải được tính.
+     */
+    const allPostWhere: Prisma.PostWhereInput = {
+      authorId: ownerId,
+      deletedAt: null,
+    };
 
-/**
- * Một logical article = một ROOT.
- *
- * Dùng để đếm số bài viết.
- */
-const rootPostWhere:
-  Prisma.PostWhereInput = {
-    authorId: ownerId,
-    parentPostId: null,
-    deletedAt: null,
-  };
+    /**
+     * Một logical article = một ROOT.
+     *
+     * Dùng để đếm số bài viết.
+     */
+    const rootPostWhere: Prisma.PostWhereInput = {
+      authorId: ownerId,
+      parentPostId: null,
+      deletedAt: null,
+    };
 
-/**
- * Featured card cũng chỉ được trả ROOT,
- * không được đưa translation thành một card riêng.
- */
-const publishedRootWhere:
-  Prisma.PostWhereInput = {
-    ...rootPostWhere,
-    status: PostStatus.PUBLISH,
-  };
+    /**
+     * Featured card cũng chỉ được trả ROOT,
+     * không được đưa translation thành một card riêng.
+     */
+    const publishedRootWhere: Prisma.PostWhereInput = {
+      ...rootPostWhere,
+      status: PostStatus.PUBLISH,
+    };
 
-const countPosts =
-  (status?: PostStatus) =>
-    this.prisma.post.count({
-      where: status
-        ? {
-            ...rootPostWhere,
-            status,
-          }
-        : rootPostWhere,
-    });
+    const countPosts = (status?: PostStatus) =>
+      this.prisma.post.count({
+        where: status
+          ? {
+              ...rootPostWhere,
+              status,
+            }
+          : rootPostWhere,
+      });
 
     const [
       totalPosts,

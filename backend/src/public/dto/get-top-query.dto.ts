@@ -16,4 +16,3 @@ export class GetTopQueryDto {
   @IsString({ message: 'Mã ngôn ngữ (langCode) phải là chuỗi ký tự.' })
   langCode?: string;
 }
-

@@ -20,12 +20,7 @@ import { BlogownerPostsService } from './services/blogowner-posts.service';
 import { TranslationService } from './services/translation.service';
 
 @Module({
-  imports: [
-    AuthsModule,
-    PostsModule,
-    MediaModule,
-    CloudinaryModule,
-  ],
+  imports: [AuthsModule, PostsModule, MediaModule, CloudinaryModule],
 
   controllers: [
     BlogownerPostsController,

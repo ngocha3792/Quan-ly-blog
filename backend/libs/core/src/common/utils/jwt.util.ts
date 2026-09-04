@@ -9,6 +9,15 @@ import { ConfigService } from '@nestjs/config';
 //  Khai báo một Type quy định chuẩn thời gian của JWT
 type JwtTime =
   `${number}s` | `${number}m` | `${number}h` | `${number}d` | number;
+
+// Payload thật sự được ký trong generateToken()/generateAccessToken() —
+// khác AuthenticatedUser (dùng cho request.user sau khi đã tra DB).
+interface SignedJwtPayload {
+  sub: string;
+  role: string;
+  email: string;
+}
+
 @Injectable()
 export class JWTUtil {
   constructor(
@@ -90,7 +99,7 @@ export class JWTUtil {
     }
 
     try {
-      return this.jwtService.verify(token, { secret });
+      return this.jwtService.verify<SignedJwtPayload>(token, { secret });
     } catch (error) {
       this.handleJwtError(error, 'Access Token');
     }
@@ -109,14 +118,14 @@ export class JWTUtil {
     }
 
     try {
-      return this.jwtService.verify(token, { secret });
+      return this.jwtService.verify<SignedJwtPayload>(token, { secret });
     } catch (error) {
       this.handleJwtError(error, 'Refresh Token');
     }
   }
 
-  private handleJwtError(error: any, tokenType: string): never {
-    if (error.name === 'TokenExpiredError') {
+  private handleJwtError(error: unknown, tokenType: string): never {
+    if (error instanceof Error && error.name === 'TokenExpiredError') {
       throw new UnauthorizedException(`${tokenType} đã hết hạn.`);
     }
     // Các lỗi khác như JsonWebTokenError, NotBeforeError...

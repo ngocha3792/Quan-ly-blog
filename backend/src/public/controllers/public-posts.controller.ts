@@ -44,35 +44,35 @@ export class PublicPostsController {
   }
 
   @Public()
-@Get(':id')
-async findOne(
-  @Param('id', ParseIntPipe)
-  id: number,
+  @Get(':id')
+  async findOne(
+    @Param('id', ParseIntPipe)
+    id: number,
 
-  @LangCode()
-  langCode: string | null,
+    @LangCode()
+    langCode: string | null,
 
-  @Ip()
-  viewerIp: string,
+    @Ip()
+    viewerIp: string,
 
-  @Headers('user-agent')
-  userAgent?: string,
+    @Headers('user-agent')
+    userAgent?: string,
 
-  /**
-   * Public endpoint vẫn nhận Authorization nếu FE
-   * đang đăng nhập.
-   *
-   * Không bắt buộc phải có token.
-   */
-  @Headers('authorization')
-  authorization?: string,
-) {
-  return this.postsPublicService.findOne(
-    id,
-    langCode,
-    viewerIp || null,
-    userAgent || null,
-    authorization || null,
-  );
-}
+    /**
+     * Public endpoint vẫn nhận Authorization nếu FE
+     * đang đăng nhập.
+     *
+     * Không bắt buộc phải có token.
+     */
+    @Headers('authorization')
+    authorization?: string,
+  ) {
+    return this.postsPublicService.findOne(
+      id,
+      langCode,
+      viewerIp || null,
+      userAgent || null,
+      authorization || null,
+    );
+  }
 }

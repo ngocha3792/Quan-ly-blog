@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import {
-  PostNotFoundException,
-  ExistActionNotAllowedException,
-} from '@app/core/common/exceptions';
+import { PostNotFoundException } from '@app/core/common/exceptions';
 import {
   PostLikeEntity,
   PostBookmarkEntity,

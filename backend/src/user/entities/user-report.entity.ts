@@ -1,10 +1,5 @@
 import { Exclude, Type } from 'class-transformer';
-import {
-  CommentEntity,
-  PostEntity,
-  ReportEntity,
-  UserEntity,
-} from '@app/core';
+import { CommentEntity, PostEntity, ReportEntity, UserEntity } from '@app/core';
 
 /**
  * Tóm tắt tác giả bài viết hoặc người bình luận, kế thừa UserEntity từ Core.

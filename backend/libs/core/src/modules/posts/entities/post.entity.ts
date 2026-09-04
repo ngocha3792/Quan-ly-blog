@@ -72,9 +72,9 @@ export class PostEntity implements Post {
   @Expose()
   get tags():
     | Array<{
-      id: number;
-      name: string;
-    }>
+        id: number;
+        name: string;
+      }>
     | undefined {
     if (!this.postTags) {
       return undefined;

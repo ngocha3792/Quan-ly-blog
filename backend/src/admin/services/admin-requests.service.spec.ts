@@ -66,13 +66,29 @@ describe('AdminRequestsService', () => {
     it('should delegate to blogOwnerRequestsService.findAll', async () => {
       const mockPaginated = {
         items: [],
-        meta: { totalItems: 0, itemCount: 0, itemsPerPage: 10, totalPages: 0, currentPage: 1 },
+        meta: {
+          totalItems: 0,
+          itemCount: 0,
+          itemsPerPage: 10,
+          totalPages: 0,
+          currentPage: 1,
+        },
       };
       mockBlogOwnerRequestsService.findAll.mockResolvedValueOnce(mockPaginated);
 
-      const result = await service.findAllRequests({} as any, { skip: 0, take: 10, page: 1 });
+      const result = await service.findAllRequests(
+        {},
+        {
+          skip: 0,
+          take: 10,
+          page: 1,
+        },
+      );
 
-      expect(mockBlogOwnerRequestsService.findAll).toHaveBeenCalledWith({}, { skip: 0, take: 10, page: 1 });
+      expect(mockBlogOwnerRequestsService.findAll).toHaveBeenCalledWith(
+        {},
+        { skip: 0, take: 10, page: 1 },
+      );
       expect(result).toBe(mockPaginated);
     });
   });
@@ -95,17 +111,27 @@ describe('AdminRequestsService', () => {
         reviewedAt: new Date(),
       };
 
-      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(initialRequest);
-      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(
+        initialRequest,
+      );
+      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
       mockPrismaService.user.update.mockResolvedValueOnce({});
-      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({ count: 1 });
-      mockPrismaService.blogOwnerRequest.findUnique.mockResolvedValueOnce(updatedRequestData);
+      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      mockPrismaService.blogOwnerRequest.findUnique.mockResolvedValueOnce(
+        updatedRequestData,
+      );
 
       const result = await service.reviewRequest(1, 99, {
         status: BlogOwnerRequestStatus.APPROVED,
       });
 
-      expect(mockPrismaService.blogOwnerRequest.updateMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.blogOwnerRequest.updateMany,
+      ).toHaveBeenCalledWith({
         where: { id: 1, status: BlogOwnerRequestStatus.PENDING },
         data: {
           status: BlogOwnerRequestStatus.APPROVED,
@@ -143,16 +169,24 @@ describe('AdminRequestsService', () => {
         reviewedAt: new Date(),
       };
 
-      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(initialRequest);
-      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({ count: 1 });
-      mockPrismaService.blogOwnerRequest.findUnique.mockResolvedValueOnce(updatedRequestData);
+      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(
+        initialRequest,
+      );
+      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      mockPrismaService.blogOwnerRequest.findUnique.mockResolvedValueOnce(
+        updatedRequestData,
+      );
 
       const result = await service.reviewRequest(1, 99, {
         status: BlogOwnerRequestStatus.REJECTED,
         rejectionReason: 'Invalid topic',
       });
 
-      expect(mockPrismaService.blogOwnerRequest.updateMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.blogOwnerRequest.updateMany,
+      ).toHaveBeenCalledWith({
         where: { id: 1, status: BlogOwnerRequestStatus.PENDING },
         data: {
           status: BlogOwnerRequestStatus.REJECTED,
@@ -175,8 +209,12 @@ describe('AdminRequestsService', () => {
         updatedAt: new Date(),
       });
 
-      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(initialRequest);
-      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(
+        initialRequest,
+      );
+      mockPrismaService.blogOwnerRequest.updateMany.mockResolvedValueOnce({
+        count: 0,
+      });
 
       await expect(
         service.reviewRequest(1, 99, {
@@ -195,7 +233,9 @@ describe('AdminRequestsService', () => {
         updatedAt: new Date(),
       });
 
-      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(processedRequest);
+      mockBlogOwnerRequestsService.findOne.mockResolvedValueOnce(
+        processedRequest,
+      );
 
       await expect(
         service.reviewRequest(1, 99, {

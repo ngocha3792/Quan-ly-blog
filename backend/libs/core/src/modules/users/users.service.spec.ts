@@ -4,13 +4,11 @@ import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import { BcryptUtil } from '@app/core/common/utils';
 import {
   EmailAlreadyExistsException,
-  UsernameAlreadyExistsException,
   UserNotFoundException,
 } from '@app/core/common/exceptions';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prisma: PrismaService;
   let bcryptUtil: BcryptUtil;
 
   const mockPrismaService = {
@@ -54,7 +52,6 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    prisma = module.get<PrismaService>(PrismaService);
     bcryptUtil = module.get<BcryptUtil>(BcryptUtil);
   });
 
@@ -125,18 +122,22 @@ describe('UsersService', () => {
     it('should throw UserNotFoundException if user not found', async () => {
       mockPrismaService.user.findFirst.mockResolvedValueOnce(null);
 
-      await expect(service.remove(999)).rejects.toThrow(
-        UserNotFoundException,
-      );
+      await expect(service.remove(999)).rejects.toThrow(UserNotFoundException);
     });
 
     it('should soft delete user, revoke active sessions, and hide posts/comments', async () => {
       const existingUser = { id: 1, username: 'testuser' };
-      const deletedUser = { ...existingUser, status: 'LOCKED', deletedAt: new Date() };
+      const deletedUser = {
+        ...existingUser,
+        status: 'LOCKED',
+        deletedAt: new Date(),
+      };
 
       mockPrismaService.user.findFirst.mockResolvedValueOnce(existingUser);
       mockPrismaService.user.update.mockResolvedValueOnce(deletedUser);
-      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
       mockPrismaService.post.updateMany.mockResolvedValueOnce({ count: 5 });
       mockPrismaService.comment.updateMany.mockResolvedValueOnce({ count: 10 });
 

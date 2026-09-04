@@ -1,15 +1,9 @@
 /// <reference types="multer" />
 
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PostStatus } from '@prisma/client';
 
-import {
-  MediaService,
-  PrismaService,
-} from '@app/core';
+import { MediaService, PrismaService } from '@app/core';
 
 import { BlogownerPostHelperService } from './blogowner-post-helper.service';
 
@@ -33,38 +27,22 @@ export class BlogownerMediaService {
    * - chỉ chuyển về DRAFT sau khi upload thành công;
    * - tránh thoát REJECT nếu upload thất bại.
    */
-  async upload(
-    ownerId: number,
-    postId: number,
-    file: Express.Multer.File,
-  ) {
-    const post =
-      await this.helper.findOwnedPost(
-        ownerId,
-        postId,
-      );
+  async upload(ownerId: number, postId: number, file: Express.Multer.File) {
+    const post = await this.helper.findOwnedPost(ownerId, postId);
 
     this.helper.assertEditable(post.status);
 
-    const isPublished =
-      post.status === PostStatus.PUBLISH;
+    const isPublished = post.status === PostStatus.PUBLISH;
 
     /**
      * Bài đang public phải rời trạng thái PUBLISH
      * trước khi media thực tế bị thay đổi.
      */
     if (isPublished) {
-      await this.helper.resetReviewOnEdit(
-        postId,
-        post.status,
-      );
+      await this.helper.resetReviewOnEdit(postId, post.status);
     }
 
-    const media =
-      await this.mediaService.uploadMedia(
-        postId,
-        file,
-      );
+    const media = await this.mediaService.uploadMedia(postId, file);
 
     /**
      * REJECT chỉ được chuyển về DRAFT
@@ -74,10 +52,7 @@ export class BlogownerMediaService {
      * không thay đổi gì với DRAFT.
      */
     if (!isPublished) {
-      await this.helper.resetReviewOnEdit(
-        postId,
-        post.status,
-      );
+      await this.helper.resetReviewOnEdit(postId, post.status);
     }
 
     return media;
@@ -91,66 +66,45 @@ export class BlogownerMediaService {
    * - REJECT: chỉ chuyển DRAFT sau khi xóa thành công;
    * - DRAFT: giữ nguyên.
    */
-  async remove(
-    ownerId: number,
-    postId: number,
-    mediaId: number,
-  ) {
-    const post =
-      await this.helper.findOwnedPost(
-        ownerId,
-        postId,
-      );
+  async remove(ownerId: number, postId: number, mediaId: number) {
+    const post = await this.helper.findOwnedPost(ownerId, postId);
 
     this.helper.assertEditable(post.status);
 
-    const media =
-      await this.prisma.media.findFirst({
-        where: {
-          id: mediaId,
-          postId,
-          deletedAt: null,
-        },
+    const media = await this.prisma.media.findFirst({
+      where: {
+        id: mediaId,
+        postId,
+        deletedAt: null,
+      },
 
-        select: {
-          id: true,
-        },
-      });
+      select: {
+        id: true,
+      },
+    });
 
     if (!media) {
-      throw new NotFoundException(
-        'Media không tồn tại trong bài viết này',
-      );
+      throw new NotFoundException('Media không tồn tại trong bài viết này');
     }
 
-    const isPublished =
-      post.status === PostStatus.PUBLISH;
+    const isPublished = post.status === PostStatus.PUBLISH;
 
     /**
      * Với bài đã public, rút bài khỏi trạng thái
      * PUBLISH trước khi media bị xóa.
      */
     if (isPublished) {
-      await this.helper.resetReviewOnEdit(
-        postId,
-        post.status,
-      );
+      await this.helper.resetReviewOnEdit(postId, post.status);
     }
 
-    const result =
-      await this.mediaService.deleteMedia(
-        mediaId,
-      );
+    const result = await this.mediaService.deleteMedia(mediaId);
 
     /**
      * REJECT chỉ thoát REJECT khi thao tác xóa
      * media thực sự thành công.
      */
     if (!isPublished) {
-      await this.helper.resetReviewOnEdit(
-        postId,
-        post.status,
-      );
+      await this.helper.resetReviewOnEdit(postId, post.status);
     }
 
     return result;

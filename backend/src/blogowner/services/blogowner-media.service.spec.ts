@@ -4,10 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostStatus } from '@prisma/client';
 
-import {
-  MediaService,
-  PrismaService,
-} from '@app/core';
+import { MediaService, PrismaService } from '@app/core';
 
 import { BlogownerMediaService } from './blogowner-media.service';
 import { BlogownerPostHelperService } from './blogowner-post-helper.service';
@@ -44,31 +41,28 @@ describe('BlogownerMediaService', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
 
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          BlogownerMediaService,
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        BlogownerMediaService,
 
-          {
-            provide: PrismaService,
-            useValue: mockPrismaService,
-          },
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
 
-          {
-            provide: MediaService,
-            useValue: mockMediaService,
-          },
+        {
+          provide: MediaService,
+          useValue: mockMediaService,
+        },
 
-          {
-            provide: BlogownerPostHelperService,
-            useValue: mockHelper,
-          },
-        ],
-      }).compile();
+        {
+          provide: BlogownerPostHelperService,
+          useValue: mockHelper,
+        },
+      ],
+    }).compile();
 
-    service = module.get<BlogownerMediaService>(
-      BlogownerMediaService,
-    );
+    service = module.get<BlogownerMediaService>(BlogownerMediaService);
   });
 
   it('should be defined', () => {
@@ -83,9 +77,7 @@ describe('BlogownerMediaService', () => {
         status: PostStatus.PUBLISH,
       });
 
-      mockHelper.resetReviewOnEdit.mockResolvedValue(
-        undefined,
-      );
+      mockHelper.resetReviewOnEdit.mockResolvedValue(undefined);
 
       mockMediaService.uploadMedia.mockResolvedValue({
         id: 100,
@@ -93,47 +85,26 @@ describe('BlogownerMediaService', () => {
         url: 'https://example.com/image.png',
       });
 
-      const result = await service.upload(
-        3,
-        10,
-        file,
-      );
+      const result = await service.upload(3, 10, file);
 
-      expect(
-        mockHelper.findOwnedPost,
-      ).toHaveBeenCalledWith(3, 10);
+      expect(mockHelper.findOwnedPost).toHaveBeenCalledWith(3, 10);
 
-      expect(
-        mockHelper.assertEditable,
-      ).toHaveBeenCalledWith(
+      expect(mockHelper.assertEditable).toHaveBeenCalledWith(
         PostStatus.PUBLISH,
       );
 
-      expect(
-        mockHelper.resetReviewOnEdit,
-      ).toHaveBeenCalledTimes(1);
+      expect(mockHelper.resetReviewOnEdit).toHaveBeenCalledTimes(1);
 
-      expect(
-        mockHelper.resetReviewOnEdit,
-      ).toHaveBeenCalledWith(
+      expect(mockHelper.resetReviewOnEdit).toHaveBeenCalledWith(
         10,
         PostStatus.PUBLISH,
       );
 
-      expect(
-        mockMediaService.uploadMedia,
-      ).toHaveBeenCalledWith(
-        10,
-        file,
-      );
+      expect(mockMediaService.uploadMedia).toHaveBeenCalledWith(10, file);
 
       expect(
-        mockHelper.resetReviewOnEdit.mock
-          .invocationCallOrder[0],
-      ).toBeLessThan(
-        mockMediaService.uploadMedia.mock
-          .invocationCallOrder[0],
-      );
+        mockHelper.resetReviewOnEdit.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockMediaService.uploadMedia.mock.invocationCallOrder[0]);
 
       expect(result).toEqual({
         id: 100,
@@ -153,19 +124,11 @@ describe('BlogownerMediaService', () => {
         new Error('Reset review failed'),
       );
 
-      await expect(
-        service.upload(
-          3,
-          10,
-          file,
-        ),
-      ).rejects.toThrow(
+      await expect(service.upload(3, 10, file)).rejects.toThrow(
         'Reset review failed',
       );
 
-      expect(
-        mockMediaService.uploadMedia,
-      ).not.toHaveBeenCalled();
+      expect(mockMediaService.uploadMedia).not.toHaveBeenCalled();
     });
 
     it('should keep a rejected post rejected when media upload fails', async () => {
@@ -179,26 +142,13 @@ describe('BlogownerMediaService', () => {
         new Error('Upload failed'),
       );
 
-      await expect(
-        service.upload(
-          3,
-          10,
-          file,
-        ),
-      ).rejects.toThrow(
+      await expect(service.upload(3, 10, file)).rejects.toThrow(
         'Upload failed',
       );
 
-      expect(
-        mockMediaService.uploadMedia,
-      ).toHaveBeenCalledWith(
-        10,
-        file,
-      );
+      expect(mockMediaService.uploadMedia).toHaveBeenCalledWith(10, file);
 
-      expect(
-        mockHelper.resetReviewOnEdit,
-      ).not.toHaveBeenCalled();
+      expect(mockHelper.resetReviewOnEdit).not.toHaveBeenCalled();
     });
   });
 
@@ -214,23 +164,15 @@ describe('BlogownerMediaService', () => {
         id: 100,
       });
 
-      mockHelper.resetReviewOnEdit.mockResolvedValue(
-        undefined,
-      );
+      mockHelper.resetReviewOnEdit.mockResolvedValue(undefined);
 
       mockMediaService.deleteMedia.mockResolvedValue({
         id: 100,
       });
 
-      const result = await service.remove(
-        3,
-        10,
-        100,
-      );
+      const result = await service.remove(3, 10, 100);
 
-      expect(
-        mockPrismaService.media.findFirst,
-      ).toHaveBeenCalledWith({
+      expect(mockPrismaService.media.findFirst).toHaveBeenCalledWith({
         where: {
           id: 100,
           postId: 10,
@@ -242,28 +184,18 @@ describe('BlogownerMediaService', () => {
         },
       });
 
-      expect(
-        mockHelper.resetReviewOnEdit,
-      ).toHaveBeenCalledTimes(1);
+      expect(mockHelper.resetReviewOnEdit).toHaveBeenCalledTimes(1);
 
-      expect(
-        mockHelper.resetReviewOnEdit,
-      ).toHaveBeenCalledWith(
+      expect(mockHelper.resetReviewOnEdit).toHaveBeenCalledWith(
         10,
         PostStatus.PUBLISH,
       );
 
-      expect(
-        mockMediaService.deleteMedia,
-      ).toHaveBeenCalledWith(100);
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(100);
 
       expect(
-        mockHelper.resetReviewOnEdit.mock
-          .invocationCallOrder[0],
-      ).toBeLessThan(
-        mockMediaService.deleteMedia.mock
-          .invocationCallOrder[0],
-      );
+        mockHelper.resetReviewOnEdit.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockMediaService.deleteMedia.mock.invocationCallOrder[0]);
 
       expect(result).toEqual({
         id: 100,
@@ -285,19 +217,11 @@ describe('BlogownerMediaService', () => {
         new Error('Reset review failed'),
       );
 
-      await expect(
-        service.remove(
-          3,
-          10,
-          100,
-        ),
-      ).rejects.toThrow(
+      await expect(service.remove(3, 10, 100)).rejects.toThrow(
         'Reset review failed',
       );
 
-      expect(
-        mockMediaService.deleteMedia,
-      ).not.toHaveBeenCalled();
+      expect(mockMediaService.deleteMedia).not.toHaveBeenCalled();
     });
 
     it('should keep a rejected post rejected when media deletion fails', async () => {
@@ -315,23 +239,11 @@ describe('BlogownerMediaService', () => {
         new Error('Delete failed'),
       );
 
-      await expect(
-        service.remove(
-          3,
-          10,
-          100,
-        ),
-      ).rejects.toThrow(
-        'Delete failed',
-      );
+      await expect(service.remove(3, 10, 100)).rejects.toThrow('Delete failed');
 
-      expect(
-        mockMediaService.deleteMedia,
-      ).toHaveBeenCalledWith(100);
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(100);
 
-      expect(
-        mockHelper.resetReviewOnEdit,
-      ).not.toHaveBeenCalled();
+      expect(mockHelper.resetReviewOnEdit).not.toHaveBeenCalled();
     });
 
     it('should throw when media does not belong to the post', async () => {
@@ -341,29 +253,15 @@ describe('BlogownerMediaService', () => {
         status: PostStatus.DRAFT,
       });
 
-      mockPrismaService.media.findFirst.mockResolvedValue(
-        null,
+      mockPrismaService.media.findFirst.mockResolvedValue(null);
+
+      await expect(service.remove(3, 10, 999)).rejects.toThrow(
+        new NotFoundException('Media không tồn tại trong bài viết này'),
       );
 
-      await expect(
-        service.remove(
-          3,
-          10,
-          999,
-        ),
-      ).rejects.toThrow(
-        new NotFoundException(
-          'Media không tồn tại trong bài viết này',
-        ),
-      );
+      expect(mockMediaService.deleteMedia).not.toHaveBeenCalled();
 
-      expect(
-        mockMediaService.deleteMedia,
-      ).not.toHaveBeenCalled();
-
-      expect(
-        mockHelper.resetReviewOnEdit,
-      ).not.toHaveBeenCalled();
+      expect(mockHelper.resetReviewOnEdit).not.toHaveBeenCalled();
     });
   });
 });

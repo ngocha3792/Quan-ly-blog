@@ -112,10 +112,7 @@ export class LanguagesService {
     });
   }
 
-  async findOne(
-    id: number,
-    prisma: Prisma.TransactionClient = this.prisma,
-  ) {
+  async findOne(id: number, prisma: Prisma.TransactionClient = this.prisma) {
     const language = await prisma.language.findFirst({
       where: { id, deletedAt: null },
     });
@@ -153,10 +150,7 @@ export class LanguagesService {
     });
   }
 
-  async remove(
-    id: number,
-    prisma: Prisma.TransactionClient = this.prisma,
-  ) {
+  async remove(id: number, prisma: Prisma.TransactionClient = this.prisma) {
     await this.findOne(id, prisma); // Kiểm tra tồn tại
 
     // Soft delete
@@ -166,10 +160,7 @@ export class LanguagesService {
     });
   }
 
-  async restore(
-    id: number,
-    prisma: Prisma.TransactionClient = this.prisma,
-  ) {
+  async restore(id: number, prisma: Prisma.TransactionClient = this.prisma) {
     const language = await prisma.language.findUnique({
       where: { id },
     });

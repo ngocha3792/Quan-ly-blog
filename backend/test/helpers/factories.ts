@@ -1,14 +1,6 @@
-import {
-  PostStatus,
-  UserRole,
-  UserStatus,
-} from '@prisma/client';
+import { PostStatus, UserRole, UserStatus } from '@prisma/client';
 
-import {
-  BcryptUtil,
-  JWTUtil,
-  PrismaService,
-} from '@app/core';
+import { BcryptUtil, JWTUtil, PrismaService } from '@app/core';
 
 export async function createTestUser(
   prisma: PrismaService,
@@ -21,39 +13,23 @@ export async function createTestUser(
     status?: UserStatus;
   } = {},
 ) {
-  const password =
-    overrides.password ??
-    'Password123';
+  const password = overrides.password ?? 'Password123';
 
-  const passwordHash =
-    await bcryptUtil.hashPassword(
-      password,
-    );
+  const passwordHash = await bcryptUtil.hashPassword(password);
 
-  const suffix =
-    `${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
   return prisma.user.create({
     data: {
-      username:
-        overrides.username ??
-        `user_${suffix}`,
+      username: overrides.username ?? `user_${suffix}`,
 
-      email:
-        overrides.email ??
-        `user_${suffix}@example.com`,
+      email: overrides.email ?? `user_${suffix}@example.com`,
 
       passwordHash,
 
-      role:
-        overrides.role ??
-        UserRole.NORMAL,
+      role: overrides.role ?? UserRole.NORMAL,
 
-      status:
-        overrides.status ??
-        UserStatus.ACTIVE,
+      status: overrides.status ?? UserStatus.ACTIVE,
     },
   });
 }
@@ -66,11 +42,7 @@ export function createAccessToken(
     email: string;
   },
 ): string {
-  return jwtUtil.generateAccessToken(
-    user.id.toString(),
-    user.role,
-    user.email,
-  );
+  return jwtUtil.generateAccessToken(user.id.toString(), user.role, user.email);
 }
 
 export async function createLanguage(
@@ -88,15 +60,11 @@ export async function createLanguage(
       code: data.code,
       name: data.name,
 
-      isActive:
-        data.isActive ?? true,
+      isActive: data.isActive ?? true,
 
-      isDefault:
-        data.isDefault ?? false,
+      isDefault: data.isDefault ?? false,
 
-      deletedAt:
-        data.deletedAt ??
-        null,
+      deletedAt: data.deletedAt ?? null,
     },
   });
 }
@@ -113,32 +81,19 @@ export async function createPost(
 ) {
   return prisma.post.create({
     data: {
-      title:
-        data.title ??
-        `Post ${Date.now()}`,
+      title: data.title ?? `Post ${Date.now()}`,
 
-      content:
-        'E2E test content',
+      content: 'E2E test content',
 
-      authorId:
-        data.authorId,
+      authorId: data.authorId,
 
-      languageId:
-        data.languageId,
+      languageId: data.languageId,
 
-      status:
-        data.status ??
-        PostStatus.PUBLISH,
+      status: data.status ?? PostStatus.PUBLISH,
 
-      publishedAt:
-        data.status ===
-        PostStatus.DRAFT
-          ? null
-          : new Date(),
+      publishedAt: data.status === PostStatus.DRAFT ? null : new Date(),
 
-      deletedAt:
-        data.deletedAt ??
-        null,
+      deletedAt: data.deletedAt ?? null,
     },
   });
 }

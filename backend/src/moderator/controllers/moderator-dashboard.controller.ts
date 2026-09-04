@@ -1,15 +1,7 @@
-import {
-  Controller,
-  Get,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
-import {
-  JwtAuthGuard,
-  Roles,
-  RolesGuard,
-} from '@app/core';
+import { JwtAuthGuard, Roles, RolesGuard } from '@app/core';
 
 import { ModeratorDashboardService } from '../services/moderator-dashboard.service';
 

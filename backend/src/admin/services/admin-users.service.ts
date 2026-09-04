@@ -26,7 +26,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly bcryptUtil: BcryptUtil,
-  ) { }
+  ) {}
 
   /**
    * Lấy danh sách tất cả tài khoản (tận dụng lại UsersService từ @app/core để tránh lặp code).
@@ -215,7 +215,9 @@ export class AdminUsersService {
     if (!user) throw new UserNotFoundException(userId.toString());
 
     if (user.role === UserRole.SUPER_ADMIN) {
-      throw new ForbiddenException('Không thể thao tác trên tài khoản Super Admin.');
+      throw new ForbiddenException(
+        'Không thể thao tác trên tài khoản Super Admin.',
+      );
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -254,7 +256,10 @@ export class AdminUsersService {
           deletedAt: null,
         },
       });
-      if (superAdminCount <= 1 && changeUserRoleDto.role !== UserRole.SUPER_ADMIN) {
+      if (
+        superAdminCount <= 1 &&
+        changeUserRoleDto.role !== UserRole.SUPER_ADMIN
+      ) {
         throw new ForbiddenException(
           'Không thể thay đổi vai trò của Super Admin cuối cùng trong hệ thống.',
         );

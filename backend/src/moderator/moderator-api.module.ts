@@ -19,12 +19,7 @@ import { ModeratorReportsService } from './services/moderator-reports.service';
 import { ModeratorCategoriesValidator } from './validators/moderator-categories.validator';
 
 @Module({
-  imports: [
-    PrismaModule,
-    AuthsModule,
-    PostsModule,
-    ReportsModule,
-  ],
+  imports: [PrismaModule, AuthsModule, PostsModule, ReportsModule],
 
   controllers: [
     ModeratorPostsController,

@@ -85,10 +85,7 @@ export class UsersPublicService {
     };
   }
 
-  async getTopAuthors(
-    limit: number = 10,
-    langCode: string | null = null,
-  ) {
+  async getTopAuthors(limit: number = 10, langCode: string | null = null) {
     let languageUserFilter: Prisma.UserWhereInput = {};
 
     if (langCode) {

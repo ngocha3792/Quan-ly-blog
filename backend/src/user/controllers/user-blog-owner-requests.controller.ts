@@ -33,7 +33,7 @@ import { UserBlogOwnerRequestsService } from '../services/user-blog-owner-reques
 export class UserBlogOwnerRequestsController {
   constructor(
     private readonly userBlogOwnerRequestsService: UserBlogOwnerRequestsService,
-  ) { }
+  ) {}
 
   /**
    * Tạo yêu cầu xin trở thành tác giả blog.

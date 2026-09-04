@@ -133,7 +133,7 @@ export class CategoriesService {
     }
 
     const { categoryGroupId, ...restData } = updateCategoryDto;
-    const data: any = { ...restData };
+    const data: Prisma.CategoryUncheckedUpdateInput = { ...restData };
     if (categoryGroupId !== undefined) {
       data.categoryGroupId = categoryGroupId;
     }

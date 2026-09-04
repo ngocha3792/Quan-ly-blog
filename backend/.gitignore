@@ -51,6 +51,17 @@ lerna-debug.log*
 # Certificate TLS thật (Let's Encrypt) — chỉ tồn tại trên VPS, không commit.
 /docker/certs
 
+# Symlink runtime chọn slot blue/green đang live — chỉ tồn tại trên VPS,
+# được scripts/switch-slot.sh tạo/đổi, không commit (mục tiêu file này
+# THAY ĐỔI ở mỗi lần deploy, khác với upstream-blue.conf/upstream-green.conf
+# là nội dung tĩnh, có commit).
+/docker/nginx-blogy/upstream-current.conf
+
+# Deploy lock (flock) + release metadata — trạng thái runtime trên VPS,
+# không phải nguồn dữ liệu cần version control.
+/.deploy.lock
+/releases
+
 # temp directory
 .temp
 .tmp

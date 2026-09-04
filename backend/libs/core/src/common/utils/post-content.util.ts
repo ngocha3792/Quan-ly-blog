@@ -6,17 +6,14 @@ import sanitizeHtml from 'sanitize-html';
  * 30.000 ký tự đủ lớn cho một bài blog
  * và vẫn an toàn với request JSON hiện tại.
  */
-export const MAX_POST_CONTENT_LENGTH =
-  30_000;
+export const MAX_POST_CONTENT_LENGTH = 30_000;
 
 /**
  * Làm sạch HTML do Quill gửi lên.
  *
  * Chỉ giữ những tag mà editor hiện tại cần.
  */
-export function sanitizePostContent(
-  value: unknown,
-): unknown {
+export function sanitizePostContent(value: unknown): unknown {
   if (typeof value !== 'string') {
     return value;
   }
@@ -59,54 +56,24 @@ export function sanitizePostContent(
     ],
 
     allowedAttributes: {
-      '*': [
-        'class',
-      ],
+      '*': ['class'],
 
-      span: [
-        'class',
-        'style',
-      ],
+      span: ['class', 'style'],
 
-      li: [
-        'class',
-        'data-list',
-      ],
+      li: ['class', 'data-list'],
 
-      div: [
-        'class',
-        'data-language',
-      ],
+      div: ['class', 'data-language'],
 
-      a: [
-        'href',
-        'target',
-        'rel',
-      ],
+      a: ['href', 'target', 'rel'],
 
-      img: [
-        'src',
-        'alt',
-        'title',
-        'width',
-        'height',
-      ],
+      img: ['src', 'alt', 'title', 'width', 'height'],
 
-      iframe: [
-        'src',
-        'class',
-        'frameborder',
-        'allowfullscreen',
-      ],
+      iframe: ['src', 'class', 'frameborder', 'allowfullscreen'],
     },
 
     allowedStyles: {
       span: {
-        color: [
-          /^#[0-9a-f]{3,8}$/i,
-          /^rgba?\([^)]+\)$/i,
-          /^[a-z]+$/i,
-        ],
+        color: [/^#[0-9a-f]{3,8}$/i, /^rgba?\([^)]+\)$/i, /^[a-z]+$/i],
 
         'background-color': [
           /^#[0-9a-f]{3,8}$/i,
@@ -119,22 +86,12 @@ export function sanitizePostContent(
     /**
      * Link thông thường.
      */
-    allowedSchemes: [
-      'http',
-      'https',
-      'mailto',
-    ],
+    allowedSchemes: ['http', 'https', 'mailto'],
 
     allowedSchemesByTag: {
-      img: [
-        'http',
-        'https',
-        'data',
-      ],
+      img: ['http', 'https', 'data'],
 
-      iframe: [
-        'https',
-      ],
+      iframe: ['https'],
     },
 
     /**

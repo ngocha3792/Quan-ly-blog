@@ -11,11 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  JwtAuthGuard,
-  CurrentUser,
-  Pagination,
-} from '@app/core';
+import { JwtAuthGuard, CurrentUser, Pagination } from '@app/core';
 import type { AuthenticatedUser, PaginationParams } from '@app/core';
 import { UserFollowService } from '../services/user-follow.service';
 

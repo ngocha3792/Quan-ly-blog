@@ -9,11 +9,7 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
 } from '@nestjs/common';
-import {
-  JwtAuthGuard,
-  CurrentUser,
-  Pagination,
-} from '@app/core';
+import { JwtAuthGuard, CurrentUser, Pagination } from '@app/core';
 import type { AuthenticatedUser, PaginationParams } from '@app/core';
 import { PostInteractionService } from '../services/post-interaction.service';
 
@@ -30,10 +26,7 @@ export class UserPostsController {
     @CurrentUser() user: AuthenticatedUser,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.postInteractionService.getBookmarkedPosts(
-      user.id,
-      pagination,
-    );
+    return this.postInteractionService.getBookmarkedPosts(user.id, pagination);
   }
 
   @Get('likes')
@@ -41,10 +34,7 @@ export class UserPostsController {
     @CurrentUser() user: AuthenticatedUser,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.postInteractionService.getLikedPosts(
-      user.id,
-      pagination,
-    );
+    return this.postInteractionService.getLikedPosts(user.id, pagination);
   }
 
   @Post(':id/bookmark')

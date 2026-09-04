@@ -6,11 +6,11 @@ import {
   ReportTargetType,
 } from '@prisma/client';
 
-import { 
-  PrismaService, 
-  getVietnamDayStartUtc, 
+import {
+  PrismaService,
+  getVietnamDayStartUtc,
   getVietnamDateKey,
-  formatVietnamDate 
+  formatVietnamDate,
 } from '@app/core';
 
 @Injectable()
@@ -55,12 +55,12 @@ export class ModeratorDashboardService {
       reasonGroups,
       recentReports,
     ] = await this.prisma.$transaction([
-    /**
-     * Dashboard đếm theo article group.
-     *
-     * Mỗi bài đa ngôn ngữ gồm:
-     * ROOT + các translation.
-     */
+      /**
+       * Dashboard đếm theo article group.
+       *
+       * Mỗi bài đa ngôn ngữ gồm:
+       * ROOT + các translation.
+       */
       this.prisma.post.count({
         where: {
           parentPostId: null,
@@ -73,36 +73,33 @@ export class ModeratorDashboardService {
        * Số bài đã được Moderator duyệt hoặc từ chối hôm nay.
        */
       this.prisma.post.count({
-  where: {
-    /**
-     * Chỉ đếm ROOT.
-     *
-     * Khi Moderator approve/reject một article group,
-     * ROOT và translations đều được cập nhật trạng thái.
-     * Nếu không lọc ROOT thì một bài đa ngôn ngữ
-     * sẽ bị tính nhiều lần.
-     */
-    parentPostId: null,
+        where: {
+          /**
+           * Chỉ đếm ROOT.
+           *
+           * Khi Moderator approve/reject một article group,
+           * ROOT và translations đều được cập nhật trạng thái.
+           * Nếu không lọc ROOT thì một bài đa ngôn ngữ
+           * sẽ bị tính nhiều lần.
+           */
+          parentPostId: null,
 
-    status: {
-      in: [
-        PostStatus.PUBLISH,
-        PostStatus.REJECT,
-      ],
-    },
+          status: {
+            in: [PostStatus.PUBLISH, PostStatus.REJECT],
+          },
 
-    reviewedAt: {
-      gte: todayStart,
-      lt: tomorrowStart,
-    },
+          reviewedAt: {
+            gte: todayStart,
+            lt: tomorrowStart,
+          },
 
-    reviewedById: {
-      not: null,
-    },
+          reviewedById: {
+            not: null,
+          },
 
-    deletedAt: null,
-  },
-}),
+          deletedAt: null,
+        },
+      }),
 
       /**
        * Report bài viết đang chờ xử lý.
@@ -130,10 +127,7 @@ export class ModeratorDashboardService {
       this.prisma.report.count({
         where: {
           status: {
-            in: [
-              ReportStatus.RESOLVED,
-              ReportStatus.REJECTED,
-            ],
+            in: [ReportStatus.RESOLVED, ReportStatus.REJECTED],
           },
 
           reviewedAt: {
@@ -162,31 +156,31 @@ export class ModeratorDashboardService {
        * Tổng số report theo trạng thái.
        */
       this.prisma.report.groupBy({
-  by: ['status'],
+        by: ['status'],
 
-  orderBy: {
-    status: 'asc',
-  },
+        orderBy: {
+          status: 'asc',
+        },
 
-  _count: {
-    _all: true,
-  },
-}),
+        _count: {
+          _all: true,
+        },
+      }),
 
       /**
        * Tổng số report theo nguyên nhân.
        */
       this.prisma.report.groupBy({
-  by: ['reason'],
+        by: ['reason'],
 
-  orderBy: {
-    reason: 'asc',
-  },
+        orderBy: {
+          reason: 'asc',
+        },
 
-  _count: {
-    _all: true,
-  },
-}),
+        _count: {
+          _all: true,
+        },
+      }),
 
       /**
        * Các report được tạo trong 7 ngày gần nhất.
@@ -221,18 +215,14 @@ export class ModeratorDashboardService {
       overview: {
         pendingPosts,
 
-        pendingReports:
-          pendingPostReports +
-          pendingCommentReports,
+        pendingReports: pendingPostReports + pendingCommentReports,
 
         pendingPostReports,
         pendingCommentReports,
 
         activeCategoryGroups,
 
-        processedToday:
-          processedPostsToday +
-          processedReportsToday,
+        processedToday: processedPostsToday + processedReportsToday,
 
         processedPostsToday,
         processedReportsToday,
@@ -253,11 +243,7 @@ export class ModeratorDashboardService {
    * Vì vậy cần kiểm tra kiểu trước khi lấy _all.
    */
   private getGroupCount(count: unknown): number {
-    if (
-      typeof count !== 'object' ||
-      count === null ||
-      !('_all' in count)
-    ) {
+    if (typeof count !== 'object' || count === null || !('_all' in count)) {
       return 0;
     }
 
@@ -386,5 +372,4 @@ export class ModeratorDashboardService {
       totalReports: counts.postReports + counts.commentReports,
     }));
   }
-
 }

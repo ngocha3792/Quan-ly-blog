@@ -53,35 +53,23 @@ describe('UserFollowService', () => {
 
   describe('followUser', () => {
     it('should throw SelfActionNotAllowedException if followerId equals followingId', async () => {
-      await expect(
-        service.followUser(1, 1),
-      ).rejects.toThrow(
+      await expect(service.followUser(1, 1)).rejects.toThrow(
         SelfActionNotAllowedException,
       );
 
-      expect(
-        prisma.user.findFirst,
-      ).not.toHaveBeenCalled();
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
 
-      expect(
-        prisma.userFollow.upsert,
-      ).not.toHaveBeenCalled();
+      expect(prisma.userFollow.upsert).not.toHaveBeenCalled();
     });
 
     it('should throw UserNotFoundException if following user does not exist', async () => {
-      prisma.user.findFirst.mockResolvedValueOnce(
-        null,
-      );
+      prisma.user.findFirst.mockResolvedValueOnce(null);
 
-      await expect(
-        service.followUser(1, 2),
-      ).rejects.toThrow(
+      await expect(service.followUser(1, 2)).rejects.toThrow(
         UserNotFoundException,
       );
 
-      expect(
-        prisma.userFollow.upsert,
-      ).not.toHaveBeenCalled();
+      expect(prisma.userFollow.upsert).not.toHaveBeenCalled();
     });
 
     it('should upsert follow relationship', async () => {
@@ -95,16 +83,11 @@ describe('UserFollowService', () => {
         createdAt: new Date(),
       };
 
-      prisma.userFollow.upsert.mockResolvedValueOnce(
-        mockFollow,
-      );
+      prisma.userFollow.upsert.mockResolvedValueOnce(mockFollow);
 
-      const result =
-        await service.followUser(1, 2);
+      const result = await service.followUser(1, 2);
 
-      expect(
-        prisma.userFollow.upsert,
-      ).toHaveBeenCalledWith({
+      expect(prisma.userFollow.upsert).toHaveBeenCalledWith({
         where: {
           followerId_followingId: {
             followerId: 1,
@@ -132,26 +115,18 @@ describe('UserFollowService', () => {
         id: 2,
       });
 
-      prisma.userFollow.upsert.mockResolvedValue(
-        mockFollow,
-      );
+      prisma.userFollow.upsert.mockResolvedValue(mockFollow);
 
-      const firstResult =
-        await service.followUser(1, 2);
+      const firstResult = await service.followUser(1, 2);
 
-      const secondResult =
-        await service.followUser(1, 2);
+      const secondResult = await service.followUser(1, 2);
 
       expect(firstResult).toEqual(mockFollow);
       expect(secondResult).toEqual(mockFollow);
 
-      expect(
-        prisma.userFollow.upsert,
-      ).toHaveBeenCalledTimes(2);
+      expect(prisma.userFollow.upsert).toHaveBeenCalledTimes(2);
 
-      expect(
-        prisma.userFollow.upsert,
-      ).toHaveBeenNthCalledWith(1, {
+      expect(prisma.userFollow.upsert).toHaveBeenNthCalledWith(1, {
         where: {
           followerId_followingId: {
             followerId: 1,
@@ -165,9 +140,7 @@ describe('UserFollowService', () => {
         },
       });
 
-      expect(
-        prisma.userFollow.upsert,
-      ).toHaveBeenNthCalledWith(2, {
+      expect(prisma.userFollow.upsert).toHaveBeenNthCalledWith(2, {
         where: {
           followerId_followingId: {
             followerId: 1,
@@ -187,18 +160,15 @@ describe('UserFollowService', () => {
         id: 2,
       });
 
-      const error =
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          {
-            code: 'P2002',
-            clientVersion: 'test',
-          },
-        );
-
-      prisma.userFollow.upsert.mockRejectedValueOnce(
-        error,
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
       );
+
+      prisma.userFollow.upsert.mockRejectedValueOnce(error);
 
       const existingFollow = {
         followerId: 1,
@@ -206,16 +176,11 @@ describe('UserFollowService', () => {
         createdAt: new Date(),
       };
 
-      prisma.userFollow.findUnique.mockResolvedValueOnce(
-        existingFollow,
-      );
+      prisma.userFollow.findUnique.mockResolvedValueOnce(existingFollow);
 
-      const result =
-        await service.followUser(1, 2);
+      const result = await service.followUser(1, 2);
 
-      expect(
-        prisma.userFollow.findUnique,
-      ).toHaveBeenCalledWith({
+      expect(prisma.userFollow.findUnique).toHaveBeenCalledWith({
         where: {
           followerId_followingId: {
             followerId: 1,
@@ -232,40 +197,29 @@ describe('UserFollowService', () => {
         id: 2,
       });
 
-      const error =
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          {
-            code: 'P2002',
-            clientVersion: 'test',
-          },
-        );
-
-      prisma.userFollow.upsert.mockRejectedValueOnce(
-        error,
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
       );
 
-      prisma.userFollow.findUnique.mockResolvedValueOnce(
-        null,
-      );
+      prisma.userFollow.upsert.mockRejectedValueOnce(error);
 
-      await expect(
-        service.followUser(1, 2),
-      ).rejects.toBe(error);
+      prisma.userFollow.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.followUser(1, 2)).rejects.toBe(error);
     });
   });
 
   describe('unfollowUser', () => {
     it('should throw SelfActionNotAllowedException if followerId equals followingId', async () => {
-      await expect(
-        service.unfollowUser(1, 1),
-      ).rejects.toThrow(
+      await expect(service.unfollowUser(1, 1)).rejects.toThrow(
         SelfActionNotAllowedException,
       );
 
-      expect(
-        prisma.userFollow.deleteMany,
-      ).not.toHaveBeenCalled();
+      expect(prisma.userFollow.deleteMany).not.toHaveBeenCalled();
     });
 
     it('should delete follow relationship', async () => {
@@ -273,12 +227,9 @@ describe('UserFollowService', () => {
         count: 1,
       });
 
-      const result =
-        await service.unfollowUser(1, 2);
+      const result = await service.unfollowUser(1, 2);
 
-      expect(
-        prisma.userFollow.deleteMany,
-      ).toHaveBeenCalledWith({
+      expect(prisma.userFollow.deleteMany).toHaveBeenCalledWith({
         where: {
           followerId: 1,
           followingId: 2,
@@ -295,16 +246,13 @@ describe('UserFollowService', () => {
         count: 0,
       });
 
-      const result =
-        await service.unfollowUser(1, 2);
+      const result = await service.unfollowUser(1, 2);
 
       expect(result).toEqual({
         message: 'Đã bỏ follow thành công',
       });
 
-      expect(
-        prisma.userFollow.deleteMany,
-      ).toHaveBeenCalledWith({
+      expect(prisma.userFollow.deleteMany).toHaveBeenCalledWith({
         where: {
           followerId: 1,
           followingId: 2,
@@ -368,7 +316,11 @@ describe('UserFollowService', () => {
         },
       ]);
 
-      const result = await service.getFollowers(1, { page: 1, take: 10, skip: 0 });
+      const result = await service.getFollowers(1, {
+        page: 1,
+        take: 10,
+        skip: 0,
+      });
 
       expect(prisma.userFollow.count).toHaveBeenCalled();
       expect(prisma.userFollow.findMany).toHaveBeenCalled();
@@ -401,7 +353,11 @@ describe('UserFollowService', () => {
         },
       ]);
 
-      const result = await service.getFollowing(1, { page: 1, take: 10, skip: 0 });
+      const result = await service.getFollowing(1, {
+        page: 1,
+        take: 10,
+        skip: 0,
+      });
 
       expect(prisma.userFollow.count).toHaveBeenCalled();
       expect(prisma.userFollow.findMany).toHaveBeenCalled();

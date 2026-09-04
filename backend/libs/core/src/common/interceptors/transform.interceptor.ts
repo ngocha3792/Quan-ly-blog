@@ -18,6 +18,7 @@ import {
 import { ResponseFormat } from '../interfaces';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import type { Response } from 'express';
 
 @Injectable()
 export class TransformInterceptor<T> implements NestInterceptor<
@@ -26,10 +27,10 @@ export class TransformInterceptor<T> implements NestInterceptor<
 > {
   intercept(
     context: ExecutionContext,
-    next: CallHandler,
+    next: CallHandler<T>,
   ): Observable<ResponseFormat<T>> {
     const ctx = context.switchToHttp();
-    const response = ctx.getResponse();
+    const response = ctx.getResponse<Response>();
 
     // next.handle() chính là hàm chạy Controller của bạn.
     // Lệnh .pipe(map(...)) của RxJS sẽ lấy kết quả Controller trả về (gọi là `data`)

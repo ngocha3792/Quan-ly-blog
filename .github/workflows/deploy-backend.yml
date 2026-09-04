@@ -1,14 +1,22 @@
 name: Deploy backend
 
-# Tự động deploy backend lên VPS mỗi khi có push vào develop chạm tới backend/.
-# Chiến lược: build image ngay trên GitHub Actions runner (nhanh, nhiều tài
-# nguyên hơn VPS), nén lại rồi chuyển thẳng sang VPS bằng scp + docker load —
-# không dùng container registry, không build trên VPS (VPS cấu hình yếu).
+# Blue-green deploy qua GHCR. Push vào develop (chạm backend/) chạy 3 job
+# tuần tự — một job fail thì job sau không chạy, không có deployment nào
+# xảy ra:
 #
-# Yêu cầu secret cấp ở Settings > Secrets and variables > Actions:
-#   DEPLOY_SSH_KEY  — private key (đã add public key tương ứng vào
-#                     ~/.ssh/authorized_keys trên VPS, dùng riêng cho CI,
-#                     không phải key cá nhân).
+#   ci (lint/test/build/prisma validate)
+#     -> build-push (build 2 image, push GHCR, tag = commit SHA, KHÔNG :latest)
+#     -> deploy (SSH vào VPS, chạy scripts/deploy-blue-green.sh <sha>)
+#
+# VPS chỉ pull image đã build sẵn từ GHCR, không tự build (VPS quá yếu).
+# Chi tiết kiến trúc blue-green + runbook bootstrap/rollback: xem
+# DEPLOYMENT.md.
+#
+# Secret cần có ở Settings > Secrets and variables > Actions:
+#   DEPLOY_SSH_KEY — private key riêng cho CI (xem DEPLOYMENT.md mục 3).
+# GHCR push dùng GITHUB_TOKEN có sẵn (permissions: packages: write ở dưới),
+# không cần secret riêng. VPS tự docker login ghcr.io một lần thủ công lúc
+# bootstrap (DEPLOYMENT.md mục 3b) — không đi qua CI mỗi lần deploy.
 
 on:
   push:
@@ -18,108 +26,118 @@ on:
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
-concurrency:
-  group: deploy-backend
-  cancel-in-progress: false
-
 env:
   DEPLOY_HOST: 103.72.57.142
   DEPLOY_PATH: /opt/blog-api/backend
+  API_REPO: ghcr.io/ngocha3792/quan-ly-blog-api
+  MIGRATION_REPO: ghcr.io/ngocha3792/quan-ly-blog-migration
 
 jobs:
-  deploy:
+  ci:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Build production image
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      # Chỉ validate cú pháp/relation của schema, không connect DB thật —
+      # DATABASE_URL ở đây là giá trị giả, giống cách Dockerfile làm cho
+      # `prisma generate` lúc build image.
+      - name: Prisma validate
+        env:
+          DATABASE_URL: 'postgresql://user:password@localhost:5432/db?schema=public'
+        run: npx prisma validate --schema database/schema.prisma
+
+  build-push:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push production image
         uses: docker/build-push-action@v6
         with:
           context: backend
           target: production
-          tags: blog-api-runtime:ci
-          outputs: type=docker,dest=/tmp/blog-api-runtime.tar
+          push: true
+          tags: ${{ env.API_REPO }}:${{ github.sha }}
           cache-from: type=gha,scope=backend-production
           cache-to: type=gha,mode=max,scope=backend-production
 
-      - name: Build migration image
+      - name: Build + push migration image
         uses: docker/build-push-action@v6
         with:
           context: backend
           target: migration
-          tags: blog-api-migration:ci
-          outputs: type=docker,dest=/tmp/blog-api-migration.tar
+          push: true
+          tags: ${{ env.MIGRATION_REPO }}:${{ github.sha }}
           cache-from: type=gha,scope=backend-migration
           cache-to: type=gha,mode=max,scope=backend-migration
 
-      - name: Compress images
-        run: gzip -f /tmp/blog-api-runtime.tar /tmp/blog-api-migration.tar
-
-      - name: Package deploy config bundle (compose, nginx, scripts)
-        run: tar -czf /tmp/deploy-config.tar.gz -C backend compose.prod.yml docker scripts
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           # tr -d '\r' phòng trường hợp secret bị dính CRLF khi paste từ Windows
-          # (Notepad...) — OpenSSH sẽ báo "error in libcrypto" nếu key có \r.
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ env.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Ship artifacts to server
+      - name: Ship compose/nginx/scripts sang VPS
         run: |
-          scp -i ~/.ssh/deploy_key \
-            /tmp/blog-api-runtime.tar.gz /tmp/blog-api-migration.tar.gz /tmp/deploy-config.tar.gz \
+          tar -czf /tmp/deploy-config.tar.gz -C backend \
+            compose.shared.yml compose.slot.yml docker scripts
+          scp -i ~/.ssh/deploy_key /tmp/deploy-config.tar.gz \
             "root@${{ env.DEPLOY_HOST }}:/tmp/"
 
-      - name: Deploy on server
+      - name: Deploy trên VPS (blue-green)
+        # github.sha luôn là 40 ký tự hex, an toàn để chèn thẳng vào script —
+        # không có shell metacharacter nào cần lo injection ở đây.
         run: |
-          ssh -i ~/.ssh/deploy_key "root@${{ env.DEPLOY_HOST }}" bash -s <<'REMOTE'
+          ssh -i ~/.ssh/deploy_key "root@${{ env.DEPLOY_HOST }}" bash -s <<REMOTE
           set -euo pipefail
-          cd /opt/blog-api/backend
+          cd "${{ env.DEPLOY_PATH }}"
 
-          tar -xzf /tmp/deploy-config.tar.gz -C /opt/blog-api/backend
+          tar -xzf /tmp/deploy-config.tar.gz -C "${{ env.DEPLOY_PATH }}"
           rm -f /tmp/deploy-config.tar.gz
+          chmod +x scripts/*.sh scripts/lib/*.sh
 
-          gunzip -c /tmp/blog-api-runtime.tar.gz | docker load
-          gunzip -c /tmp/blog-api-migration.tar.gz | docker load
-          rm -f /tmp/blog-api-runtime.tar.gz /tmp/blog-api-migration.tar.gz
-
-          docker tag blog-api-runtime:ci blog-api-runtime:local
-          docker tag blog-api-migration:ci blog-api-migration:local
-
-          # Backup trước khi migrate. Không chặn deploy nếu backup lỗi, nhưng có log lại.
-          ./scripts/backup-postgres.sh || echo "!! backup-postgres.sh thất bại, tiếp tục deploy"
-
-          # -T bắt buộc: không có nó, `docker compose run` gắn vào stdin và sẽ
-          # "nuốt" mất phần script còn lại đang được feed qua heredoc SSH này.
-          API_IMAGE=blog-api-runtime:local MIGRATION_IMAGE=blog-api-migration:local \
-            docker compose --env-file .env.production -f compose.prod.yml run --rm -T migrate
-
-          API_IMAGE=blog-api-runtime:local MIGRATION_IMAGE=blog-api-migration:local \
-            docker compose --env-file .env.production -f compose.prod.yml up -d --force-recreate api nginx
-
-          status="starting"
-          for i in $(seq 1 30); do
-            status=$(docker inspect --format '{{.State.Health.Status}}' blog-backend-prod-api-1 2>/dev/null || echo starting)
-            [ "$status" = healthy ] && break
-            sleep 3
-          done
-          if [ "$status" != healthy ]; then
-            echo "API container không healthy sau deploy" >&2
-            docker logs blog-backend-prod-api-1 --tail 50
-            exit 1
-          fi
-
-          docker image prune -f
+          flock -n .deploy.lock ./scripts/deploy-blue-green.sh "${{ github.sha }}"
           REMOTE
 
-      - name: Smoke test
+      - name: Smoke test domain công khai (lớp kiểm tra thứ hai, ngoài VPS)
         run: |
-          curl --fail --max-time 10 "http://${{ env.DEPLOY_HOST }}/api/v1/health/live"
-          curl --fail --max-time 10 "http://${{ env.DEPLOY_HOST }}/api/v1/health/ready"
+          curl --fail --max-time 10 "https://blogy.id.vn/api/v1/health/live"
+          curl --fail --max-time 10 "https://blogy.id.vn/api/v1/health/ready"
+          curl --fail --max-time 10 "https://blogy.id.vn/api/v1/posts?limit=1"

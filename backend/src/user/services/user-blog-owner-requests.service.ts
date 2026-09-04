@@ -63,7 +63,9 @@ export class UserBlogOwnerRequestsService {
       paginationParams,
     );
 
-    const items = result.items.map((req) => new UserBlogOwnerRequestEntity(req));
+    const items = result.items.map(
+      (req) => new UserBlogOwnerRequestEntity(req),
+    );
 
     return {
       items,

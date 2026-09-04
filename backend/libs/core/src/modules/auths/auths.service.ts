@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import {
   InvalidCredentialsException,
   TokenNotValidException,
@@ -27,7 +28,7 @@ export class AuthsService {
     private readonly bcryptUtil: BcryptUtil,
     private readonly jwtUtil: JWTUtil,
     private readonly mailService: MailService,
-  ) { }
+  ) {}
 
   async register(registerDto: RegisterDto) {
     return this.usersService.create(registerDto);
@@ -211,8 +212,7 @@ export class AuthsService {
       };
     }
 
-    const crypto = require('crypto');
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = randomBytes(32).toString('hex');
     const tokenHash = await this.bcryptUtil.hashPassword(token);
 
     const expiresAt = new Date();

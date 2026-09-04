@@ -57,9 +57,7 @@ export class ModeratorCategoriesValidator {
       );
     }
 
-    throw new ConflictException(
-      `Nhóm danh mục với mã "${code}" đã tồn tại.`,
-    );
+    throw new ConflictException(`Nhóm danh mục với mã "${code}" đã tồn tại.`);
   }
 
   /**

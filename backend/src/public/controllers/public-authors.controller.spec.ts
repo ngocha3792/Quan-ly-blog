@@ -58,12 +58,7 @@ describe('PublicAuthorsController', () => {
       const query = new GetPostsDto();
       const pagination = { page: 1, skip: 0, take: 10 };
 
-      const result = await controller.getAuthorInfo(
-        1,
-        query,
-        pagination,
-        'vi',
-      );
+      const result = await controller.getAuthorInfo(1, query, pagination, 'vi');
 
       expect(usersPublicService.getAuthorInfo).toHaveBeenCalledWith(
         1,

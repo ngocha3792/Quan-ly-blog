@@ -13,9 +13,7 @@ import { AdminDashboardService } from '../services/admin-dashboard.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class AdminDashboardController {
-  constructor(
-    private readonly adminDashboardService: AdminDashboardService,
-  ) { }
+  constructor(private readonly adminDashboardService: AdminDashboardService) {}
 
   @Roles(UserRole.SUPER_ADMIN)
   @Get()

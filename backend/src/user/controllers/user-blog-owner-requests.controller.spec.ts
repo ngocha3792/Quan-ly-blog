@@ -65,7 +65,11 @@ describe('UserBlogOwnerRequestsController', () => {
   it('should call service.findAll on findAll', async () => {
     service.findAll.mockResolvedValue({ items: [], meta: {} as any });
 
-    const res = await controller.findAll(currentUser, {}, { page: 1, take: 10, skip: 0 });
+    const res = await controller.findAll(
+      currentUser,
+      {},
+      { page: 1, take: 10, skip: 0 },
+    );
     expect(service.findAll).toHaveBeenCalledWith(
       1,
       {},

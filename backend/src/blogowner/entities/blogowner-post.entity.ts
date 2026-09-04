@@ -1,10 +1,7 @@
 import { Exclude, Type } from 'class-transformer';
 import { PostStatus } from '@prisma/client';
 
-import {
-  MediaEntity,
-  PostEntity,
-} from '@app/core';
+import { MediaEntity, PostEntity } from '@app/core';
 
 /**
  * Thông tin tóm tắt của một phiên bản ngôn ngữ
@@ -89,9 +86,7 @@ export class BlogownerPostEntity extends PostEntity {
    */
   translations?: BlogownerTranslationSummary[];
 
-  constructor(
-    partial: Partial<BlogownerPostEntity>,
-  ) {
+  constructor(partial: Partial<BlogownerPostEntity>) {
     const {
       _count,
       likeCount: providedLikeCount,
@@ -109,10 +104,7 @@ export class BlogownerPostEntity extends PostEntity {
       ...remainingData
     } = partial;
 
-    const likeCount =
-      providedLikeCount ??
-      _count?.postLikes ??
-      0;
+    const likeCount = providedLikeCount ?? _count?.postLikes ?? 0;
 
     /**
      * Chủ động sắp xếp property trước khi PostEntity
@@ -149,11 +141,8 @@ export class BlogownerPostEntity extends PostEntity {
     this.likeCount = likeCount;
 
     if (media) {
-      this.media = media.map(
-        (item) =>
-          item instanceof MediaEntity
-            ? item
-            : new MediaEntity(item),
+      this.media = media.map((item) =>
+        item instanceof MediaEntity ? item : new MediaEntity(item),
       );
     }
 

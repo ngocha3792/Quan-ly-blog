@@ -97,9 +97,19 @@ describe('AdminUsersService', () => {
 
       mockUsersService.findAll.mockResolvedValueOnce(mockResult);
 
-      const result = await service.findAll({} as any, { skip: 0, take: 10, page: 1 });
+      const result = await service.findAll(
+        {},
+        {
+          skip: 0,
+          take: 10,
+          page: 1,
+        },
+      );
 
-      expect(mockUsersService.findAll).toHaveBeenCalledWith({}, { skip: 0, take: 10, page: 1 });
+      expect(mockUsersService.findAll).toHaveBeenCalledWith(
+        {},
+        { skip: 0, take: 10, page: 1 },
+      );
       expect(result.items[0]).toBeInstanceOf(AdminUserEntity);
       expect(result.items[0].username).toBe('user1');
     });
@@ -193,9 +203,7 @@ describe('AdminUsersService', () => {
 
       expect(mockBcryptUtil.hashPassword).not.toHaveBeenCalled();
 
-      expect(
-        mockPrismaService.userSession.updateMany,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.userSession.updateMany).not.toHaveBeenCalled();
 
       expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
     });
@@ -216,9 +224,7 @@ describe('AdminUsersService', () => {
 
       mockUsersService.findById.mockResolvedValueOnce(existingUser);
 
-      mockBcryptUtil.hashPassword.mockResolvedValueOnce(
-        'hashed_new_password',
-      );
+      mockBcryptUtil.hashPassword.mockResolvedValueOnce('hashed_new_password');
 
       mockPrismaService.user.update.mockResolvedValueOnce(updatedUser);
 
@@ -245,9 +251,7 @@ describe('AdminUsersService', () => {
         },
       });
 
-      expect(
-        mockPrismaService.userSession.updateMany,
-      ).toHaveBeenCalledWith({
+      expect(mockPrismaService.userSession.updateMany).toHaveBeenCalledWith({
         where: {
           userId: 2,
           revokedAt: null,
@@ -283,7 +287,10 @@ describe('AdminUsersService', () => {
     });
 
     it('should throw ForbiddenException if trying to lock Super Admin', async () => {
-      mockUsersService.findById.mockResolvedValueOnce({ id: 2, role: UserRole.SUPER_ADMIN });
+      mockUsersService.findById.mockResolvedValueOnce({
+        id: 2,
+        role: UserRole.SUPER_ADMIN,
+      });
       await expect(service.lockUser(2, 1, { reason: 'Test' })).rejects.toThrow(
         ForbiddenException,
       );
@@ -301,7 +308,9 @@ describe('AdminUsersService', () => {
 
       mockUsersService.findById.mockResolvedValueOnce(mockUser);
       mockPrismaService.user.update.mockResolvedValueOnce(updatedUser);
-      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({ count: 2 });
+      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({
+        count: 2,
+      });
 
       const result = await service.lockUser(2, 1, { reason: 'Spam' });
 
@@ -316,7 +325,9 @@ describe('AdminUsersService', () => {
     it('should throw UserNotFoundException if user to lock does not exist', async () => {
       mockUsersService.findById.mockResolvedValueOnce(null);
 
-      await expect(service.lockUser(999, 1, { reason: 'Spam' })).rejects.toThrow(UserNotFoundException);
+      await expect(
+        service.lockUser(999, 1, { reason: 'Spam' }),
+      ).rejects.toThrow(UserNotFoundException);
     });
   });
 
@@ -328,14 +339,21 @@ describe('AdminUsersService', () => {
     });
 
     it('should throw ForbiddenException if trying to unlock Super Admin', async () => {
-      mockUsersService.findById.mockResolvedValueOnce({ id: 2, role: UserRole.SUPER_ADMIN });
+      mockUsersService.findById.mockResolvedValueOnce({
+        id: 2,
+        role: UserRole.SUPER_ADMIN,
+      });
       await expect(service.unlockUser(2, 1)).rejects.toThrow(
         ForbiddenException,
       );
     });
 
     it('should unlock user and clear lock fields', async () => {
-      const mockUser = { id: 2, status: UserStatus.LOCKED, role: UserRole.NORMAL };
+      const mockUser = {
+        id: 2,
+        status: UserStatus.LOCKED,
+        role: UserRole.NORMAL,
+      };
       const updatedUser = {
         ...mockUser,
         status: UserStatus.ACTIVE,
@@ -356,13 +374,16 @@ describe('AdminUsersService', () => {
 
   describe('changeRole', () => {
     it('should throw SelfActionNotAllowedException if admin tries to change own role', async () => {
-      await expect(service.changeRole(1, 1, { role: UserRole.CONTENT_MODERATOR })).rejects.toThrow(
-        SelfActionNotAllowedException,
-      );
+      await expect(
+        service.changeRole(1, 1, { role: UserRole.CONTENT_MODERATOR }),
+      ).rejects.toThrow(SelfActionNotAllowedException);
     });
 
     it('should throw ForbiddenException if demoting the last Super Admin', async () => {
-      mockUsersService.findById.mockResolvedValueOnce({ id: 2, role: UserRole.SUPER_ADMIN });
+      mockUsersService.findById.mockResolvedValueOnce({
+        id: 2,
+        role: UserRole.SUPER_ADMIN,
+      });
       mockPrismaService.user.count.mockResolvedValueOnce(1); // Only 1 Super Admin left
 
       await expect(
@@ -376,9 +397,13 @@ describe('AdminUsersService', () => {
 
       mockUsersService.findById.mockResolvedValueOnce(mockUser);
       mockPrismaService.user.update.mockResolvedValueOnce(updatedUser);
-      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrismaService.userSession.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
 
-      const result = await service.changeRole(2, 1, { role: UserRole.CONTENT_MODERATOR });
+      const result = await service.changeRole(2, 1, {
+        role: UserRole.CONTENT_MODERATOR,
+      });
 
       expect(result).toBeInstanceOf(AdminUserEntity);
       expect(result.role).toBe(UserRole.CONTENT_MODERATOR);
@@ -397,10 +422,15 @@ describe('AdminUsersService', () => {
     });
 
     it('should throw ForbiddenException if deleting the last Super Admin', async () => {
-      mockUsersService.findById.mockResolvedValueOnce({ id: 2, role: UserRole.SUPER_ADMIN });
+      mockUsersService.findById.mockResolvedValueOnce({
+        id: 2,
+        role: UserRole.SUPER_ADMIN,
+      });
       mockPrismaService.user.count.mockResolvedValueOnce(1); // Only 1 Super Admin left
 
-      await expect(service.removeUser(2, 1)).rejects.toThrow(ForbiddenException);
+      await expect(service.removeUser(2, 1)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should delegate to usersService.remove for normal user', async () => {
@@ -452,7 +482,9 @@ describe('AdminUsersService', () => {
         username: 'different',
       });
 
-      await expect(service.createModerator(dto)).rejects.toThrow(EmailAlreadyExistsException);
+      await expect(service.createModerator(dto)).rejects.toThrow(
+        EmailAlreadyExistsException,
+      );
     });
 
     it('should throw UsernameAlreadyExistsException if username exists', async () => {
@@ -467,7 +499,9 @@ describe('AdminUsersService', () => {
         username: 'mod1',
       });
 
-      await expect(service.createModerator(dto)).rejects.toThrow(UsernameAlreadyExistsException);
+      await expect(service.createModerator(dto)).rejects.toThrow(
+        UsernameAlreadyExistsException,
+      );
     });
   });
 });

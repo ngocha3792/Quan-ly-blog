@@ -20,7 +20,7 @@ export class JwtAuthGuard implements CanActivate {
     private reflector: Reflector,
     private jwtUtil: JWTUtil,
     private prisma: PrismaService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // 1. Kiểm tra xem có gắn cờ @Public() không, nếu có cờ public mặc định cho qua không cần kiểm tra JWT

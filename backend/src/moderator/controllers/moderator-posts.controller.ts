@@ -19,15 +19,9 @@ import {
   Roles,
   RolesGuard,
 } from '@app/core';
-import type {
-  AuthenticatedUser,
-  PaginationParams,
-} from '@app/core';
+import type { AuthenticatedUser, PaginationParams } from '@app/core';
 
-import {
-  GetModeratorPostsDto,
-  RejectModeratorPostDto,
-} from '../dto';
+import { GetModeratorPostsDto, RejectModeratorPostDto } from '../dto';
 import { ModeratorPostsService } from '../services/moderator-posts.service';
 
 @Controller('moderator/posts')
@@ -35,9 +29,7 @@ import { ModeratorPostsService } from '../services/moderator-posts.service';
 @Roles(UserRole.CONTENT_MODERATOR)
 @UseInterceptors(ClassSerializerInterceptor)
 export class ModeratorPostsController {
-  constructor(
-    private readonly moderatorPostsService: ModeratorPostsService,
-  ) {}
+  constructor(private readonly moderatorPostsService: ModeratorPostsService) {}
 
   /**
    * Danh sách bài Moderator được phép xem.
@@ -51,10 +43,7 @@ export class ModeratorPostsController {
     @Query() query: GetModeratorPostsDto,
     @Pagination() pagination: PaginationParams,
   ) {
-    return this.moderatorPostsService.findAll(
-      query,
-      pagination,
-    );
+    return this.moderatorPostsService.findAll(query, pagination);
   }
 
   /**
@@ -65,9 +54,7 @@ export class ModeratorPostsController {
    * GET /api/v1/moderator/posts/:postId
    */
   @Get(':postId')
-  findOne(
-    @Param('postId', ParseIntPipe) postId: number,
-  ) {
+  findOne(@Param('postId', ParseIntPipe) postId: number) {
     return this.moderatorPostsService.findOne(postId);
   }
 
@@ -83,10 +70,7 @@ export class ModeratorPostsController {
     @CurrentUser() moderator: AuthenticatedUser,
     @Param('postId', ParseIntPipe) postId: number,
   ) {
-    return this.moderatorPostsService.approve(
-      moderator.id,
-      postId,
-    );
+    return this.moderatorPostsService.approve(moderator.id, postId);
   }
 
   /**
@@ -102,10 +86,6 @@ export class ModeratorPostsController {
     @Param('postId', ParseIntPipe) postId: number,
     @Body() dto: RejectModeratorPostDto,
   ) {
-    return this.moderatorPostsService.reject(
-      moderator.id,
-      postId,
-      dto,
-    );
+    return this.moderatorPostsService.reject(moderator.id, postId, dto);
   }
 }

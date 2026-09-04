@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
-import { PostStatus, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { TagsService, GetTagsDto, LanguagesService } from '@app/core';
 import type { PaginationParams } from '@app/core';
 
@@ -16,10 +16,7 @@ export class TagsPublicService {
     return this.tagsService.findAll(query, paginationParams);
   }
 
-  async getTopTags(
-    limit: number = 10,
-    langCode: string | null = null,
-  ) {
+  async getTopTags(limit: number = 10, langCode: string | null = null) {
     let languageCondition = Prisma.empty;
 
     if (langCode) {
@@ -39,14 +36,13 @@ export class TagsPublicService {
      * TagScore =
      * AVG(HotScore của các published post thuộc tag)
      */
-    const topTagsRaw =
-      await this.prisma.$queryRaw<
-        {
-          tagId: number;
-          postCount: number;
-          tagScore: number;
-        }[]
-      >`
+    const topTagsRaw = await this.prisma.$queryRaw<
+      {
+        tagId: number;
+        postCount: number;
+        tagScore: number;
+      }[]
+    >`
         WITH candidate_posts AS (
           SELECT
             p.id,
@@ -181,8 +177,7 @@ export class TagsPublicService {
       return [];
     }
 
-    const tagIds =
-      topTagsRaw.map((item) => item.tagId);
+    const tagIds = topTagsRaw.map((item) => item.tagId);
 
     const tags = await this.prisma.tag.findMany({
       where: {
@@ -197,9 +192,7 @@ export class TagsPublicService {
      * Current code dùng tags.find() cho từng result.
      * Dùng Map để lookup O(1).
      */
-    const tagMap = new Map(
-      tags.map((tag) => [tag.id, tag]),
-    );
+    const tagMap = new Map(tags.map((tag) => [tag.id, tag]));
 
     return topTagsRaw.flatMap((item) => {
       const tag = tagMap.get(item.tagId);

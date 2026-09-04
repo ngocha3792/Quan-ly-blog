@@ -53,19 +53,38 @@ describe('UserProfileController', () => {
 
   describe('updateProfile', () => {
     it('should call service updateProfile', async () => {
-      userProfileService.updateProfile.mockResolvedValueOnce({ id: 1, bio: 'test' });
+      userProfileService.updateProfile.mockResolvedValueOnce({
+        id: 1,
+        bio: 'test',
+      });
       const dto = { bio: 'test' } as any;
       const result = await controller.updateProfile({ id: 1 } as any, dto);
-      expect(userProfileService.updateProfile).toHaveBeenCalledWith(1, dto, undefined);
+      expect(userProfileService.updateProfile).toHaveBeenCalledWith(
+        1,
+        dto,
+        undefined,
+      );
       expect(result.bio).toBe('test');
     });
 
     it('should call service updateProfile with file if provided', async () => {
       const mockFile = { originalname: 'test.png' } as any;
-      userProfileService.updateProfile.mockResolvedValueOnce({ id: 1, bio: 'test', avatarUrl: 'url' });
+      userProfileService.updateProfile.mockResolvedValueOnce({
+        id: 1,
+        bio: 'test',
+        avatarUrl: 'url',
+      });
       const dto = { bio: 'test' } as any;
-      const result = await controller.updateProfile({ id: 1 } as any, dto, mockFile);
-      expect(userProfileService.updateProfile).toHaveBeenCalledWith(1, dto, mockFile);
+      const result = await controller.updateProfile(
+        { id: 1 } as any,
+        dto,
+        mockFile,
+      );
+      expect(userProfileService.updateProfile).toHaveBeenCalledWith(
+        1,
+        dto,
+        mockFile,
+      );
       expect(result.avatarUrl).toBe('url');
     });
   });
@@ -82,7 +101,10 @@ describe('UserProfileController', () => {
   describe('uploadAvatar', () => {
     it('should call service uploadAvatar', async () => {
       const mockFile = { originalname: 'test.png' } as any;
-      userProfileService.uploadAvatar.mockResolvedValueOnce({ id: 1, avatarUrl: 'url' });
+      userProfileService.uploadAvatar.mockResolvedValueOnce({
+        id: 1,
+        avatarUrl: 'url',
+      });
       const result = await controller.uploadAvatar({ id: 1 } as any, mockFile);
       expect(userProfileService.uploadAvatar).toHaveBeenCalledWith(1, mockFile);
       expect(result.avatarUrl).toBe('url');

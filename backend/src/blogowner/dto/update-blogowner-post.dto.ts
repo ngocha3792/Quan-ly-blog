@@ -32,7 +32,7 @@ function normalizeIntegerArray(value: unknown): unknown {
 
   const values = Array.isArray(normalized) ? normalized : [normalized];
 
-  return values.map((item) => {
+  return values.map((item: unknown) => {
     if (typeof item === 'number') return item;
     if (typeof item === 'string' && /^-?\d+$/.test(item.trim())) {
       return Number(item.trim());
@@ -77,7 +77,7 @@ export class UpdateBlogownerPostDto extends PartialType(
   translationLanguageIds?: number[];
 
   @IsOptional()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === 'true') return true;
     if (value === 'false') return false;
     return value;

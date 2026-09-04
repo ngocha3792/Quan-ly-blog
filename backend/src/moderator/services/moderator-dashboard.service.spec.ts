@@ -38,9 +38,7 @@ describe('ModeratorDashboardService', () => {
      * Thời điểm này tương ứng:
      * 19:00 ngày 28/07/2026 tại Việt Nam.
      */
-    jest.setSystemTime(
-      new Date('2026-07-28T12:00:00.000Z'),
-    );
+    jest.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
   });
 
   afterAll(() => {
@@ -55,26 +53,21 @@ describe('ModeratorDashboardService', () => {
      * Prisma sẽ trả kết quả theo đúng thứ tự.
      */
     mockPrismaService.$transaction.mockImplementation(
-      async (operations: Promise<unknown>[]) =>
-        Promise.all(operations),
+      async (operations: Promise<unknown>[]) => Promise.all(operations),
     );
 
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          ModeratorDashboardService,
-
-          {
-            provide: PrismaService,
-            useValue: mockPrismaService,
-          },
-        ],
-      }).compile();
-
-    service =
-      module.get<ModeratorDashboardService>(
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
         ModeratorDashboardService,
-      );
+
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<ModeratorDashboardService>(ModeratorDashboardService);
   });
 
   it('should be defined', () => {
@@ -102,8 +95,7 @@ describe('ModeratorDashboardService', () => {
       .mockResolvedValueOnce(14)
       .mockResolvedValueOnce(3);
 
-    mockPrismaService.categoryGroup.count
-      .mockResolvedValueOnce(8);
+    mockPrismaService.categoryGroup.count.mockResolvedValueOnce(8);
 
     /**
      * report.groupBy lần 1: theo status.
@@ -172,39 +164,31 @@ describe('ModeratorDashboardService', () => {
         },
       ]);
 
-    mockPrismaService.report.findMany
-      .mockResolvedValueOnce([
-        /**
-         * 08:00 ngày 22/07 tại Việt Nam.
-         */
-        {
-          targetType: ReportTargetType.POST,
-          createdAt: new Date(
-            '2026-07-22T01:00:00.000Z',
-          ),
-        },
+    mockPrismaService.report.findMany.mockResolvedValueOnce([
+      /**
+       * 08:00 ngày 22/07 tại Việt Nam.
+       */
+      {
+        targetType: ReportTargetType.POST,
+        createdAt: new Date('2026-07-22T01:00:00.000Z'),
+      },
 
-        /**
-         * 22:00 ngày 22/07 tại Việt Nam.
-         */
-        {
-          targetType:
-            ReportTargetType.COMMENT,
-          createdAt: new Date(
-            '2026-07-22T15:00:00.000Z',
-          ),
-        },
+      /**
+       * 22:00 ngày 22/07 tại Việt Nam.
+       */
+      {
+        targetType: ReportTargetType.COMMENT,
+        createdAt: new Date('2026-07-22T15:00:00.000Z'),
+      },
 
-        /**
-         * 08:00 ngày 28/07 tại Việt Nam.
-         */
-        {
-          targetType: ReportTargetType.POST,
-          createdAt: new Date(
-            '2026-07-28T01:00:00.000Z',
-          ),
-        },
-      ]);
+      /**
+       * 08:00 ngày 28/07 tại Việt Nam.
+       */
+      {
+        targetType: ReportTargetType.POST,
+        createdAt: new Date('2026-07-28T01:00:00.000Z'),
+      },
+    ]);
 
     const result = await service.getDashboard();
 
@@ -290,15 +274,13 @@ describe('ModeratorDashboardService', () => {
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0);
 
-    mockPrismaService.categoryGroup.count
-      .mockResolvedValueOnce(0);
+    mockPrismaService.categoryGroup.count.mockResolvedValueOnce(0);
 
     mockPrismaService.report.groupBy
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
-    mockPrismaService.report.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.report.findMany.mockResolvedValueOnce([]);
 
     const result = await service.getDashboard();
 
@@ -319,11 +301,7 @@ describe('ModeratorDashboardService', () => {
 
     expect(result.last7Days).toHaveLength(7);
 
-    expect(
-      result.last7Days.every(
-        (day) => day.totalReports === 0,
-      ),
-    ).toBe(true);
+    expect(result.last7Days.every((day) => day.totalReports === 0)).toBe(true);
   });
 
   it('should query today using Vietnam time boundaries', async () => {
@@ -336,58 +314,44 @@ describe('ModeratorDashboardService', () => {
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0);
 
-    mockPrismaService.categoryGroup.count
-      .mockResolvedValueOnce(0);
+    mockPrismaService.categoryGroup.count.mockResolvedValueOnce(0);
 
     mockPrismaService.report.groupBy
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
-    mockPrismaService.report.findMany
-      .mockResolvedValueOnce([]);
+    mockPrismaService.report.findMany.mockResolvedValueOnce([]);
 
     await service.getDashboard();
 
-    expect(
-  mockPrismaService.post.count,
-).toHaveBeenNthCalledWith(1, {
-  where: {
-    parentPostId: null,
-    status: PostStatus.PENDING_REVIEW,
-    deletedAt: null,
-  },
-});
+    expect(mockPrismaService.post.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        parentPostId: null,
+        status: PostStatus.PENDING_REVIEW,
+        deletedAt: null,
+      },
+    });
 
-    expect(
-  mockPrismaService.post.count,
-).toHaveBeenNthCalledWith(2, {
-  where: {
-    parentPostId: null,
+    expect(mockPrismaService.post.count).toHaveBeenNthCalledWith(2, {
+      where: {
+        parentPostId: null,
 
-    status: {
-      in: [
-        PostStatus.PUBLISH,
-        PostStatus.REJECT,
-      ],
-    },
+        status: {
+          in: [PostStatus.PUBLISH, PostStatus.REJECT],
+        },
 
-    reviewedAt: {
-      gte: new Date(
-        '2026-07-27T17:00:00.000Z',
-      ),
+        reviewedAt: {
+          gte: new Date('2026-07-27T17:00:00.000Z'),
 
-      lt: new Date(
-        '2026-07-28T17:00:00.000Z',
-      ),
-    },
+          lt: new Date('2026-07-28T17:00:00.000Z'),
+        },
 
-    reviewedById: {
-      not: null,
-    },
+        reviewedById: {
+          not: null,
+        },
 
-    deletedAt: null,
-  },
-});
-
+        deletedAt: null,
+      },
+    });
   });
 });

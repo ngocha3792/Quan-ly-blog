@@ -1,0 +1,60 @@
+# Template cho MỘT slot API (blue hoặc green). Không tự chạy trực tiếp —
+# luôn gọi qua "docker compose -p blog-api-<color> -f compose.slot.yml"
+# với COLOR/API_PORT/API_IMAGE/MIGRATION_IMAGE đã export, xem
+# scripts/deploy-blue-green.sh và scripts/rollback.sh.
+#
+# Không đặt "name:" cố định ở đây — project name luôn tới từ cờ "-p" của
+# caller (blog-api-blue / blog-api-green), để 2 màu là 2 project độc lập
+# dùng chung file này.
+
+services:
+  # Chạy một lần trước khi "api" của slot này start. Không phải service
+  # thường trực — luôn gọi bằng "run --rm", không "up".
+  migrate:
+    image: ${MIGRATION_IMAGE}
+    env_file:
+      - .env.production
+    networks:
+      - backend
+    restart: 'no'
+
+  api:
+    image: ${API_IMAGE}
+    container_name: api-${COLOR}
+    env_file:
+      - .env.production
+    networks:
+      - edge
+      - backend
+    ports:
+      - '127.0.0.1:${API_PORT}:8080'
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/api/v1/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+networks:
+  # Cùng network do compose.shared.yml tạo — external: true để 2 project
+  # khác nhau (blog-api-blue, blog-api-green) join chung được thay vì mỗi
+  # project tự tạo network riêng.
+  edge:
+    name: blog-edge
+    external: true
+  backend:
+    name: blog-backend-net
+    external: true

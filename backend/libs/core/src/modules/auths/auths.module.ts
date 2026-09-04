@@ -12,4 +12,3 @@ import { JWTUtil, BcryptUtil } from '@app/core/common/utils';
   exports: [AuthsService, JWTUtil],
 })
 export class AuthsModule {}
-

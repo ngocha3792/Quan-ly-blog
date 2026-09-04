@@ -142,7 +142,7 @@ describe('ReportsService', () => {
 
       const result = await service.update(1, 2, {
         status: ReportStatus.REJECTED,
-      } as any);
+      });
 
       expect(prisma.report.update).toHaveBeenCalledWith({
         where: { id: 1 },

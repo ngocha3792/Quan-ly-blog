@@ -7,10 +7,7 @@ import {
   UserNotFoundException,
 } from '@app/core/common/exceptions';
 
-import type {
-  PaginationParams,
-  PaginatedResult,
-} from '@app/core';
+import type { PaginationParams, PaginatedResult } from '@app/core';
 
 import { UserFollowSummaryEntity } from '../entities';
 
@@ -18,30 +15,24 @@ import { UserFollowSummaryEntity } from '../entities';
 export class UserFollowService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async followUser(
-    followerId: number,
-    followingId: number,
-  ) {
+  async followUser(followerId: number, followingId: number) {
     if (followerId === followingId) {
       throw new SelfActionNotAllowedException('follow');
     }
 
-    const followingUser =
-      await this.prisma.user.findFirst({
-        where: {
-          id: followingId,
-          deletedAt: null,
-          status: UserStatus.ACTIVE,
-        },
-        select: {
-          id: true,
-        },
-      });
+    const followingUser = await this.prisma.user.findFirst({
+      where: {
+        id: followingId,
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+      },
+    });
 
     if (!followingUser) {
-      throw new UserNotFoundException(
-        followingId.toString(),
-      );
+      throw new UserNotFoundException(followingId.toString());
     }
 
     const where = {
@@ -62,14 +53,12 @@ export class UserFollowService {
       });
     } catch (error) {
       if (
-        error instanceof
-          Prisma.PrismaClientKnownRequestError &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        const existingFollow =
-          await this.prisma.userFollow.findUnique({
-            where,
-          });
+        const existingFollow = await this.prisma.userFollow.findUnique({
+          where,
+        });
 
         if (existingFollow) {
           return existingFollow;
@@ -80,14 +69,9 @@ export class UserFollowService {
     }
   }
 
-  async unfollowUser(
-    followerId: number,
-    followingId: number,
-  ) {
+  async unfollowUser(followerId: number, followingId: number) {
     if (followerId === followingId) {
-      throw new SelfActionNotAllowedException(
-        'unfollow',
-      );
+      throw new SelfActionNotAllowedException('unfollow');
     }
 
     await this.prisma.userFollow.deleteMany({

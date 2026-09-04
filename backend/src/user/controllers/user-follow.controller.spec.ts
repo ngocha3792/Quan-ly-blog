@@ -47,7 +47,10 @@ describe('UserFollowController', () => {
       const mockResult = { items: [], meta: {} as any };
       userFollowService.getFollowers.mockResolvedValueOnce(mockResult);
 
-      const result = await controller.getMyFollowers({ id: 1 } as any, {} as any);
+      const result = await controller.getMyFollowers(
+        { id: 1 } as any,
+        {} as any,
+      );
 
       expect(userFollowService.getFollowers).toHaveBeenCalledWith(1, {});
       expect(result).toBe(mockResult);
@@ -59,7 +62,10 @@ describe('UserFollowController', () => {
       const mockResult = { items: [], meta: {} as any };
       userFollowService.getFollowing.mockResolvedValueOnce(mockResult);
 
-      const result = await controller.getMyFollowing({ id: 1 } as any, {} as any);
+      const result = await controller.getMyFollowing(
+        { id: 1 } as any,
+        {} as any,
+      );
 
       expect(userFollowService.getFollowing).toHaveBeenCalledWith(1, {});
       expect(result).toBe(mockResult);

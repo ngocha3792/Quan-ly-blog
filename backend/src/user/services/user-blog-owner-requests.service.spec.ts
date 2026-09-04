@@ -62,7 +62,10 @@ describe('UserBlogOwnerRequestsService', () => {
 
   describe('create', () => {
     it('should create blog owner request successfully', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 1, role: UserRole.NORMAL });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        role: UserRole.NORMAL,
+      });
       const mockReq = {
         id: 10,
         userId: 1,

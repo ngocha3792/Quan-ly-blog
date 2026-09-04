@@ -1,11 +1,12 @@
 // Mục đích: Đọc page và limit từ URL Query (?page=2&limit=10),
 //  sau đó quy đổi thành skip và take để tương thích trực tiếp với Prisma hoặc TypeORM.
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { Request } from 'express';
 import { PaginationParams } from '../interfaces';
 
 export const Pagination = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): PaginationParams => {
-    const request = ctx.switchToHttp().getRequest();
+    const request = ctx.switchToHttp().getRequest<Request>();
 
     // Lấy giá trị từ query, đảm bảo luôn là số nguyên dương >= 1
     const page = Math.max(1, parseInt(request.query.page as string, 10) || 1);

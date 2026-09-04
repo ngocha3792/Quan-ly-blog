@@ -1,9 +1,5 @@
 import { Transform } from 'class-transformer';
-import {
-  IsNotEmpty,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 /**
  * Dữ liệu Moderator gửi khi từ chối bài viết.
@@ -12,7 +8,7 @@ import {
  * trích dẫn hoặc mô tả chính xác nội dung vi phạm.
  */
 export class RejectModeratorPostDto {
-  @Transform(({ value }) =>
+  @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString({

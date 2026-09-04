@@ -1,17 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  PostStatus,
-  UserRole,
-} from '@prisma/client';
+import { PostStatus, UserRole } from '@prisma/client';
 
-import {
-  JwtAuthGuard,
-  RolesGuard,
-  AuthenticatedUser,
-} from '@app/core';
-import type {
-  PaginationParams,
-} from '@app/core';
+import { JwtAuthGuard, RolesGuard, AuthenticatedUser } from '@app/core';
+import type { PaginationParams } from '@app/core';
 
 import { ModeratorPostsService } from '../services/moderator-posts.service';
 import { ModeratorPostsController } from './moderator-posts.controller';
@@ -69,9 +60,7 @@ describe('ModeratorPostsController', () => {
       })
       .compile();
 
-    controller = module.get<ModeratorPostsController>(
-      ModeratorPostsController,
-    );
+    controller = module.get<ModeratorPostsController>(ModeratorPostsController);
   });
 
   it('should be defined', () => {
@@ -99,14 +88,12 @@ describe('ModeratorPostsController', () => {
       status: PostStatus.PENDING_REVIEW,
     };
 
-    const result = await controller.findAll(
+    const result = await controller.findAll(query, pagination);
+
+    expect(moderatorPostsService.findAll).toHaveBeenCalledWith(
       query,
       pagination,
     );
-
-    expect(
-      moderatorPostsService.findAll,
-    ).toHaveBeenCalledWith(query, pagination);
 
     expect(result.items).toHaveLength(1);
   });
@@ -119,9 +106,7 @@ describe('ModeratorPostsController', () => {
 
     const result = await controller.findOne(1);
 
-    expect(
-      moderatorPostsService.findOne,
-    ).toHaveBeenCalledWith(1);
+    expect(moderatorPostsService.findOne).toHaveBeenCalledWith(1);
 
     expect(result.id).toBe(1);
   });
@@ -132,14 +117,9 @@ describe('ModeratorPostsController', () => {
       status: PostStatus.PUBLISH,
     });
 
-    const result = await controller.approve(
-      moderator,
-      1,
-    );
+    const result = await controller.approve(moderator, 1);
 
-    expect(
-      moderatorPostsService.approve,
-    ).toHaveBeenCalledWith(2, 1);
+    expect(moderatorPostsService.approve).toHaveBeenCalledWith(2, 1);
 
     expect(result.status).toBe(PostStatus.PUBLISH);
   });
@@ -148,28 +128,18 @@ describe('ModeratorPostsController', () => {
     moderatorPostsService.reject.mockResolvedValueOnce({
       id: 1,
       status: PostStatus.REJECT,
-      rejectionReason:
-        'Bài viết cần bổ sung nguồn tham khảo.',
+      rejectionReason: 'Bài viết cần bổ sung nguồn tham khảo.',
     });
 
     const dto = {
-      rejectionReason:
-        'Bài viết cần bổ sung nguồn tham khảo.',
+      rejectionReason: 'Bài viết cần bổ sung nguồn tham khảo.',
     };
 
-    const result = await controller.reject(
-      moderator,
-      1,
-      dto,
-    );
+    const result = await controller.reject(moderator, 1, dto);
 
-    expect(
-      moderatorPostsService.reject,
-    ).toHaveBeenCalledWith(2, 1, dto);
+    expect(moderatorPostsService.reject).toHaveBeenCalledWith(2, 1, dto);
 
     expect(result.status).toBe(PostStatus.REJECT);
-    expect(result.rejectionReason).toBe(
-      dto.rejectionReason,
-    );
+    expect(result.rejectionReason).toBe(dto.rejectionReason);
   });
 });

@@ -14,9 +14,7 @@ import { FORBIDDEN_WORDS } from './forbidden-words';
  * - Chuyển thành chữ thường.
  * - Gộp nhiều khoảng trắng thành một khoảng trắng.
  */
-function normalizeText(
-  text: string,
-): string {
+function normalizeText(text: string): string {
   /**
    * Nếu input là HTML:
    *
@@ -28,11 +26,10 @@ function normalizeText(
    *
    * trước khi check.
    */
-  const plainText =
-    sanitizeHtml(text, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
+  const plainText = sanitizeHtml(text, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
 
   return plainText
     .normalize('NFKC')
@@ -71,9 +68,7 @@ function containsForbiddenWord(text: string, forbiddenWord: string): boolean {
   name: 'isProfanityFree',
   async: false,
 })
-export class IsProfanityFreeConstraint
-  implements ValidatorConstraintInterface
-{
+export class IsProfanityFreeConstraint implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
     if (value === undefined || value === null || value === '') {
       return true;
@@ -108,8 +103,6 @@ export function IsProfanityFree(
     });
   };
 }
-
-
 
 // import {
 //   registerDecorator,

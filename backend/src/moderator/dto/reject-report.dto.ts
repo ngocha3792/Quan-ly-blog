@@ -1,9 +1,5 @@
 import { Transform } from 'class-transformer';
-import {
-  IsNotEmpty,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 /**
  * Moderator xác định báo cáo không đúng
@@ -14,7 +10,7 @@ import {
  * - Nội dung không bị ảnh hưởng.
  */
 export class RejectModeratorReportDto {
-  @Transform(({ value }) =>
+  @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString({
@@ -24,8 +20,7 @@ export class RejectModeratorReportDto {
     message: 'Lý do bác bỏ báo cáo không được để trống.',
   })
   @MaxLength(1000, {
-    message:
-      'Ghi chú xử lý không được vượt quá 1000 ký tự.',
+    message: 'Ghi chú xử lý không được vượt quá 1000 ký tự.',
   })
   resolutionNote!: string;
 }

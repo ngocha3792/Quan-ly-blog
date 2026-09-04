@@ -6,9 +6,7 @@ import { ModeratorCategoryGroupEntity } from './moderator-category-group.entity'
 
 describe('ModeratorCategoryGroupEntity', () => {
   it('should expose translations and hide raw relations', () => {
-    const date = new Date(
-      '2026-07-28T00:00:00.000Z',
-    );
+    const date = new Date('2026-07-28T00:00:00.000Z');
 
     const entity = new ModeratorCategoryGroupEntity({
       id: 10,
@@ -83,15 +81,9 @@ describe('ModeratorCategoryGroupEntity', () => {
       }),
     );
 
-    expect(result.translations[0]).not.toHaveProperty(
-      'categoryGroupId',
-    );
-    expect(result.translations[0]).not.toHaveProperty(
-      'categoryGroup',
-    );
-    expect(result.translations[0]).not.toHaveProperty(
-      'deletedAt',
-    );
+    expect(result.translations[0]).not.toHaveProperty('categoryGroupId');
+    expect(result.translations[0]).not.toHaveProperty('categoryGroup');
+    expect(result.translations[0]).not.toHaveProperty('deletedAt');
 
     expect(result.translations[0].language).toEqual({
       id: 4,
@@ -104,8 +96,6 @@ describe('ModeratorCategoryGroupEntity', () => {
       updatedAt: date,
     });
 
-    expect(
-      result.translations[0].language,
-    ).not.toHaveProperty('deletedAt');
+    expect(result.translations[0].language).not.toHaveProperty('deletedAt');
   });
 });
