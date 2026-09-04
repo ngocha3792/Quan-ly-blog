@@ -11,6 +11,7 @@ import {
 import {
   PostsService,
   PrismaService,
+  SearchIndexService,
 } from '@app/core';
 
 import { BlogownerPostEntity } from '../entities';
@@ -47,6 +48,8 @@ describe('BlogownerPostsService', () => {
 
   const mockHelper = {
     findOwnedPost: jest.fn(),
+    findOwnedPostGroup: jest.fn(),
+    updateOwnedPostGroupStatus: jest.fn(),
     assertEditable: jest.fn(),
     assertSubmittable: jest.fn(),
     getNextStatusOnEdit: jest.fn(),
@@ -67,6 +70,11 @@ describe('BlogownerPostsService', () => {
 
   const mockTranslationService = {
     translatePost: jest.fn(),
+  };
+
+  const mockSearchIndexService = {
+    syncSearchIndex: jest.fn(),
+    syncSearchIndexGroup: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -191,6 +199,11 @@ describe('BlogownerPostsService', () => {
             useValue:
               mockTranslationService,
           },
+
+          {
+            provide: SearchIndexService,
+            useValue: mockSearchIndexService,
+          },
         ],
       }).compile();
 
@@ -295,7 +308,12 @@ describe('BlogownerPostsService', () => {
 
     expect(result.items).toHaveLength(2);
     expect(result.items[0].root.id).toBe(101);
-    expect(result.items[0].translations.map((post) => post.id)).toEqual([102]);
+    /**
+     * findAll() (list) không còn trả translations — chỉ findOne()
+     * (detail) mới trả bản dịch. Xem comment "Response list vẫn giữ
+     * wrapper hiện tại..." trong blogowner-posts.service.ts.
+     */
+    expect(result.items[0].translations).toEqual([]);
     expect(result.items[0].totals).toEqual({
       views: 120,
       likes: 7,
@@ -477,10 +495,11 @@ describe('BlogownerPostsService', () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0].root.id).toBe(101);
-    expect(result.items[0].translations.map((post) => post.id)).toEqual([
-      102,
-      103,
-    ]);
+    /**
+     * findAll() (list) không còn trả translations — chỉ findOne()
+     * (detail) mới trả bản dịch.
+     */
+    expect(result.items[0].translations).toEqual([]);
   });
 
   /**
@@ -613,12 +632,8 @@ describe('BlogownerPostsService', () => {
     mockHelper.uploadMediaFiles
       .mockResolvedValue(undefined);
 
-    mockPrismaService.post.update
-      .mockResolvedValue({
-        id: 21,
-        status:
-          PostStatus.PENDING_REVIEW,
-      });
+    mockHelper.updateOwnedPostGroupStatus
+      .mockResolvedValue(undefined);
 
     jest
       .spyOn(service, 'findOne')
@@ -656,18 +671,12 @@ describe('BlogownerPostsService', () => {
     );
 
     expect(
-      mockPrismaService.post.update,
-    ).toHaveBeenCalledWith({
-      where: {
-        id: 21,
-      },
-
-      data: {
-        status:
-          PostStatus.PENDING_REVIEW,
-        ...RESET_REVIEW_DATA,
-      },
-    });
+      mockHelper.updateOwnedPostGroupStatus,
+    ).toHaveBeenCalledWith(
+      3,
+      21,
+      PostStatus.PENDING_REVIEW,
+    );
 
     /**
      * Thứ tự bắt buộc:
@@ -687,7 +696,7 @@ describe('BlogownerPostsService', () => {
       mockHelper.uploadMediaFiles.mock
         .invocationCallOrder[0],
     ).toBeLessThan(
-      mockPrismaService.post.update.mock
+      mockHelper.updateOwnedPostGroupStatus.mock
         .invocationCallOrder[0],
     );
 
@@ -1637,13 +1646,22 @@ describe('BlogownerPostsService', () => {
  */
 
 it('should reject an empty update without changing post status', async () => {
-  mockHelper.findOwnedPost.mockResolvedValue({
+  const root = {
     id: 3,
     authorId: 3,
     status: PostStatus.REJECT,
+    languageId: 4,
+    thumbnailUrl: null,
 
     rejectionReason:
       'Nội dung chưa đạt yêu cầu.',
+  };
+
+  mockHelper.findOwnedPostGroup.mockResolvedValue({
+    rootPostId: 3,
+    root,
+    translations: [],
+    posts: [root],
   });
 
   await expect(
@@ -1700,29 +1718,29 @@ it('should reset review metadata before uploading media when editing a published
     originalname: 'media.png',
   } as Express.Multer.File;
 
-  mockHelper.findOwnedPost.mockResolvedValue({
+  const root = {
     id: 1,
     authorId: 3,
     status: PostStatus.PUBLISH,
+    languageId: 4,
     thumbnailUrl: null,
 
     reviewedById: 8,
     reviewedAt: new Date(
       '2026-07-30T08:00:00.000Z',
     ),
-  });
+  };
 
-  mockHelper.getNextStatusOnEdit.mockReturnValue(
-    PostStatus.PENDING_REVIEW,
-  );
+  mockHelper.findOwnedPostGroup.mockResolvedValue({
+    rootPostId: 1,
+    root,
+    translations: [],
+    posts: [root],
+  });
 
   mockPostsService.update.mockResolvedValue({
     id: 1,
   });
-
-  mockHelper.resetReviewOnEdit.mockResolvedValue(
-    undefined,
-  );
 
   /**
    * Giả lập media upload thất bại sau khi
@@ -1745,8 +1763,9 @@ it('should reset review metadata before uploading media when editing a published
   ).rejects.toThrow('Media upload failed');
 
   /**
-   * Bài PUBLISH phải được chuyển về
-   * PENDING_REVIEW trước.
+   * Bài PUBLISH phải được đưa về DRAFT trong lúc xử lý
+   * (chỉ khi toàn bộ group xử lý xong mới đổi sang
+   * finalStatus qua updateOwnedPostGroupStatus).
    */
   expect(
     mockPostsService.update,
@@ -1754,19 +1773,11 @@ it('should reset review metadata before uploading media when editing a published
     1,
     expect.objectContaining({
       title: 'Updated published post',
-      status: PostStatus.PENDING_REVIEW,
+      status: PostStatus.DRAFT,
+      reviewedById: null,
+      reviewedAt: null,
+      rejectionReason: null,
     }),
-  );
-
-  /**
-   * Review metadata phải được reset
-   * dù upload media sau đó thất bại.
-   */
-  expect(
-    mockHelper.resetReviewOnEdit,
-  ).toHaveBeenCalledWith(
-    1,
-    PostStatus.PUBLISH,
   );
 
   expect(
@@ -1778,10 +1789,10 @@ it('should reset review metadata before uploading media when editing a published
 
   /**
    * Quan trọng nhất:
-   * reset review phải chạy TRƯỚC upload media.
+   * nội dung/status phải được update TRƯỚC khi upload media.
    */
   expect(
-    mockHelper.resetReviewOnEdit.mock
+    mockPostsService.update.mock
       .invocationCallOrder[0],
   ).toBeLessThan(
     mockHelper.uploadMediaFiles.mock
@@ -1811,22 +1822,25 @@ it('should reset review metadata before uploading media when editing a published
         'new-thumbnail.png',
     } as Express.Multer.File;
 
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
-        id: 1,
-        authorId: 3,
+    const root = {
+      id: 1,
+      authorId: 3,
 
-        status:
-          PostStatus.DRAFT,
-
-        thumbnailUrl:
-          'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
-      });
-
-    mockHelper.getNextStatusOnEdit
-      .mockReturnValue(
+      status:
         PostStatus.DRAFT,
-      );
+
+      languageId: 4,
+
+      thumbnailUrl:
+        'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
+    };
+
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 1,
+      root,
+      translations: [],
+      posts: [root],
+    });
 
     mockCloudinaryService.uploadFile
       .mockResolvedValue({
@@ -1842,7 +1856,7 @@ it('should reset review metadata before uploading media when editing a published
         id: 1,
       });
 
-    mockHelper.resetReviewOnEdit
+    mockHelper.updateOwnedPostGroupStatus
       .mockResolvedValue(undefined);
 
     mockHelper.uploadMediaFiles
@@ -1929,22 +1943,25 @@ it('should reset review metadata before uploading media when editing a published
         'new-thumbnail.png',
     } as Express.Multer.File;
 
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
-        id: 1,
-        authorId: 3,
+    const root = {
+      id: 1,
+      authorId: 3,
 
-        status:
-          PostStatus.DRAFT,
-
-        thumbnailUrl:
-          'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
-      });
-
-    mockHelper.getNextStatusOnEdit
-      .mockReturnValue(
+      status:
         PostStatus.DRAFT,
-      );
+
+      languageId: 4,
+
+      thumbnailUrl:
+        'https://res.cloudinary.com/demo/image/upload/v123/nestjs_blog/posts/1/thumbnail/old-thumbnail.png',
+    };
+
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 1,
+      root,
+      translations: [],
+      posts: [root],
+    });
 
     mockCloudinaryService.uploadFile
       .mockResolvedValue({
@@ -2000,16 +2017,22 @@ it('should reset review metadata before uploading media when editing a published
    */
 
   it('should require a rejected post to be edited before submitting again', async () => {
-    mockHelper.findOwnedPost
-      .mockResolvedValue({
-        id: 3,
-        authorId: 3,
-        status:
-          PostStatus.REJECT,
+    const root = {
+      id: 3,
+      authorId: 3,
+      status:
+        PostStatus.REJECT,
 
-        rejectionReason:
-          'Nội dung chưa đạt yêu cầu.',
-      });
+      rejectionReason:
+        'Nội dung chưa đạt yêu cầu.',
+    };
+
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 3,
+      root,
+      translations: [],
+      posts: [root],
+    });
 
     await expect(
       service.submitForReview(
@@ -2023,25 +2046,28 @@ it('should reset review metadata before uploading media when editing a published
     );
 
     expect(
-      mockPrismaService.post.update,
+      mockHelper.updateOwnedPostGroupStatus,
     ).not.toHaveBeenCalled();
   });
 
   it('should submit a draft post for review', async () => {
-    mockHelper.findOwnedPost
+    const root = {
+      id: 3,
+      authorId: 3,
+      status:
+        PostStatus.DRAFT,
+    };
+
+    mockHelper.findOwnedPostGroup
       .mockResolvedValue({
-        id: 3,
-        authorId: 3,
-        status:
-          PostStatus.DRAFT,
+        rootPostId: 3,
+        root,
+        translations: [],
+        posts: [root],
       });
 
-    mockPrismaService.post.update
-      .mockResolvedValue({
-        id: 3,
-        status:
-          PostStatus.PENDING_REVIEW,
-      });
+    mockHelper.updateOwnedPostGroupStatus
+      .mockResolvedValue(undefined);
 
     jest
       .spyOn(service, 'findOne')
@@ -2062,19 +2088,12 @@ it('should reset review metadata before uploading media when editing a published
       );
 
     expect(
-      mockPrismaService.post.update,
-    ).toHaveBeenCalledWith({
-      where: {
-        id: 3,
-      },
-
-      data: {
-        status:
-          PostStatus.PENDING_REVIEW,
-
-        ...RESET_REVIEW_DATA,
-      },
-    });
+      mockHelper.updateOwnedPostGroupStatus,
+    ).toHaveBeenCalledWith(
+      3,
+      3,
+      PostStatus.PENDING_REVIEW,
+    );
 
     expect(
       service.findOne,

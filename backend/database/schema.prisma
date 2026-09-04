@@ -248,6 +248,7 @@ model Post {
   dailyMetrics   PostDailyMetric[]
   viewLogs       PostViewLog[]
   reports        Report[]
+  searchDocument SearchDocument?
 
   @@unique([parentPostId, languageId])
   @@index([authorId])
@@ -442,6 +443,37 @@ model Report {
   @@index([targetType])
   @@index([reviewedById])
   @@map("reports")
+}
+
+// ======================================================
+// SEARCH (Search 2.0 — Giai đoạn 0 + 1: PostgreSQL FTS)
+// ======================================================
+//
+// Đây là read model độc lập cho full-text search, KHÔNG phải
+// bảng nghiệp vụ của Post. Chỉ chứa bài đủ điều kiện public
+// (xem SearchIndexService.isEligibleForIndex()).
+//
+// search_vector là cột GENERATED ALWAYS ... STORED (tsvector),
+// được tạo bằng SQL migration tay vì Prisma chưa hỗ trợ khai báo
+// generated column — xem migration add_search_documents.
+model SearchDocument {
+  postId Int  @id @map("post_id")
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  languageId Int        @map("language_id")
+  status     PostStatus
+
+  titleText   String @map("title_text") @db.Text
+  contentText String @map("content_text") @db.Text
+
+  // Cột generated tsvector, quản lý bằng raw SQL migration.
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
+  sourceUpdatedAt DateTime @map("source_updated_at")
+  indexedAt       DateTime @default(now()) @map("indexed_at")
+
+  @@index([languageId, status])
+  @@map("search_documents")
 }
 
 model SecurityLog {

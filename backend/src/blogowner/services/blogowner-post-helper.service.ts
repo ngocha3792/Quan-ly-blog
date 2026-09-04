@@ -9,6 +9,7 @@ import {
   NotPostOwnerException,
   PostNotFoundException,
   PrismaService,
+  SearchIndexService,
 } from '@app/core';
 
 export const RESET_REVIEW_DATA = {
@@ -32,6 +33,7 @@ export class BlogownerPostHelperService {
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
     private readonly cloudinary: CloudinaryService,
+    private readonly searchIndexService: SearchIndexService,
   ) {}
 
   /**
@@ -180,6 +182,16 @@ async updateOwnedPostGroupStatus(
       ...RESET_REVIEW_DATA,
     },
   });
+
+  /**
+   * Không throw nếu đồng bộ search index lỗi — status của bài
+   * đã ghi thành công, không được để lỗi index làm fail request.
+   */
+  try {
+    await this.searchIndexService.syncSearchIndexGroup(rootPostId);
+  } catch {
+    // SearchReconciliationService sẽ dọn lại các post bị lệch.
+  }
 }
 
   /**

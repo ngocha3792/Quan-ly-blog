@@ -52,4 +52,22 @@ export default registerAs('app', () => ({
       10,
     ) || 120,
   ),
+
+  /**
+   * Search 2.0 — Giai đoạn 0 + 1 (PostgreSQL FTS).
+   *
+   * Khi tắt, PublicSearchService fallback về hành vi
+   * title-contains cũ (engine 'CONTAINS').
+   */
+  searchV2Enabled:
+    process.env.SEARCH_V2_ENABLED !== 'false',
+
+  // Số SearchDocument tối đa được đồng bộ mỗi lần chạy reconciliation cron.
+  searchReconciliationBatchSize: Math.max(
+    1,
+    parseInt(
+      process.env.SEARCH_RECONCILIATION_BATCH_SIZE || '200',
+      10,
+    ) || 200,
+  ),
 }));

@@ -6,6 +6,7 @@ import {
   CloudinaryService,
   MediaService,
   PrismaService,
+  SearchIndexService,
 } from '@app/core';
 
 import { BlogownerPostHelperService } from './blogowner-post-helper.service';
@@ -28,6 +29,11 @@ describe('BlogownerPostHelperService', () => {
   const mockCloudinaryService = {
     uploadFile: jest.fn(),
     deleteFile: jest.fn(),
+  };
+
+  const mockSearchIndexService = {
+    syncSearchIndex: jest.fn(),
+    syncSearchIndexGroup: jest.fn(),
   };
 
   const createFile = (
@@ -63,6 +69,11 @@ describe('BlogownerPostHelperService', () => {
           {
             provide: CloudinaryService,
             useValue: mockCloudinaryService,
+          },
+
+          {
+            provide: SearchIndexService,
+            useValue: mockSearchIndexService,
           },
         ],
       }).compile();

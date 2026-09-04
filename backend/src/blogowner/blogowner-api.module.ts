@@ -5,6 +5,7 @@ import {
   CloudinaryModule,
   MediaModule,
   PostsModule,
+  SearchModule,
 } from '@app/core';
 
 import { BlogownerDashboardController } from './controllers/blogowner-dashboard.controller';
@@ -25,6 +26,7 @@ import { TranslationService } from './services/translation.service';
     PostsModule,
     MediaModule,
     CloudinaryModule,
+    SearchModule,
   ],
 
   controllers: [

@@ -5,6 +5,7 @@ import {
   PostsModule,
   PrismaModule,
   ReportsModule,
+  SearchModule,
 } from '@app/core';
 
 import { ModeratorCategoriesController } from './controllers/moderator-categories.controller';
@@ -24,6 +25,7 @@ import { ModeratorCategoriesValidator } from './validators/moderator-categories.
     AuthsModule,
     PostsModule,
     ReportsModule,
+    SearchModule,
   ],
 
   controllers: [

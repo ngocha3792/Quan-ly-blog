@@ -8,6 +8,7 @@ import {
   AuthsModule,
   TagsModule,
   LanguagesModule,
+  SearchModule,
 } from '@app/core';
 
 import { PublicUsersController } from './controllers/public-users.controller';
@@ -17,6 +18,7 @@ import { PublicCategoriesController } from './controllers/public-categories.cont
 import { PublicAuthorsController } from './controllers/public-authors.controller';
 import { PublicCommentsController } from './controllers/public-comments.controller';
 import { PublicLanguagesController } from './controllers/public-languages.controller';
+import { PublicSearchController } from './controllers/public-search.controller';
 
 import { PostsPublicService } from './services/posts-public.service';
 import { TagsPublicService } from './services/tags-public.service';
@@ -24,6 +26,7 @@ import { CategoriesPublicService } from './services/categories-public.service';
 import { UsersPublicService } from './services/users-public.service';
 import { CommentsPublicService } from './services/comments-public.service';
 import { LanguagesPublicService } from './services/languages-public.service';
+import { PublicSearchService } from './services/public-search.service';
 
 @Module({
   imports: [
@@ -34,6 +37,7 @@ import { LanguagesPublicService } from './services/languages-public.service';
     AuthsModule,
     TagsModule,
     LanguagesModule,
+    SearchModule,
   ],
 
   controllers: [
@@ -44,6 +48,7 @@ import { LanguagesPublicService } from './services/languages-public.service';
     PublicAuthorsController,
     PublicCommentsController,
     PublicLanguagesController,
+    PublicSearchController,
   ],
 
   providers: [
@@ -53,6 +58,7 @@ import { LanguagesPublicService } from './services/languages-public.service';
     UsersPublicService,
     CommentsPublicService,
     LanguagesPublicService,
+    PublicSearchService,
   ],
 })
 export class PublicApiModule {}

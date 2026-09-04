@@ -13,6 +13,7 @@ import {
   PaginationParams,
   PostsService,
   PrismaService,
+  SearchIndexService,
 } from '@app/core';
 
 import {
@@ -110,6 +111,7 @@ export class BlogownerPostsService {
     private readonly postsService: PostsService,
     private readonly helper: BlogownerPostHelperService,
     private readonly translationService : TranslationService,
+    private readonly searchIndexService: SearchIndexService,
   ) {}
 
   /**
@@ -1293,6 +1295,12 @@ for (const rootId of pageRootIds) {
     },
   });
 
+  try {
+    await this.searchIndexService.syncSearchIndexGroup(root.id);
+  } catch {
+    // SearchReconciliationService sẽ dọn lại các post bị lệch.
+  }
+
   return {
     message:
       `Đã xóa bài viết ID ${root.id} và tất cả bản dịch.`,
@@ -1575,6 +1583,12 @@ for (const rootId of pageRootIds) {
         },
       },
     });
+
+    try {
+      await this.searchIndexService.syncSearchIndex(translationPostId);
+    } catch {
+      // SearchReconciliationService sẽ dọn lại các post bị lệch.
+    }
 
     return this.findOne(ownerId, translationPostId);
   }
@@ -2148,7 +2162,11 @@ async translatePreview(
         },
       });
 
-
+      try {
+        await this.searchIndexService.syncSearchIndex(existingTranslation.id);
+      } catch {
+        // SearchReconciliationService sẽ dọn lại các post bị lệch.
+      }
 
       return this.findOne(ownerId, existingTranslation.id);
     }
@@ -2168,6 +2186,12 @@ async translatePreview(
       parentPostId: rootPostId,
       status: PostStatus.DRAFT,
     });
+
+    try {
+      await this.searchIndexService.syncSearchIndex(translatedPost.id);
+    } catch {
+      // SearchReconciliationService sẽ dọn lại các post bị lệch.
+    }
 
     return this.findOne(ownerId, translatedPost.id);
   }

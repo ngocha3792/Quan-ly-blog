@@ -11,6 +11,7 @@ import {
   PostNotFoundException,
   PostsService,
   PrismaService,
+  SearchIndexService,
 } from '@app/core';
 
 import {
@@ -121,6 +122,7 @@ export class ModeratorPostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly postsService: PostsService,
+    private readonly searchIndexService: SearchIndexService,
   ) {}
 
   /**
@@ -572,6 +574,14 @@ export class ModeratorPostsService {
       },
     );
 
+  try {
+    await this.searchIndexService.syncSearchIndexGroup(
+      updatedPost.id,
+    );
+  } catch {
+    // SearchReconciliationService sẽ dọn lại các post bị lệch.
+  }
+
   return new ModeratorPostEntity(
     updatedPost,
   );
@@ -822,6 +832,14 @@ export class ModeratorPostsService {
         return result;
       },
     );
+
+  try {
+    await this.searchIndexService.syncSearchIndexGroup(
+      updatedPost.id,
+    );
+  } catch {
+    // SearchReconciliationService sẽ dọn lại các post bị lệch.
+  }
 
   return new ModeratorPostEntity(
     updatedPost,

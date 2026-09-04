@@ -9,6 +9,7 @@ import {
   PostNotFoundException,
   PostsService,
   PrismaService,
+  SearchIndexService,
 } from '@app/core';
 
 import { ModeratorPostsService } from './moderator-posts.service';
@@ -79,6 +80,11 @@ describe('ModeratorPostsService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockSearchIndexService = {
+    syncSearchIndex: jest.fn(),
+    syncSearchIndexGroup: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.resetAllMocks();
 
@@ -99,6 +105,10 @@ describe('ModeratorPostsService', () => {
           {
             provide: PrismaService,
             useValue: mockPrismaService,
+          },
+          {
+            provide: SearchIndexService,
+            useValue: mockSearchIndexService,
           },
         ],
       }).compile();

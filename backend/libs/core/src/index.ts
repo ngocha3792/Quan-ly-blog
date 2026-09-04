@@ -72,3 +72,8 @@ export * from './modules/mail/mail.module';
 export * from './modules/mail/mail.service';
 
 export * from './modules/health/health.module';
+
+export * from './modules/search/search.module';
+export * from './modules/search/search-index.service';
+export * from './modules/search/search-query.service';
+export * from './modules/search/dto/search-posts.dto';
