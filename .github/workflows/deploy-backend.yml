@@ -1,7 +1,5 @@
 name: Deploy backend
 
-# (debug: chạm trực tiếp file workflow để test push-trigger — sẽ xoá dòng
-# này ở commit sau khi xác nhận trigger hoạt động lại)
 # Blue-green deploy qua GHCR. Push vào develop (chạm backend/) chạy 3 job
 # tuần tự — một job fail thì job sau không chạy, không có deployment nào
 # xảy ra:
@@ -50,13 +48,24 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - run: npm ci
+
+      # BẮT BUỘC trước lint/test/build — @prisma/client chỉ có type thật
+      # sau khi generate. Thiếu bước này, typescript-eslint không resolve
+      # được type từ @prisma/client (UserRole, PrismaClientKnownRequestError...)
+      # và báo lỗi "type cannot be resolved" hàng loạt ở mọi file dùng Prisma
+      # — từng gặp thật khi thiếu bước này, không phải lỗi code.
+      # DATABASE_URL ở đây là giá trị giả — generate chỉ đọc schema, không
+      # connect DB thật — giống cách Dockerfile làm.
+      - name: Prisma generate
+        env:
+          DATABASE_URL: 'postgresql://user:password@localhost:5432/db?schema=public'
+        run: npx prisma generate --schema database/schema.prisma
+
       - run: npm run lint
       - run: npm test
       - run: npm run build
 
-      # Chỉ validate cú pháp/relation của schema, không connect DB thật —
-      # DATABASE_URL ở đây là giá trị giả, giống cách Dockerfile làm cho
-      # `prisma generate` lúc build image.
+      # Chỉ validate cú pháp/relation của schema, không connect DB thật.
       - name: Prisma validate
         env:
           DATABASE_URL: 'postgresql://user:password@localhost:5432/db?schema=public'
