@@ -14,14 +14,40 @@ set -Eeuo pipefail
 
 BASE_URL="${1:?Cần truyền base URL, vd: http://127.0.0.1:3002/api/v1}"
 MAX_TIME="${SMOKE_TEST_MAX_TIME:-10}"
+RETRIES="${SMOKE_TEST_RETRIES:-1}"
+RETRY_DELAY="${SMOKE_TEST_RETRY_DELAY:-2}"
 
 check() {
   local path="$1" label="$2"
-  echo "==> ${label}: ${BASE_URL}${path}"
-  if ! curl --fail --silent --show-error --max-time "${MAX_TIME}" "${BASE_URL}${path}" >/dev/null; then
-    echo "!! Smoke test thất bại: ${label} (${BASE_URL}${path})" >&2
-    return 1
-  fi
+  local url="${BASE_URL}${path}"
+  local attempt
+
+  echo "==> ${label}: ${url}"
+
+  for ((attempt = 1; attempt <= RETRIES; attempt++)); do
+    if curl \
+      --fail \
+      --silent \
+      --show-error \
+      --max-time "${MAX_TIME}" \
+      "${url}" \
+      >/dev/null; then
+
+      if (( attempt > 1 )); then
+        echo "==> ${label}: OK ở lần ${attempt}/${RETRIES}"
+      fi
+
+      return 0
+    fi
+
+    if (( attempt < RETRIES )); then
+      echo "!! ${label}: lần ${attempt}/${RETRIES} thất bại, thử lại sau ${RETRY_DELAY}s..." >&2
+      sleep "${RETRY_DELAY}"
+    fi
+  done
+
+  echo "!! Smoke test thất bại sau ${RETRIES} lần: ${label} (${url})" >&2
+  return 1
 }
 
 check "/health/live" "Health live"

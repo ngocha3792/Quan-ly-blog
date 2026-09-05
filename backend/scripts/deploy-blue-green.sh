@@ -67,7 +67,9 @@ switch_nginx "${TARGET_COLOR}"
 
 log "--- [8/8] Smoke test qua domain công khai sau switch ---"
 PUBLIC_URL="${PUBLIC_SMOKE_URL:-https://blogy.id.vn/api/v1}"
-if ! ./scripts/smoke-test.sh "${PUBLIC_URL}"; then
+if ! SMOKE_TEST_RETRIES=5 \
+  SMOKE_TEST_RETRY_DELAY=2 \
+  ./scripts/smoke-test.sh "${PUBLIC_URL}"; then
   log "Smoke test công khai THẤT BẠI sau switch — tự động switch ngược lại ${CURRENT_COLOR}."
   switch_nginx "${CURRENT_COLOR}"
   log "Đã switch ngược lại ${CURRENT_COLOR}. Slot ${TARGET_COLOR} vẫn để nguyên (không xoá) để debug."
