@@ -186,9 +186,62 @@ export class ModeratorPostsService {
       },
     );
 
+    const rootPostIds = result.items.map((post) => post.id);
+
+    const translations =
+      rootPostIds.length > 0
+        ? await this.prisma.post.findMany({
+            where: {
+              parentPostId: {
+                in: rootPostIds,
+              },
+              deletedAt: null,
+              status: {
+                in: MODERATOR_VISIBLE_STATUSES,
+              },
+            },
+            select: MODERATOR_TRANSLATION_SELECT,
+            orderBy: [
+              {
+                language: {
+                  code: 'asc',
+                },
+              },
+              {
+                id: 'asc',
+              },
+            ],
+          })
+        : [];
+
+    const translationsByRoot = new Map<number, typeof translations>();
+
+    for (const translation of translations) {
+      if (translation.parentPostId === null) {
+        continue;
+      }
+
+      const current =
+        translationsByRoot.get(translation.parentPostId) ?? [];
+
+      current.push(translation);
+
+      translationsByRoot.set(
+        translation.parentPostId,
+        current,
+      );
+    }
+
     return {
       ...result,
-      items: result.items.map((post) => new ModeratorPostEntity(post)),
+      items: result.items.map(
+        (post) =>
+          new ModeratorPostEntity({
+            ...post,
+            translations:
+              translationsByRoot.get(post.id) ?? [],
+          }),
+      ),
     };
   }
 

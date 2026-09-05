@@ -101,7 +101,24 @@ describe('ModeratorPostsService', () => {
 
   describe('findAll', () => {
     it('should return pending posts by default', async () => {
-      mockPrismaService.post.findMany.mockResolvedValueOnce([basePost]);
+      mockPrismaService.post.findMany
+        .mockResolvedValueOnce([basePost])
+        .mockResolvedValueOnce([
+          {
+            id: 2,
+            title: 'Pending English article',
+            thumbnailUrl: null,
+            status: PostStatus.PENDING_REVIEW,
+            parentPostId: 1,
+            languageId: 5,
+            language: {
+              id: 5,
+              code: 'en',
+              name: 'English',
+              flag: 'GB',
+            },
+          },
+        ]);
 
       mockPrismaService.post.count.mockResolvedValueOnce(1);
 
@@ -136,6 +153,8 @@ describe('ModeratorPostsService', () => {
 
       expect(result.items).toHaveLength(1);
       expect(result.items[0].id).toBe(1);
+      expect(result.items[0].translations).toHaveLength(1);
+      expect(result.items[0].translations?.[0].language.code).toBe('en');
 
       expect(result.meta).toEqual({
         totalItems: 1,
