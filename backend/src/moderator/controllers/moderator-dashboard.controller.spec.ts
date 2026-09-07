@@ -9,8 +9,11 @@ describe('ModeratorDashboardController', () => {
   let controller: ModeratorDashboardController;
 
   const mockModeratorDashboardService = {
-    getDashboard: jest.fn(),
-  };
+          getDashboard: jest.fn(),
+          getOverview: jest.fn(),
+          getReportStats: jest.fn(),
+          getReportTrend: jest.fn(),
+};
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -89,4 +92,62 @@ describe('ModeratorDashboardController', () => {
 
     expect(result).toEqual(dashboardData);
   });
+
+  it('should return moderator dashboard overview', async () => {
+  const overview = {
+    pendingPosts: 5,
+    pendingReports: 3,
+    pendingPostReports: 2,
+    pendingCommentReports: 1,
+    activeCategoryGroups: 10,
+    processedToday: 7,
+    processedPostsToday: 4,
+    processedReportsToday: 3,
+  };
+
+  mockModeratorDashboardService.getOverview.mockResolvedValueOnce(overview);
+
+  await expect(controller.getOverview()).resolves.toEqual(overview);
+
+  expect(
+    mockModeratorDashboardService.getOverview,
+  ).toHaveBeenCalledTimes(1);
+});
+
+  it('should return moderator report statistics', async () => {
+  const reportStats = {
+    reportStatusCounts: {
+      PENDING: 5,
+      RESOLVED: 3,
+      REJECTED: 2,
+    },
+    reportReasonCounts: {},
+  };
+
+  mockModeratorDashboardService.getReportStats.mockResolvedValueOnce(
+    reportStats,
+  );
+
+  await expect(controller.getReportStats()).resolves.toEqual(reportStats);
+
+  expect(
+    mockModeratorDashboardService.getReportStats,
+  ).toHaveBeenCalledTimes(1);
+});
+
+  it('should return moderator report trend', async () => {
+  const reportTrend = {
+    last7Days: [],
+  };
+
+  mockModeratorDashboardService.getReportTrend.mockResolvedValueOnce(
+    reportTrend,
+  );
+
+  await expect(controller.getReportTrend()).resolves.toEqual(reportTrend);
+
+  expect(
+    mockModeratorDashboardService.getReportTrend,
+  ).toHaveBeenCalledTimes(1);
+});
 });

@@ -17,6 +17,162 @@ import {
 export class ModeratorDashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getOverview() {
+  const todayStart = getVietnamDayStartUtc();
+  const tomorrowStart = getVietnamDayStartUtc(1);
+
+  const [
+    pendingPosts,
+    processedPostsToday,
+    pendingPostReports,
+    pendingCommentReports,
+    processedReportsToday,
+    activeCategoryGroups,
+  ] = await this.prisma.$transaction([
+    this.prisma.post.count({
+      where: {
+        parentPostId: null,
+        status: PostStatus.PENDING_REVIEW,
+        deletedAt: null,
+      },
+    }),
+
+    this.prisma.post.count({
+      where: {
+        parentPostId: null,
+
+        status: {
+          in: [PostStatus.PUBLISH, PostStatus.REJECT],
+        },
+
+        reviewedAt: {
+          gte: todayStart,
+          lt: tomorrowStart,
+        },
+
+        reviewedById: {
+          not: null,
+        },
+
+        deletedAt: null,
+      },
+    }),
+
+    this.prisma.report.count({
+      where: {
+        targetType: ReportTargetType.POST,
+        status: ReportStatus.PENDING,
+      },
+    }),
+
+    this.prisma.report.count({
+      where: {
+        targetType: ReportTargetType.COMMENT,
+        status: ReportStatus.PENDING,
+      },
+    }),
+
+    this.prisma.report.count({
+      where: {
+        status: {
+          in: [ReportStatus.RESOLVED, ReportStatus.REJECTED],
+        },
+
+        reviewedAt: {
+          gte: todayStart,
+          lt: tomorrowStart,
+        },
+
+        reviewedById: {
+          not: null,
+        },
+      },
+    }),
+
+    this.prisma.categoryGroup.count({
+      where: {
+        deletedAt: null,
+      },
+    }),
+  ]);
+
+  return {
+    pendingPosts,
+
+    pendingReports: pendingPostReports + pendingCommentReports,
+
+    pendingPostReports,
+    pendingCommentReports,
+
+    activeCategoryGroups,
+
+    processedToday: processedPostsToday + processedReportsToday,
+
+    processedPostsToday,
+    processedReportsToday,
+  };
+}
+
+  async getReportStats() {
+  const [statusGroups, reasonGroups] = await this.prisma.$transaction([
+    this.prisma.report.groupBy({
+      by: ['status'],
+
+      orderBy: {
+        status: 'asc',
+      },
+
+      _count: {
+        _all: true,
+      },
+    }),
+
+    this.prisma.report.groupBy({
+      by: ['reason'],
+
+      orderBy: {
+        reason: 'asc',
+      },
+
+      _count: {
+        _all: true,
+      },
+    }),
+  ]);
+
+  return {
+    reportStatusCounts: this.mapReportStatusCounts(statusGroups),
+    reportReasonCounts: this.mapReportReasonCounts(reasonGroups),
+  };
+}
+
+  async getReportTrend() {
+  const tomorrowStart = getVietnamDayStartUtc(1);
+  const sevenDaysAgoStart = getVietnamDayStartUtc(-6);
+
+  const recentReports = await this.prisma.report.findMany({
+    where: {
+      createdAt: {
+        gte: sevenDaysAgoStart,
+        lt: tomorrowStart,
+      },
+    },
+
+    select: {
+      targetType: true,
+      createdAt: true,
+    },
+
+    orderBy: {
+      createdAt: 'asc',
+    },
+  });
+
+  return {
+    last7Days: this.mapLast7DaysReports(recentReports),
+  };
+}
+
   /**
    * Thống kê tổng quan cho Moderator.
    *
@@ -29,210 +185,18 @@ export class ModeratorDashboardService {
    * - lượng report trong 7 ngày gần nhất.
    */
   async getDashboard() {
-    /**
-     * Báo cáo sử dụng createdAt/reviewedAt kiểu DateTime,
-     * vì vậy phải quy đổi đầu ngày Việt Nam thành UTC.
-     *
-     * Ví dụ:
-     * 00:00 ngày 28/07 tại Việt Nam
-     * = 17:00 ngày 27/07 theo UTC.
-     */
-    const todayStart = getVietnamDayStartUtc();
-    const tomorrowStart = getVietnamDayStartUtc(1);
-    const sevenDaysAgoStart = getVietnamDayStartUtc(-6);
+  const [overview, reportStats, reportTrend] = await Promise.all([
+    this.getOverview(),
+    this.getReportStats(),
+    this.getReportTrend(),
+  ]);
 
-    const [
-      pendingPosts,
-      processedPostsToday,
-
-      pendingPostReports,
-      pendingCommentReports,
-      processedReportsToday,
-
-      activeCategoryGroups,
-
-      statusGroups,
-      reasonGroups,
-      recentReports,
-    ] = await this.prisma.$transaction([
-      /**
-       * Dashboard đếm theo article group.
-       *
-       * Mỗi bài đa ngôn ngữ gồm:
-       * ROOT + các translation.
-       */
-      this.prisma.post.count({
-        where: {
-          parentPostId: null,
-          status: PostStatus.PENDING_REVIEW,
-          deletedAt: null,
-        },
-      }),
-
-      /**
-       * Số bài đã được Moderator duyệt hoặc từ chối hôm nay.
-       */
-      this.prisma.post.count({
-        where: {
-          /**
-           * Chỉ đếm ROOT.
-           *
-           * Khi Moderator approve/reject một article group,
-           * ROOT và translations đều được cập nhật trạng thái.
-           * Nếu không lọc ROOT thì một bài đa ngôn ngữ
-           * sẽ bị tính nhiều lần.
-           */
-          parentPostId: null,
-
-          status: {
-            in: [PostStatus.PUBLISH, PostStatus.REJECT],
-          },
-
-          reviewedAt: {
-            gte: todayStart,
-            lt: tomorrowStart,
-          },
-
-          reviewedById: {
-            not: null,
-          },
-
-          deletedAt: null,
-        },
-      }),
-
-      /**
-       * Report bài viết đang chờ xử lý.
-       */
-      this.prisma.report.count({
-        where: {
-          targetType: ReportTargetType.POST,
-          status: ReportStatus.PENDING,
-        },
-      }),
-
-      /**
-       * Report bình luận đang chờ xử lý.
-       */
-      this.prisma.report.count({
-        where: {
-          targetType: ReportTargetType.COMMENT,
-          status: ReportStatus.PENDING,
-        },
-      }),
-
-      /**
-       * Report được xác nhận hoặc bác bỏ hôm nay.
-       */
-      this.prisma.report.count({
-        where: {
-          status: {
-            in: [ReportStatus.RESOLVED, ReportStatus.REJECTED],
-          },
-
-          reviewedAt: {
-            gte: todayStart,
-            lt: tomorrowStart,
-          },
-
-          reviewedById: {
-            not: null,
-          },
-        },
-      }),
-
-      /**
-       * Đếm CategoryGroup thay vì đếm từng bản dịch.
-       *
-       * Một group có bốn ngôn ngữ vẫn chỉ tính là một category.
-       */
-      this.prisma.categoryGroup.count({
-        where: {
-          deletedAt: null,
-        },
-      }),
-
-      /**
-       * Tổng số report theo trạng thái.
-       */
-      this.prisma.report.groupBy({
-        by: ['status'],
-
-        orderBy: {
-          status: 'asc',
-        },
-
-        _count: {
-          _all: true,
-        },
-      }),
-
-      /**
-       * Tổng số report theo nguyên nhân.
-       */
-      this.prisma.report.groupBy({
-        by: ['reason'],
-
-        orderBy: {
-          reason: 'asc',
-        },
-
-        _count: {
-          _all: true,
-        },
-      }),
-
-      /**
-       * Các report được tạo trong 7 ngày gần nhất.
-       *
-       * Phần tổng hợp theo ngày được xử lý trong JavaScript
-       * để tránh phụ thuộc câu lệnh SQL riêng của PostgreSQL.
-       */
-      this.prisma.report.findMany({
-        where: {
-          createdAt: {
-            gte: sevenDaysAgoStart,
-            lt: tomorrowStart,
-          },
-        },
-
-        select: {
-          targetType: true,
-          createdAt: true,
-        },
-
-        orderBy: {
-          createdAt: 'asc',
-        },
-      }),
-    ]);
-
-    const reportStatusCounts = this.mapReportStatusCounts(statusGroups);
-    const reportReasonCounts = this.mapReportReasonCounts(reasonGroups);
-    const last7Days = this.mapLast7DaysReports(recentReports);
-
-    return {
-      overview: {
-        pendingPosts,
-
-        pendingReports: pendingPostReports + pendingCommentReports,
-
-        pendingPostReports,
-        pendingCommentReports,
-
-        activeCategoryGroups,
-
-        processedToday: processedPostsToday + processedReportsToday,
-
-        processedPostsToday,
-        processedReportsToday,
-      },
-
-      reportStatusCounts,
-      reportReasonCounts,
-      last7Days,
-    };
-  }
+  return {
+    overview,
+    ...reportStats,
+    ...reportTrend,
+  };
+}
 
   /**
    * Lấy tổng số bản ghi từ kết quả groupBy của Prisma.
