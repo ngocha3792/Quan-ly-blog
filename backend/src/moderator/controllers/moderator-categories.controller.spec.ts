@@ -10,13 +10,14 @@ describe('ModeratorCategoriesController', () => {
   let controller: ModeratorCategoriesController;
 
   let moderatorCategoriesService: {
-    findAll: jest.Mock;
-    findOne: jest.Mock;
-    translatePreview: jest.Mock;
-    create: jest.Mock;
-    update: jest.Mock;
-    remove: jest.Mock;
-  };
+  findAll: jest.Mock;
+  findOne: jest.Mock;
+  translatePreview: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+  removeTranslation: jest.Mock;
+  remove: jest.Mock;
+};
 
   const pagination: PaginationParams = {
     skip: 0,
@@ -33,6 +34,7 @@ describe('ModeratorCategoriesController', () => {
       translatePreview: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      removeTranslation: jest.fn(),
       remove: jest.fn(),
     };
 
@@ -219,6 +221,23 @@ describe('ModeratorCategoriesController', () => {
 
     expect(result.id).toBe(10);
   });
+
+  it('should remove one category translation', async () => {
+  moderatorCategoriesService.removeTranslation.mockResolvedValueOnce({
+    id: 10,
+    code: 'programming',
+    translationCount: 1,
+    translations: [],
+  });
+
+  const result = await controller.removeTranslation(10, 1);
+
+  expect(
+    moderatorCategoriesService.removeTranslation,
+  ).toHaveBeenCalledWith(10, 1);
+
+  expect(result.id).toBe(10);
+});
 
   it('should remove a category group', async () => {
     moderatorCategoriesService.remove.mockResolvedValueOnce({

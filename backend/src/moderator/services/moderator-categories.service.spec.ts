@@ -55,7 +55,9 @@ describe('ModeratorCategoriesService', () => {
 
     category: {
       findFirst: jest.fn(),
+      count: jest.fn(),
       upsert: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
 
@@ -511,6 +513,145 @@ describe('ModeratorCategoriesService', () => {
       expect(result.id).toBe(10);
     });
   });
+
+  describe('removeTranslation', () => {
+  it('should soft delete one unused translation', async () => {
+    mockPrismaService.categoryGroup.findFirst
+      .mockResolvedValueOnce({
+        id: 10,
+      })
+      .mockResolvedValueOnce({
+        ...baseGroup,
+        categories: [
+          {
+            ...baseGroup.categories[0],
+          },
+        ],
+      });
+
+    mockPrismaService.category.findFirst.mockResolvedValueOnce({
+      id: 21,
+      categoryGroupId: 10,
+      languageId: 1,
+      name: 'Programming',
+    });
+
+    mockPrismaService.category.count.mockResolvedValueOnce(2);
+
+    mockPrismaService.postCategory.count.mockResolvedValueOnce(0);
+
+    mockPrismaService.category.update.mockResolvedValueOnce({
+      id: 21,
+      categoryGroupId: 10,
+      languageId: 1,
+      name: 'Programming',
+      deletedAt: date,
+    });
+
+    const result = await service.removeTranslation(10, 1);
+
+    expect(mockPrismaService.category.findFirst).toHaveBeenCalledWith({
+      where: {
+        categoryGroupId: 10,
+        languageId: 1,
+        deletedAt: null,
+      },
+
+      select: {
+        id: true,
+        languageId: true,
+        name: true,
+      },
+    });
+
+    expect(mockPrismaService.category.count).toHaveBeenCalledWith({
+      where: {
+        categoryGroupId: 10,
+        deletedAt: null,
+      },
+    });
+
+    expect(mockPrismaService.postCategory.count).toHaveBeenCalledWith({
+      where: {
+        categoryId: 21,
+      },
+    });
+
+    expect(mockPrismaService.category.update).toHaveBeenCalledWith({
+      where: {
+        id: 21,
+      },
+
+      data: {
+        deletedAt: expect.any(Date),
+      },
+    });
+
+    expect(result.id).toBe(10);
+  });
+
+  it('should reject when translation does not exist', async () => {
+    mockPrismaService.categoryGroup.findFirst.mockResolvedValueOnce({
+      id: 10,
+    });
+
+    mockPrismaService.category.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.removeTranslation(10, 999),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrismaService.category.count).not.toHaveBeenCalled();
+
+    expect(mockPrismaService.category.update).not.toHaveBeenCalled();
+  });
+
+  it('should reject removing the last active translation', async () => {
+    mockPrismaService.categoryGroup.findFirst.mockResolvedValueOnce({
+      id: 10,
+    });
+
+    mockPrismaService.category.findFirst.mockResolvedValueOnce({
+      id: 20,
+      categoryGroupId: 10,
+      languageId: 4,
+      name: 'Lập trình',
+    });
+
+    mockPrismaService.category.count.mockResolvedValueOnce(1);
+
+    await expect(
+      service.removeTranslation(10, 4),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrismaService.postCategory.count).not.toHaveBeenCalled();
+
+    expect(mockPrismaService.category.update).not.toHaveBeenCalled();
+  });
+
+  it('should reject removing a translation used by posts', async () => {
+    mockPrismaService.categoryGroup.findFirst.mockResolvedValueOnce({
+      id: 10,
+    });
+
+    mockPrismaService.category.findFirst.mockResolvedValueOnce({
+      id: 21,
+      categoryGroupId: 10,
+      languageId: 1,
+      name: 'Programming',
+    });
+
+    mockPrismaService.category.count.mockResolvedValueOnce(2);
+
+    mockPrismaService.postCategory.count.mockResolvedValueOnce(3);
+
+    await expect(
+      service.removeTranslation(10, 1),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrismaService.category.update).not.toHaveBeenCalled();
+  });
+});
 
   describe('remove', () => {
     it('should reject removing a group used by posts', async () => {

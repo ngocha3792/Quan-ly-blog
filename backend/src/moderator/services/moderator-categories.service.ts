@@ -403,6 +403,98 @@ export class ModeratorCategoriesService {
     return new ModeratorCategoryGroupEntity(updatedGroup);
   }
 
+/**
+ * Xóa mềm một bản dịch Category trong CategoryGroup.
+ *
+ * Không cho xóa nếu:
+ * - group không tồn tại;
+ * - bản dịch không tồn tại hoặc đã bị xóa;
+ * - đây là bản dịch active cuối cùng của group;
+ * - bản dịch đang được bài viết sử dụng.
+ */
+async removeTranslation(
+  groupId: number,
+  languageId: number,
+): Promise<ModeratorCategoryGroupEntity> {
+  await this.validator.ensureActiveGroupExists(groupId);
+
+  const translation = await this.prisma.category.findFirst({
+    where: {
+      categoryGroupId: groupId,
+      languageId,
+      deletedAt: null,
+    },
+
+    select: {
+      id: true,
+      languageId: true,
+      name: true,
+    },
+  });
+
+  if (!translation) {
+    throw new BadRequestException(
+      `Không tìm thấy bản dịch ngôn ngữ ID ${languageId} trong nhóm danh mục ID ${groupId}.`,
+    );
+  }
+
+  const activeTranslationCount = await this.prisma.category.count({
+    where: {
+      categoryGroupId: groupId,
+      deletedAt: null,
+    },
+  });
+
+  if (activeTranslationCount <= 1) {
+    throw new BadRequestException(
+      'Không thể xóa bản dịch cuối cùng của nhóm danh mục.',
+    );
+  }
+
+  const usageCount = await this.prisma.postCategory.count({
+    where: {
+      categoryId: translation.id,
+    },
+  });
+
+  if (usageCount > 0) {
+    throw new BadRequestException(
+      `Không thể xóa bản dịch "${translation.name}" vì đang có ${usageCount} liên kết bài viết sử dụng bản dịch này.`,
+    );
+  }
+
+  const deletedAt = new Date();
+
+  const updatedGroup = await this.prisma.$transaction(async (tx) => {
+    await tx.category.update({
+      where: {
+        id: translation.id,
+      },
+
+      data: {
+        deletedAt,
+      },
+    });
+
+    const group = await tx.categoryGroup.findFirst({
+      where: {
+        id: groupId,
+        deletedAt: null,
+      },
+
+      include: MODERATOR_CATEGORY_GROUP_INCLUDE,
+    });
+
+    if (!group) {
+      throw new CategoryGroupNotFoundException(groupId);
+    }
+
+    return group;
+  });
+
+  return new ModeratorCategoryGroupEntity(updatedGroup);
+}
+
   /**
    * Xóa mềm CategoryGroup và toàn bộ bản dịch.
    *

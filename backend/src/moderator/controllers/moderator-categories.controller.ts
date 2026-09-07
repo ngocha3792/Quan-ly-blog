@@ -100,6 +100,22 @@ export class ModeratorCategoriesController {
     return this.moderatorCategoriesService.update(groupId, dto);
   }
 
+/**
+ * Xóa mềm một bản dịch khỏi CategoryGroup.
+ *
+ * DELETE /api/v1/moderator/category-groups/:groupId/translations/:languageId
+ */
+@Delete(':groupId/translations/:languageId')
+removeTranslation(
+  @Param('groupId', ParseIntPipe) groupId: number,
+  @Param('languageId', ParseIntPipe) languageId: number,
+) {
+  return this.moderatorCategoriesService.removeTranslation(
+    groupId,
+    languageId,
+  );
+}
+
   /**
    * Xóa mềm group và các bản dịch.
    *
