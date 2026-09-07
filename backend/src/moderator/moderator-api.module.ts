@@ -5,6 +5,7 @@ import {
   PostsModule,
   PrismaModule,
   ReportsModule,
+  TranslationModule,
 } from '@app/core';
 
 import { ModeratorCategoriesController } from './controllers/moderator-categories.controller';
@@ -19,7 +20,7 @@ import { ModeratorReportsService } from './services/moderator-reports.service';
 import { ModeratorCategoriesValidator } from './validators/moderator-categories.validator';
 
 @Module({
-  imports: [PrismaModule, AuthsModule, PostsModule, ReportsModule],
+  imports: [PrismaModule, AuthsModule, PostsModule, ReportsModule, TranslationModule,],
 
   controllers: [
     ModeratorPostsController,

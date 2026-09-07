@@ -12,6 +12,7 @@ describe('ModeratorCategoriesController', () => {
   let moderatorCategoriesService: {
     findAll: jest.Mock;
     findOne: jest.Mock;
+    translatePreview: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
     remove: jest.Mock;
@@ -29,6 +30,7 @@ describe('ModeratorCategoriesController', () => {
     moderatorCategoriesService = {
       findAll: jest.fn(),
       findOne: jest.fn(),
+      translatePreview: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
@@ -115,6 +117,56 @@ describe('ModeratorCategoriesController', () => {
 
     expect(result.id).toBe(10);
   });
+
+  it('should return category translation preview', async () => {
+  const dto = {
+    sourceLanguageId: 4,
+    sourceName: 'Công nghệ',
+    targetLanguageIds: [1],
+  };
+
+  moderatorCategoriesService.translatePreview.mockResolvedValueOnce({
+    source: {
+      languageId: 4,
+      languageCode: 'vi',
+      languageName: 'Tiếng Việt',
+      name: 'Công nghệ',
+    },
+
+    translations: [
+      {
+        languageId: 1,
+        languageCode: 'en',
+        languageName: 'English',
+        name: 'Technology',
+      },
+    ],
+  });
+
+  const result = await controller.translatePreview(dto);
+
+  expect(
+    moderatorCategoriesService.translatePreview,
+  ).toHaveBeenCalledWith(dto);
+
+  expect(result).toEqual({
+    source: {
+      languageId: 4,
+      languageCode: 'vi',
+      languageName: 'Tiếng Việt',
+      name: 'Công nghệ',
+    },
+
+    translations: [
+      {
+        languageId: 1,
+        languageCode: 'en',
+        languageName: 'English',
+        name: 'Technology',
+      },
+    ],
+  });
+});
 
   it('should create a multilingual category group', async () => {
     const dto = {

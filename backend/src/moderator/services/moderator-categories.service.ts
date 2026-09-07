@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import { CategoryGroupNotFoundException, PrismaService } from '@app/core';
+import { CategoryGroupNotFoundException,LibreTranslateService, PrismaService } from '@app/core';
 import type {
   GetCategoryGroupsDto,
   PaginatedResult,
@@ -10,6 +10,7 @@ import type {
 
 import type {
   CreateCategoryGroupTranslationsDto,
+  TranslateCategoryPreviewDto,
   UpdateCategoryGroupTranslationsDto,
 } from '../dto';
 import { ModeratorCategoryGroupEntity } from '../entities';
@@ -41,6 +42,7 @@ export class ModeratorCategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly validator: ModeratorCategoriesValidator,
+    private readonly libreTranslateService: LibreTranslateService,
   ) {}
 
   /**
@@ -134,6 +136,107 @@ export class ModeratorCategoriesService {
     }
 
     return new ModeratorCategoryGroupEntity(group);
+  }
+
+  /**
+ * Dịch tên category sang nhiều ngôn ngữ để Moderator xem trước.
+ *
+ * Chỉ trả preview, không ghi dữ liệu vào database.
+ */
+  async translatePreview(dto: TranslateCategoryPreviewDto) {
+    const {
+      sourceLanguageId,
+      sourceName,
+      targetLanguageIds,
+    } = dto;
+
+    if (targetLanguageIds.includes(sourceLanguageId)) {
+      throw new BadRequestException(
+        'Ngôn ngữ đích không được trùng với ngôn ngữ nguồn.',
+      );
+    }
+
+    const languageIds = [
+      sourceLanguageId,
+      ...targetLanguageIds,
+    ];
+
+    await this.validator.ensureActiveLanguages(languageIds);
+
+    const languages = await this.prisma.language.findMany({
+      where: {
+        id: {
+          in: languageIds,
+        },
+        isActive: true,
+        deletedAt: null,
+      },
+
+      select: {
+        id: true,
+        code: true,
+        name: true,
+      },
+    });
+
+    const languageById = new Map(
+      languages.map((language) => [language.id, language]),
+    );
+
+    const sourceLanguage = languageById.get(sourceLanguageId);
+
+    if (!sourceLanguage) {
+      throw new BadRequestException(
+        `Không tìm thấy ngôn ngữ nguồn ID ${sourceLanguageId}.`,
+      );
+    }
+
+    const translations: {
+      languageId: number;
+      languageCode: string;
+      languageName: string;
+      name: string;
+    }[] = [];
+
+    /**
+     * Dịch tuần tự để tránh gửi nhiều request đồng thời
+     * tới LibreTranslate.
+     */
+    for (const targetLanguageId of targetLanguageIds) {
+      const targetLanguage = languageById.get(targetLanguageId);
+
+      if (!targetLanguage) {
+        throw new BadRequestException(
+          `Không tìm thấy ngôn ngữ đích ID ${targetLanguageId}.`,
+        );
+      }
+
+      const translatedName =
+        await this.libreTranslateService.translateText({
+          text: sourceName,
+          sourceLanguageCode: sourceLanguage.code,
+          targetLanguageCode: targetLanguage.code,
+          format: 'text',
+        });
+
+      translations.push({
+        languageId: targetLanguage.id,
+        languageCode: targetLanguage.code,
+        languageName: targetLanguage.name,
+        name: translatedName,
+      });
+    }
+
+    return {
+      source: {
+        languageId: sourceLanguage.id,
+        languageCode: sourceLanguage.code,
+        languageName: sourceLanguage.name,
+        name: sourceName,
+      },
+
+      translations,
+    };
   }
 
   /**

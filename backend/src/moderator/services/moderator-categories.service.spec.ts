@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CategoryGroupNotFoundException, PrismaService } from '@app/core';
+import { CategoryGroupNotFoundException,LibreTranslateService, PrismaService } from '@app/core';
 
 import { ModeratorCategoriesService } from './moderator-categories.service';
 import { ModeratorCategoriesValidator } from '../validators/moderator-categories.validator';
@@ -70,6 +70,9 @@ describe('ModeratorCategoriesService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockLibreTranslateService = {
+  translateText: jest.fn(),
+};
   beforeEach(async () => {
     jest.resetAllMocks();
 
@@ -85,6 +88,10 @@ describe('ModeratorCategoriesService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+        provide: LibreTranslateService,
+        useValue: mockLibreTranslateService,
         },
       ],
     }).compile();
@@ -208,6 +215,129 @@ describe('ModeratorCategoriesService', () => {
       expect(result.code).toBe('programming');
     });
   });
+
+  describe('translatePreview', () => {
+  it('should translate category name to multiple target languages', async () => {
+    /**
+     * Lần 1: Validator kiểm tra tất cả language đều active.
+     */
+    mockPrismaService.language.findMany.mockResolvedValueOnce([
+      { id: 1 },
+      { id: 2 },
+      { id: 4 },
+    ]);
+
+    /**
+     * Lần 2: Service lấy code/name để gọi LibreTranslate.
+     */
+    mockPrismaService.language.findMany.mockResolvedValueOnce([
+      {
+        id: 4,
+        code: 'vi',
+        name: 'Tiếng Việt',
+      },
+      {
+        id: 1,
+        code: 'en',
+        name: 'English',
+      },
+      {
+        id: 2,
+        code: 'ja',
+        name: 'Japanese',
+      },
+    ]);
+
+    mockLibreTranslateService.translateText
+      .mockResolvedValueOnce('Technology')
+      .mockResolvedValueOnce('テクノロジー');
+
+    const result = await service.translatePreview({
+      sourceLanguageId: 4,
+      sourceName: 'Công nghệ',
+      targetLanguageIds: [1, 2],
+    });
+
+    expect(mockLibreTranslateService.translateText).toHaveBeenNthCalledWith(
+      1,
+      {
+        text: 'Công nghệ',
+        sourceLanguageCode: 'vi',
+        targetLanguageCode: 'en',
+        format: 'text',
+      },
+    );
+
+    expect(mockLibreTranslateService.translateText).toHaveBeenNthCalledWith(
+      2,
+      {
+        text: 'Công nghệ',
+        sourceLanguageCode: 'vi',
+        targetLanguageCode: 'ja',
+        format: 'text',
+      },
+    );
+
+    expect(result).toEqual({
+      source: {
+        languageId: 4,
+        languageCode: 'vi',
+        languageName: 'Tiếng Việt',
+        name: 'Công nghệ',
+      },
+
+      translations: [
+        {
+          languageId: 1,
+          languageCode: 'en',
+          languageName: 'English',
+          name: 'Technology',
+        },
+        {
+          languageId: 2,
+          languageCode: 'ja',
+          languageName: 'Japanese',
+          name: 'テクノロジー',
+        },
+      ],
+    });
+  });
+
+  it('should reject when target language equals source language', async () => {
+    await expect(
+      service.translatePreview({
+        sourceLanguageId: 4,
+        sourceName: 'Công nghệ',
+        targetLanguageIds: [4],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrismaService.language.findMany).not.toHaveBeenCalled();
+    expect(mockLibreTranslateService.translateText).not.toHaveBeenCalled();
+  });
+
+  it('should reject an inactive or missing target language before translating', async () => {
+    /**
+     * Chỉ tìm thấy source language.
+     * Target 999 không active / không tồn tại.
+     */
+    mockPrismaService.language.findMany.mockResolvedValueOnce([
+      {
+        id: 4,
+      },
+    ]);
+
+    await expect(
+      service.translatePreview({
+        sourceLanguageId: 4,
+        sourceName: 'Công nghệ',
+        targetLanguageIds: [999],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockLibreTranslateService.translateText).not.toHaveBeenCalled();
+  });
+});
 
   describe('create', () => {
     it('should reject a duplicate category group code', async () => {
