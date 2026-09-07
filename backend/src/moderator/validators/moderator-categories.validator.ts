@@ -75,6 +75,7 @@ export class ModeratorCategoriesValidator {
     const activeLanguages = await this.prisma.language.findMany({
       where: {
         id: { in: uniqueLanguageIds },
+        isActive: true,
         deletedAt: null,
       },
       select: { id: true },
@@ -90,7 +91,7 @@ export class ModeratorCategoriesValidator {
 
     if (invalidLanguageIds.length > 0) {
       throw new BadRequestException(
-        `Các ngôn ngữ không tồn tại hoặc đã bị xóa: ${invalidLanguageIds.join(', ')}.`,
+        `Các ngôn ngữ không tồn tại, đã bị vô hiệu hóa hoặc đã bị xóa: ${invalidLanguageIds.join(', ')}.`,
       );
     }
   }

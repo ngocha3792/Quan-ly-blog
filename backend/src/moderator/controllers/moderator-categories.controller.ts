@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
@@ -25,6 +27,7 @@ import type { PaginationParams } from '@app/core';
 
 import {
   CreateCategoryGroupTranslationsDto,
+  TranslateCategoryPreviewDto,
   UpdateCategoryGroupTranslationsDto,
 } from '../dto';
 import { ModeratorCategoriesService } from '../services/moderator-categories.service';
@@ -62,6 +65,19 @@ export class ModeratorCategoriesController {
   }
 
   /**
+   * Dịch tên category sang các ngôn ngữ đích để Moderator xem trước.
+   *
+   * Không ghi dữ liệu vào database.
+   *
+   * POST /api/v1/moderator/category-groups/translate-preview
+   */
+    @Post('translate-preview')
+    @HttpCode(HttpStatus.OK)
+    translatePreview(@Body() dto: TranslateCategoryPreviewDto) {
+      return this.moderatorCategoriesService.translatePreview(dto);
+    }
+
+  /**
    * Tạo CategoryGroup cùng nhiều bản dịch.
    *
    * POST /api/v1/moderator/category-groups
@@ -83,6 +99,22 @@ export class ModeratorCategoriesController {
   ) {
     return this.moderatorCategoriesService.update(groupId, dto);
   }
+
+/**
+ * Xóa mềm một bản dịch khỏi CategoryGroup.
+ *
+ * DELETE /api/v1/moderator/category-groups/:groupId/translations/:languageId
+ */
+@Delete(':groupId/translations/:languageId')
+removeTranslation(
+  @Param('groupId', ParseIntPipe) groupId: number,
+  @Param('languageId', ParseIntPipe) languageId: number,
+) {
+  return this.moderatorCategoriesService.removeTranslation(
+    groupId,
+    languageId,
+  );
+}
 
   /**
    * Xóa mềm group và các bản dịch.

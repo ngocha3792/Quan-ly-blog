@@ -10,12 +10,14 @@ describe('ModeratorCategoriesController', () => {
   let controller: ModeratorCategoriesController;
 
   let moderatorCategoriesService: {
-    findAll: jest.Mock;
-    findOne: jest.Mock;
-    create: jest.Mock;
-    update: jest.Mock;
-    remove: jest.Mock;
-  };
+  findAll: jest.Mock;
+  findOne: jest.Mock;
+  translatePreview: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+  removeTranslation: jest.Mock;
+  remove: jest.Mock;
+};
 
   const pagination: PaginationParams = {
     skip: 0,
@@ -29,8 +31,10 @@ describe('ModeratorCategoriesController', () => {
     moderatorCategoriesService = {
       findAll: jest.fn(),
       findOne: jest.fn(),
+      translatePreview: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      removeTranslation: jest.fn(),
       remove: jest.fn(),
     };
 
@@ -116,6 +120,56 @@ describe('ModeratorCategoriesController', () => {
     expect(result.id).toBe(10);
   });
 
+  it('should return category translation preview', async () => {
+  const dto = {
+    sourceLanguageId: 4,
+    sourceName: 'Công nghệ',
+    targetLanguageIds: [1],
+  };
+
+  moderatorCategoriesService.translatePreview.mockResolvedValueOnce({
+    source: {
+      languageId: 4,
+      languageCode: 'vi',
+      languageName: 'Tiếng Việt',
+      name: 'Công nghệ',
+    },
+
+    translations: [
+      {
+        languageId: 1,
+        languageCode: 'en',
+        languageName: 'English',
+        name: 'Technology',
+      },
+    ],
+  });
+
+  const result = await controller.translatePreview(dto);
+
+  expect(
+    moderatorCategoriesService.translatePreview,
+  ).toHaveBeenCalledWith(dto);
+
+  expect(result).toEqual({
+    source: {
+      languageId: 4,
+      languageCode: 'vi',
+      languageName: 'Tiếng Việt',
+      name: 'Công nghệ',
+    },
+
+    translations: [
+      {
+        languageId: 1,
+        languageCode: 'en',
+        languageName: 'English',
+        name: 'Technology',
+      },
+    ],
+  });
+});
+
   it('should create a multilingual category group', async () => {
     const dto = {
       code: 'programming',
@@ -167,6 +221,23 @@ describe('ModeratorCategoriesController', () => {
 
     expect(result.id).toBe(10);
   });
+
+  it('should remove one category translation', async () => {
+  moderatorCategoriesService.removeTranslation.mockResolvedValueOnce({
+    id: 10,
+    code: 'programming',
+    translationCount: 1,
+    translations: [],
+  });
+
+  const result = await controller.removeTranslation(10, 1);
+
+  expect(
+    moderatorCategoriesService.removeTranslation,
+  ).toHaveBeenCalledWith(10, 1);
+
+  expect(result.id).toBe(10);
+});
 
   it('should remove a category group', async () => {
     moderatorCategoriesService.remove.mockResolvedValueOnce({

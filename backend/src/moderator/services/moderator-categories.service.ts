@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import { CategoryGroupNotFoundException, PrismaService } from '@app/core';
+import { CategoryGroupNotFoundException,LibreTranslateService, PrismaService } from '@app/core';
 import type {
   GetCategoryGroupsDto,
   PaginatedResult,
@@ -10,6 +10,7 @@ import type {
 
 import type {
   CreateCategoryGroupTranslationsDto,
+  TranslateCategoryPreviewDto,
   UpdateCategoryGroupTranslationsDto,
 } from '../dto';
 import { ModeratorCategoryGroupEntity } from '../entities';
@@ -41,6 +42,7 @@ export class ModeratorCategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly validator: ModeratorCategoriesValidator,
+    private readonly libreTranslateService: LibreTranslateService,
   ) {}
 
   /**
@@ -134,6 +136,107 @@ export class ModeratorCategoriesService {
     }
 
     return new ModeratorCategoryGroupEntity(group);
+  }
+
+  /**
+ * Dịch tên category sang nhiều ngôn ngữ để Moderator xem trước.
+ *
+ * Chỉ trả preview, không ghi dữ liệu vào database.
+ */
+  async translatePreview(dto: TranslateCategoryPreviewDto) {
+    const {
+      sourceLanguageId,
+      sourceName,
+      targetLanguageIds,
+    } = dto;
+
+    if (targetLanguageIds.includes(sourceLanguageId)) {
+      throw new BadRequestException(
+        'Ngôn ngữ đích không được trùng với ngôn ngữ nguồn.',
+      );
+    }
+
+    const languageIds = [
+      sourceLanguageId,
+      ...targetLanguageIds,
+    ];
+
+    await this.validator.ensureActiveLanguages(languageIds);
+
+    const languages = await this.prisma.language.findMany({
+      where: {
+        id: {
+          in: languageIds,
+        },
+        isActive: true,
+        deletedAt: null,
+      },
+
+      select: {
+        id: true,
+        code: true,
+        name: true,
+      },
+    });
+
+    const languageById = new Map(
+      languages.map((language) => [language.id, language]),
+    );
+
+    const sourceLanguage = languageById.get(sourceLanguageId);
+
+    if (!sourceLanguage) {
+      throw new BadRequestException(
+        `Không tìm thấy ngôn ngữ nguồn ID ${sourceLanguageId}.`,
+      );
+    }
+
+    const translations: {
+      languageId: number;
+      languageCode: string;
+      languageName: string;
+      name: string;
+    }[] = [];
+
+    /**
+     * Dịch tuần tự để tránh gửi nhiều request đồng thời
+     * tới LibreTranslate.
+     */
+    for (const targetLanguageId of targetLanguageIds) {
+      const targetLanguage = languageById.get(targetLanguageId);
+
+      if (!targetLanguage) {
+        throw new BadRequestException(
+          `Không tìm thấy ngôn ngữ đích ID ${targetLanguageId}.`,
+        );
+      }
+
+      const translatedName =
+        await this.libreTranslateService.translateText({
+          text: sourceName,
+          sourceLanguageCode: sourceLanguage.code,
+          targetLanguageCode: targetLanguage.code,
+          format: 'text',
+        });
+
+      translations.push({
+        languageId: targetLanguage.id,
+        languageCode: targetLanguage.code,
+        languageName: targetLanguage.name,
+        name: translatedName,
+      });
+    }
+
+    return {
+      source: {
+        languageId: sourceLanguage.id,
+        languageCode: sourceLanguage.code,
+        languageName: sourceLanguage.name,
+        name: sourceName,
+      },
+
+      translations,
+    };
   }
 
   /**
@@ -299,6 +402,98 @@ export class ModeratorCategoriesService {
 
     return new ModeratorCategoryGroupEntity(updatedGroup);
   }
+
+/**
+ * Xóa mềm một bản dịch Category trong CategoryGroup.
+ *
+ * Không cho xóa nếu:
+ * - group không tồn tại;
+ * - bản dịch không tồn tại hoặc đã bị xóa;
+ * - đây là bản dịch active cuối cùng của group;
+ * - bản dịch đang được bài viết sử dụng.
+ */
+async removeTranslation(
+  groupId: number,
+  languageId: number,
+): Promise<ModeratorCategoryGroupEntity> {
+  await this.validator.ensureActiveGroupExists(groupId);
+
+  const translation = await this.prisma.category.findFirst({
+    where: {
+      categoryGroupId: groupId,
+      languageId,
+      deletedAt: null,
+    },
+
+    select: {
+      id: true,
+      languageId: true,
+      name: true,
+    },
+  });
+
+  if (!translation) {
+    throw new BadRequestException(
+      `Không tìm thấy bản dịch ngôn ngữ ID ${languageId} trong nhóm danh mục ID ${groupId}.`,
+    );
+  }
+
+  const activeTranslationCount = await this.prisma.category.count({
+    where: {
+      categoryGroupId: groupId,
+      deletedAt: null,
+    },
+  });
+
+  if (activeTranslationCount <= 1) {
+    throw new BadRequestException(
+      'Không thể xóa bản dịch cuối cùng của nhóm danh mục.',
+    );
+  }
+
+  const usageCount = await this.prisma.postCategory.count({
+    where: {
+      categoryId: translation.id,
+    },
+  });
+
+  if (usageCount > 0) {
+    throw new BadRequestException(
+      `Không thể xóa bản dịch "${translation.name}" vì đang có ${usageCount} liên kết bài viết sử dụng bản dịch này.`,
+    );
+  }
+
+  const deletedAt = new Date();
+
+  const updatedGroup = await this.prisma.$transaction(async (tx) => {
+    await tx.category.update({
+      where: {
+        id: translation.id,
+      },
+
+      data: {
+        deletedAt,
+      },
+    });
+
+    const group = await tx.categoryGroup.findFirst({
+      where: {
+        id: groupId,
+        deletedAt: null,
+      },
+
+      include: MODERATOR_CATEGORY_GROUP_INCLUDE,
+    });
+
+    if (!group) {
+      throw new CategoryGroupNotFoundException(groupId);
+    }
+
+    return group;
+  });
+
+  return new ModeratorCategoryGroupEntity(updatedGroup);
+}
 
   /**
    * Xóa mềm CategoryGroup và toàn bộ bản dịch.

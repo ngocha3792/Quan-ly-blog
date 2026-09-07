@@ -72,3 +72,5 @@ export * from './modules/mail/mail.module';
 export * from './modules/mail/mail.service';
 
 export * from './modules/health/health.module';
+export * from './modules/translation/translation.module';
+export * from './modules/translation/libre-translate.service';

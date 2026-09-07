@@ -7,3 +7,5 @@ export * from './reject-report.dto';
 
 export * from './create-category-group-translations.dto';
 export * from './update-category-group-translations.dto';
+
+export * from './translate-category-preview.dto';
