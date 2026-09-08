@@ -135,7 +135,16 @@ jobs:
       - name: Deploy trên VPS (blue-green)
         # github.sha luôn là 40 ký tự hex, an toàn để chèn thẳng vào script —
         # không có shell metacharacter nào cần lo injection ở đây.
+        #
+        # COMMIT_EPOCH (giây, ngày commit) truyền cho deploy-blue-green.sh
+        # để nó tự bỏ qua nếu một job deploy khác (của một commit mới hơn
+        # hoặc bằng) đã chạy trước rồi — chặn race hai push gần nhau khiến
+        # job deploy chạy sai thứ tự, âm thầm đè code mới bằng code cũ dù
+        # cả hai workflow run đều báo Success (gặp thật 2026-09-08, xem
+        # DEPLOYMENT.md mục 9 và is_older_commit() trong
+        # scripts/lib/blue-green-common.sh).
         run: |
+          COMMIT_EPOCH="$(git show -s --format=%ct ${{ github.sha }})"
           ssh -i ~/.ssh/deploy_key "root@${{ env.DEPLOY_HOST }}" bash -s <<REMOTE
           set -euo pipefail
           cd "${{ env.DEPLOY_PATH }}"
@@ -144,7 +153,7 @@ jobs:
           rm -f /tmp/deploy-config.tar.gz
           chmod +x scripts/*.sh scripts/lib/*.sh
 
-          flock -n .deploy.lock ./scripts/deploy-blue-green.sh "${{ github.sha }}"
+          flock -n .deploy.lock ./scripts/deploy-blue-green.sh "${{ github.sha }}" "${COMMIT_EPOCH}"
           REMOTE
 
       - name: Smoke test domain công khai (lớp kiểm tra thứ hai, ngoài VPS)

@@ -15,8 +15,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # shellcheck source=lib/blue-green-common.sh
 source "scripts/lib/blue-green-common.sh"
 
-read -r CURRENT_COLOR CURRENT_SHA < <(read_release "current")
-read -r PREVIOUS_COLOR PREVIOUS_SHA < <(read_release "previous")
+read -r CURRENT_COLOR CURRENT_SHA CURRENT_EPOCH < <(read_release "current")
+read -r PREVIOUS_COLOR PREVIOUS_SHA PREVIOUS_EPOCH < <(read_release "previous")
 
 if [[ "${PREVIOUS_SHA}" == "-" ]]; then
   log "Không có bản trước đó để rollback về (releases/previous trống)."
@@ -62,7 +62,8 @@ if ! ./scripts/smoke-test.sh "${PUBLIC_URL}"; then
   exit 1
 fi
 
-record_release "rollback" "${CURRENT_COLOR}" "${CURRENT_SHA}" "${PREVIOUS_COLOR}" "${PREVIOUS_SHA}" "OK"
+record_release "rollback" "${CURRENT_COLOR}" "${CURRENT_SHA}" "${CURRENT_EPOCH}" \
+  "${PREVIOUS_COLOR}" "${PREVIOUS_SHA}" "${PREVIOUS_EPOCH}" "OK"
 
 log "=== Rollback OK: traffic đang ở ${PREVIOUS_COLOR} (sha=${PREVIOUS_SHA}) ==="
 log "Slot ${CURRENT_COLOR} (sha=${CURRENT_SHA}) vẫn để nguyên, chưa dừng — tự dừng tay bằng:"

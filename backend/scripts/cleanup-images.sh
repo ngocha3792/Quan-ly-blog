@@ -23,8 +23,8 @@ fi
 
 # Union: SHA trong current/previous + 3 SHA mới nhất xuất hiện trong
 # audit.log (new_sha=...) — dư một chút còn hơn xoá nhầm.
-read -r _ cur_sha < <(read_release "current")
-read -r _ prev_sha < <(read_release "previous")
+read -r _ cur_sha _ < <(read_release "current")
+read -r _ prev_sha _ < <(read_release "previous")
 recent_shas="$(grep -oE 'new_sha=[^ ]+' "${RELEASES_DIR}/audit.log" | cut -d= -f2 | tail -3)"
 
 mapfile -t keep_shas < <(

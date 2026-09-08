@@ -315,6 +315,22 @@ retention này ảnh hưởng — retention chỉ áp dụng cho bản sao local
 - **Dán private key qua Notepad vào GitHub secret** có thể làm hỏng định
   dạng (`error in libcrypto` khi OpenSSH đọc key) — dùng PowerShell
   `Set-Clipboard` thay vì mở file bằng editor.
+- **Hai push gần nhau khiến job deploy chạy sai thứ tự, âm thầm đè code
+  mới bằng code cũ.** `concurrency: group: production` trên job `deploy`
+  chỉ đảm bảo không có hai job chạy ĐỒNG THỜI — không đảm bảo chạy ĐÚNG
+  THỨ TỰ. `ci`/`build-push` của mỗi workflow run chạy độc lập; nếu commit
+  cũ hơn build-push chậm hơn (cache nguội, runner chậm hơn...), job
+  `deploy` của nó có thể xếp hàng chờ SAU job `deploy` của commit mới hơn
+  và chạy SAU — mỗi job tự thân vẫn deploy đúng commit của chính nó nên
+  cả hai workflow run đều báo "Success", nhưng kết quả cuối cùng là
+  production tụt lại một commit. Gặp thật 2026-09-08: PR#15 và PR#16
+  merge cách nhau 21 giây, job deploy của PR#15 chạy sau nên production
+  thiếu hẳn route mà PR#16 vừa thêm, dù Actions không báo lỗi gì.
+  `scripts/deploy-blue-green.sh` giờ nhận thêm `commit_epoch` (giây, ngày
+  commit — CI truyền qua `git show -s --format=%ct <sha>`) và tự bỏ qua
+  (exit 0, không phải lỗi) nếu commit sắp deploy không mới hơn commit đã
+  ghi ở `releases/current` — xem `is_older_commit()` trong
+  `scripts/lib/blue-green-common.sh`.
 
 ## 10. Dịch tự động (LibreTranslate) — đang chạy, 4 ngôn ngữ
 
@@ -497,6 +513,6 @@ curl https://blogy.id.vn/
 Xem slot nào đang thật sự nhận traffic:
 
 ```bash
-cat /opt/blog-api/backend/releases/current   # "blue <sha>" hoặc "green <sha>"
+cat /opt/blog-api/backend/releases/current   # "blue <sha> <commit_epoch>" hoặc "green <sha> <commit_epoch>"
 readlink /opt/blog-api/backend/docker/nginx-blogy/upstream-current.conf
 ```
