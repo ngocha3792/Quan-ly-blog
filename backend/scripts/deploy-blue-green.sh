@@ -3,7 +3,7 @@
 # .github/workflows/deploy-backend.yml qua SSH (bọc flock ở tầng caller —
 # xem DEPLOYMENT.md), hoặc chạy tay lúc bootstrap/debug.
 #
-# Dùng: ./scripts/deploy-blue-green.sh <sha>
+# Dùng: ./scripts/deploy-blue-green.sh <sha> [commit_epoch]
 #
 # Không rollback database tự động. Không migrate lùi. Xem DEPLOYMENT.md
 # mục "Chính sách migration expand-contract" và "Không rollback database
@@ -15,7 +15,13 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # shellcheck source=lib/blue-green-common.sh
 source "scripts/lib/blue-green-common.sh"
 
-SHA="${1:?Dùng: deploy-blue-green.sh <sha>}"
+SHA="${1:?Dùng: deploy-blue-green.sh <sha> [commit_epoch]}"
+# commit_epoch: Unix timestamp của commit (vd `git show -s --format=%ct
+# <sha>`), do CI truyền vào để chặn out-of-order deploy — xem
+# is_older_commit() trong lib/blue-green-common.sh. Không truyền (chạy
+# tay/bootstrap) -> mặc định giờ hiện tại, tức luôn coi là "mới nhất",
+# không bao giờ bị guard chặn khi thao tác tay.
+COMMIT_EPOCH="${2:-$(date +%s)}"
 
 API_REPO="${API_REPO:-ghcr.io/ngocha3792/quan-ly-blog-api}"
 MIGRATION_REPO="${MIGRATION_REPO:-ghcr.io/ngocha3792/quan-ly-blog-migration}"
@@ -24,11 +30,17 @@ MIGRATION_IMAGE="${MIGRATION_REPO}:${SHA}"
 
 GRACE_SECONDS="${GRACE_SECONDS:-90}"
 
-read -r CURRENT_COLOR CURRENT_SHA < <(read_release "current")
+read -r CURRENT_COLOR CURRENT_SHA CURRENT_EPOCH < <(read_release "current")
 TARGET_COLOR="$(other_color "${CURRENT_COLOR}")"
 
-log "=== Deploy ${SHA} ==="
-log "current=${CURRENT_COLOR} (sha=${CURRENT_SHA})  target=${TARGET_COLOR}"
+log "=== Deploy ${SHA} (commit_epoch=${COMMIT_EPOCH}) ==="
+log "current=${CURRENT_COLOR} (sha=${CURRENT_SHA}, epoch=${CURRENT_EPOCH})  target=${TARGET_COLOR}"
+
+if is_older_commit "${COMMIT_EPOCH}" "${CURRENT_EPOCH}"; then
+  log "Bỏ qua deploy: commit ${SHA} (epoch=${COMMIT_EPOCH}) không mới hơn bản đang chạy" \
+    "${CURRENT_SHA} (epoch=${CURRENT_EPOCH}) — một job deploy khác đã xử lý một commit mới hơn hoặc bằng rồi."
+  exit 0
+fi
 
 log "--- [1/8] Pull image ---"
 docker pull "${API_IMAGE}"
@@ -76,7 +88,8 @@ if ! SMOKE_TEST_RETRIES=5 \
   exit 1
 fi
 
-record_release "deploy" "${CURRENT_COLOR}" "${CURRENT_SHA}" "${TARGET_COLOR}" "${SHA}" "OK"
+record_release "deploy" "${CURRENT_COLOR}" "${CURRENT_SHA}" "${CURRENT_EPOCH}" \
+  "${TARGET_COLOR}" "${SHA}" "${COMMIT_EPOCH}" "OK"
 log "Deploy OK: traffic đang ở ${TARGET_COLOR} (sha=${SHA})."
 
 log "Giữ ${CURRENT_COLOR} sống thêm ${GRACE_SECONDS}s trước khi dừng..."

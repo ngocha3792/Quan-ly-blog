@@ -34,22 +34,27 @@ port_for_color() {
 }
 
 # Đọc releases/current hoặc releases/previous.
-# Định dạng file: "<color> <sha>" trên một dòng.
-# Không có file -> in "blue -" (coi như blue là slot mặc định ban đầu,
+# Định dạng file: "<color> <sha> <commit_epoch>" trên một dòng.
+# commit_epoch = Unix timestamp của commit (không phải lúc deploy) — dùng
+# bởi deploy-blue-green.sh để chặn out-of-order deploy (xem hàm
+# is_older_commit bên dưới). File cũ chỉ có "<color> <sha>" (chưa có
+# epoch) vẫn đọc được — thiếu cột thứ 3 thì in "0", coi như "chưa biết",
+# để guard không chặn nhầm lần đầu nâng cấp qua format mới.
+# Không có file -> in "blue - 0" (coi như blue là slot mặc định ban đầu,
 # chưa có SHA nào từng deploy).
 read_release() {
   local file="${RELEASES_DIR}/$1"
   if [[ -f "${file}" ]]; then
-    cat "${file}"
+    awk '{print $1, $2, ($3 == "" ? "0" : $3)}' "${file}"
   else
-    echo "blue -"
+    echo "blue - 0"
   fi
 }
 
 write_release() {
-  local name="$1" color="$2" sha="$3"
+  local name="$1" color="$2" sha="$3" epoch="${4:-0}"
   mkdir -p "${RELEASES_DIR}"
-  echo "${color} ${sha}" > "${RELEASES_DIR}/${name}"
+  echo "${color} ${sha} ${epoch}" > "${RELEASES_DIR}/${name}"
 }
 
 append_audit_log() {
@@ -61,13 +66,36 @@ append_audit_log() {
 # format mà scripts/cleanup-images.sh parse để suy ra danh sách SHA cần
 # giữ lại (không dùng SHA nào bị bỏ sót thì cleanup mới không xoá nhầm).
 record_release() {
-  local event="$1" old_color="$2" old_sha="$3" new_color="$4" new_sha="$5" result="$6"
+  local event="$1" old_color="$2" old_sha="$3" old_epoch="$4" \
+        new_color="$5" new_sha="$6" new_epoch="$7" result="$8"
 
-  write_release "current" "${new_color}" "${new_sha}"
-  write_release "previous" "${old_color}" "${old_sha}"
+  write_release "current" "${new_color}" "${new_sha}" "${new_epoch}"
+  write_release "previous" "${old_color}" "${old_sha}" "${old_epoch}"
 
   append_audit_log \
     "event=${event} old_color=${old_color} old_sha=${old_sha} new_color=${new_color} new_sha=${new_sha} result=${result}"
+}
+
+# Chặn out-of-order deploy: hai commit push cách nhau vài chục giây, mỗi
+# push chạy một workflow "deploy-backend.yml" riêng, job "deploy" của cả
+# hai chỉ được ĐẢM BẢO không chạy ĐỒNG THỜI (concurrency group
+# "production") — không có gì đảm bảo chạy ĐÚNG THỨ TỰ. Nếu commit cũ hơn
+# build-push chậm hơn, job deploy của nó có thể xếp hàng SAU và chạy SAU
+# job deploy của commit mới hơn, âm thầm đè code mới bằng code cũ — cả
+# hai workflow run đều báo "Success" vì mỗi cái tự thân đều deploy đúng
+# ĐÚNG NGAY commit của chính nó, không hề biết tới nhau. Gặp thật:
+# 2026-09-08, PR#15 (05ad5f44) và PR#16 (9362a80) merge cách nhau 21s,
+# PR#15 deploy chạy sau nên production tụt lại một commit — thiếu hẳn
+# route /moderator/dashboard/overview mà PR#16 vừa thêm dù cả hai run
+# đều xanh.
+#
+# So epoch (giây, lấy từ ngày commit — KHÔNG phải giờ deploy) của commit
+# sắp deploy với epoch đã ghi ở releases/current: nếu không mới hơn
+# (<=), nghĩa là có một job khác đã deploy một commit mới hơn hoặc bằng
+# rồi — bỏ qua, không ghi đè lùi.
+is_older_commit() {
+  local new_epoch="$1" current_epoch="$2"
+  [[ "${current_epoch}" != "0" && "${new_epoch}" -le "${current_epoch}" ]]
 }
 
 # compose.slot.yml khai CẢ HAI service "api" và "migrate" trong cùng một
