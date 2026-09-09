@@ -756,6 +756,14 @@ describe('BlogownerPostsService', () => {
 
     expect(service.findOne).toHaveBeenCalledWith(3, 40);
     expect(result.status).toBe(PostStatus.DRAFT);
+    expect(
+      result.translationBatch,
+    ).toEqual({
+      batchId:
+        'translation-batch-40-test',
+
+      status: 'QUEUED',
+    });
   });
 
   it('should reject translation target equal to source language when creating', async () => {
@@ -1527,6 +1535,14 @@ describe('BlogownerPostsService', () => {
     );
 
     expect(result.status).toBe(PostStatus.DRAFT);
+    expect(
+      result.translationBatch,
+    ).toEqual({
+      batchId:
+        'translation-batch-100-test',
+
+      status: 'QUEUED',
+    });
   });
 
   it('should reject updating a translation directly', async () => {

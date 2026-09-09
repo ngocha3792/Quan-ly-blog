@@ -15,7 +15,7 @@ import {
 
 import { BlogownerTranslationQueueService } from './blogowner-translation-queue.service';
 import { BlogownerTranslationProcessor } from './blogowner-translation.processor';
-
+import { BlogownerTranslationStatusService } from './blogowner-translation-status.service';
 @Module({
   imports: [
     ConfigModule,
@@ -62,16 +62,21 @@ import { BlogownerTranslationProcessor } from './blogowner-translation.processor
   providers: [
     BlogownerTranslationQueueService,
     BlogownerTranslationProcessor,
+    BlogownerTranslationStatusService,
 
     {
-      provide: BLOGOWNER_TRANSLATION_QUEUE_SERVICE,
-      useExisting: BlogownerTranslationQueueService,
+      provide:
+        BLOGOWNER_TRANSLATION_QUEUE_SERVICE,
+
+      useExisting:
+        BlogownerTranslationQueueService,
     },
   ],
 
   exports: [
     BLOGOWNER_TRANSLATION_QUEUE_SERVICE,
     BlogownerTranslationQueueService,
+    BlogownerTranslationStatusService,
   ],
 })
 export class BlogownerTranslationQueueModule {}

@@ -47,6 +47,8 @@ export class BlogownerTranslationQueueService
       ownerId: input.ownerId,
       sourceUpdatedAt: input.sourceUpdatedAt,
       submitForReview: input.submitForReview,
+
+      targetLanguageIds,
     };
 
     await this.flowProducer.add({

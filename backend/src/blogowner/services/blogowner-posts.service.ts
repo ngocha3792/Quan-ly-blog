@@ -781,36 +781,36 @@ async create(
    * Nếu child fail:
    * group vẫn DRAFT.
    */
-  await this.translationQueueService.enqueueBatch({
-    rootPostId: sourceSnapshot.id,
+  const batch =
+    await this.translationQueueService.enqueueBatch({
+      rootPostId:
+        sourceSnapshot.id,
 
-    ownerId,
+      ownerId,
 
-    sourceLanguageId:
-      sourceSnapshot.languageId,
+      sourceLanguageId:
+        sourceSnapshot.languageId,
 
-    sourceUpdatedAt:
-      sourceSnapshot.updatedAt.toISOString(),
+      sourceUpdatedAt:
+        sourceSnapshot.updatedAt.toISOString(),
 
-    targetLanguageIds,
+      targetLanguageIds,
 
-    submitForReview,
-  });
+      submitForReview,
+    });
 
-  /**
-   * =====================================================
-   * 7. TRẢ ROOT NGAY
-   * =====================================================
-   *
-   * Lúc response về:
-   * - root đã tồn tại;
-   * - thumbnail/media đã xong;
-   * - root đang DRAFT;
-   * - translation jobs đang chạy background.
-   *
-   * translations có thể chưa xuất hiện ngay.
-   */
-  return this.findOne(ownerId, createdPost.id);
+  const result =
+    await this.findOne(
+      ownerId,
+      createdPost.id,
+    );
+
+  result.translationBatch = {
+    batchId: batch.batchId,
+    status: 'QUEUED',
+  };
+
+  return result;
 }
 
   /**
@@ -1120,21 +1120,22 @@ async update(
    * ↓
    * FINALIZE
    */
-  await this.translationQueueService.enqueueBatch({
-    rootPostId: sourceSnapshot.id,
+  const batch =
+    await this.translationQueueService.enqueueBatch({
+      rootPostId: sourceSnapshot.id,
 
-    ownerId,
+      ownerId,
 
-    sourceLanguageId:
-      sourceSnapshot.languageId,
+      sourceLanguageId:
+        sourceSnapshot.languageId,
 
-    sourceUpdatedAt:
-      sourceSnapshot.updatedAt.toISOString(),
+      sourceUpdatedAt:
+        sourceSnapshot.updatedAt.toISOString(),
 
-    targetLanguageIds,
+      targetLanguageIds,
 
-    submitForReview,
-  });
+      submitForReview,
+    });
 
   /**
    * =====================================================
@@ -1157,7 +1158,7 @@ async update(
 
   /**
    * =====================================================
-   * 13. RESPONSE NGAY
+   * 13. RESPONSE NGAY + BATCH INFO
    * =====================================================
    *
    * Không chờ LibreTranslate.
@@ -1168,7 +1169,18 @@ async update(
    * - jobs đang chạy background;
    * - translation mới có thể chưa tồn tại.
    */
-  return this.findOne(ownerId, root.id);
+  const result =
+    await this.findOne(
+      ownerId,
+      root.id,
+    );
+
+  result.translationBatch = {
+    batchId: batch.batchId,
+    status: 'QUEUED',
+  };
+
+  return result;
 }
 
   /**

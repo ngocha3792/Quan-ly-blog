@@ -19,6 +19,7 @@ import { BlogownerPostHelperService } from './services/blogowner-post-helper.ser
 import { BlogownerPostsService } from './services/blogowner-posts.service';
 import { TranslationService } from './services/translation.service';
 import { BlogownerTranslationQueueModule } from './queues';
+import { BlogownerTranslationController } from './controllers/blogowner-translation.controller';
 @Module({
   imports: [AuthsModule, PostsModule, MediaModule, CloudinaryModule,  BlogownerTranslationQueueModule,],
 
@@ -27,6 +28,7 @@ import { BlogownerTranslationQueueModule } from './queues';
     BlogownerOptionsController,
     BlogownerDashboardController,
     BlogownerMediaController,
+    BlogownerTranslationController,
   ],
 
   providers: [

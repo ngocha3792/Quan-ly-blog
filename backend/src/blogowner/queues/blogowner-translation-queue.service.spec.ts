@@ -69,13 +69,15 @@ describe('BlogownerTranslationQueueService', () => {
     );
 
     expect(flow.data).toEqual({
-      rootPostId: 100,
-      ownerId: 3,
+    rootPostId: 100,
+    ownerId: 3,
 
-      sourceUpdatedAt:
+    sourceUpdatedAt:
         '2026-09-10T02:00:00.000Z',
 
-      submitForReview: true,
+    submitForReview: true,
+
+    targetLanguageIds: [5, 6],
     });
 
     expect(flow.opts).toEqual(

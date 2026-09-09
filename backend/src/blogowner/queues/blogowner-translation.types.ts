@@ -1,3 +1,9 @@
+export type BlogownerTranslationBatchStatus =
+  | 'QUEUED'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED';
+
 export interface TranslatePostJobData {
   rootPostId: number;
   ownerId: number;
@@ -15,6 +21,12 @@ export interface FinalizeTranslationBatchJobData {
   sourceUpdatedAt: string;
 
   submitForReview: boolean;
+
+  /**
+   * Parent giữ danh sách target languages để API progress
+   * không cần scan toàn bộ Redis.
+   */
+  targetLanguageIds: number[];
 }
 
 export interface EnqueueTranslationBatchInput {
@@ -34,16 +46,28 @@ export interface EnqueueTranslationBatchResult {
   targetLanguageIds: number[];
 }
 
-/**
- * Port mà business service sử dụng.
- *
- * BlogownerPostsService chỉ biết rằng có một service
- * có khả năng enqueue translation batch.
- *
- * Nó không cần biết BullMQ, Redis hay FlowProducer.
- */
 export interface BlogownerTranslationQueuePort {
   enqueueBatch(
     input: EnqueueTranslationBatchInput,
   ): Promise<EnqueueTranslationBatchResult>;
+}
+
+export interface TranslationLanguageJobStatus {
+  languageId: number;
+
+  status: BlogownerTranslationBatchStatus;
+
+  progress: number;
+}
+
+export interface TranslationBatchStatusResult {
+  batchId: string;
+
+  rootPostId: number;
+
+  status: BlogownerTranslationBatchStatus;
+
+  progress: number;
+
+  translations: TranslationLanguageJobStatus[];
 }
