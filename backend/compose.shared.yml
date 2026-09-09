@@ -142,7 +142,19 @@ services:
       # gian user thấy quay vòng vô ích, không đổi được kết quả cuối.
       retries: 3
       start_period: 60s
-
+  redis:
+    image: redis:7-alpine
+    container_name: blog-redis
+    restart: unless-stopped
+    volumes:
+      - blog_redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
   # Watcher tự `docker restart` bất kỳ container nào có label
   # "autoheal=true" mỗi khi Docker báo container đó "unhealthy" — Docker
   # Compose (không phải Swarm) không có cơ chế restart_policy gắn theo
@@ -171,4 +183,5 @@ networks:
 
 volumes:
   blog_postgres_data:
+  blog_redis_data:
   certbot_webroot:
