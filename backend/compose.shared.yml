@@ -102,10 +102,21 @@ services:
 
   # Dịch tự động (LibreTranslate) — xem docker/libretranslate/README.md và
   # DEPLOYMENT.md mục "Dịch tự động" cho lý do build riêng + số đo RAM.
+  #
+  # label "autoheal=true" + service "autoheal" bên dưới: xử lý bug đã biết
+  # (DEPLOYMENT.md mục 10, "gunicorn worker tự thoát mà không nạp lại") —
+  # container vẫn "healthy" lúc mới treo (chưa đủ số lần healthcheck fail
+  # liên tiếp) nhưng KHÔNG có restart_policy nào của Docker/Compose tự
+  # phản ứng khi healthcheck chuyển "unhealthy" — restart: unless-stopped
+  # chỉ tự khởi động lại khi PROCESS thoát hẳn, không phải khi bị đánh dấu
+  # unhealthy. autoheal là watcher ngoài, tự docker restart container có
+  # label này mỗi khi Docker báo unhealthy.
   libretranslate:
     image: ${TRANSLATE_IMAGE:-libretranslate-cpu-slim:4lang}
     container_name: blog-libretranslate
     restart: unless-stopped
+    labels:
+      autoheal: 'true'
     environment:
       LT_DISABLE_WEB_UI: 'true'
       LT_UPDATE_MODELS: 'false'
@@ -126,8 +137,26 @@ services:
         ]
       interval: 15s
       timeout: 5s
-      retries: 10
+      # Giảm từ 10 xuống 3 (45s thay vì 150s để chuyển "unhealthy") — worker
+      # chết là treo VÔ THỜI HẠN chứ không tự hồi, đợi lâu chỉ kéo dài thời
+      # gian user thấy quay vòng vô ích, không đổi được kết quả cuối.
+      retries: 3
       start_period: 60s
+
+  # Watcher tự `docker restart` bất kỳ container nào có label
+  # "autoheal=true" mỗi khi Docker báo container đó "unhealthy" — Docker
+  # Compose (không phải Swarm) không có cơ chế restart_policy gắn theo
+  # health status, đây là cách bù đắp chuẩn cho hạn chế đó. Chỉ cần đọc
+  # Docker socket để theo dõi + gọi restart, không cần vào network nào
+  # của các service khác.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: blog-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 networks:
   # Nginx <-> frontend, và (từ compose.slot.yml) nginx <-> api-blue/api-green.
