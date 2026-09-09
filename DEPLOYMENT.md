@@ -426,12 +426,26 @@ không có "Booting worker" theo sau.
 `blog-backend-prod-libretranslate-1` — nếu tài liệu/script cũ nào còn ghi
 tên đó thì đã lỗi thời, xem mục 1.)
 
-**Chưa xử lý tận gốc** (ngoài phạm vi lần sửa i18n frontend này): cần sửa
-gunicorn config trong image (`Dockerfile.cpu-slim`) để tắt auto-restart
-theo `max_requests` hoặc tăng số worker (đánh đổi RAM), hoặc thêm một
-watchdog bên ngoài tự `docker restart` khi healthcheck thất bại liên tục.
-Vì `LT_THREADS=1` là lựa chọn có chủ đích để tiết kiệm RAM, việc tăng
-worker cần cân nhắc lại ngân sách RAM đã tính ở mục trên.
+**Đã xử lý bằng watchdog** (2026-09-08, tái hiện thật lúc user bấm dịch
+tự động bị treo quay vô thời hạn — request tới `/translate` không bao giờ
+trả lời cũng không báo lỗi): thêm service `autoheal`
+(`willfarrell/autoheal`) vào `compose.shared.yml`, chỉ theo dõi container
+có label `autoheal=true` (gắn cho `libretranslate`, không đụng tới
+nginx/postgres/frontend). Docker Compose (không phải Swarm) không có
+`restart_policy` gắn theo health status — `restart: unless-stopped` chỉ
+tự khởi động lại khi PROCESS thoát hẳn, không phải khi bị đánh dấu
+"unhealthy" — nên trước đây worker chết là treo vĩnh viễn cho tới khi có
+người vào SSH gõ tay `docker restart blog-libretranslate`. Cũng giảm
+`retries` của healthcheck libretranslate từ 10 xuống 3 (45s thay vì 150s
+để chuyển "unhealthy") vì đây là kiểu treo vĩnh viễn chứ không tự hồi,
+đợi lâu chỉ kéo dài thời gian user thấy quay vòng vô ích.
+
+Chưa sửa tận gốc nguyên nhân worker chết (gunicorn `max_requests`-like
+limit trong `Dockerfile.cpu-slim`, hoặc tăng số worker — đánh đổi RAM,
+xem số đo ở mục trên) — autoheal chỉ giảm thời gian chết dịch vụ xuống
+còn khoảng 45-60s (thời gian healthcheck phát hiện + `docker restart`)
+thay vì treo tới khi có người phát hiện thủ công, không phải fix ngăn nó
+xảy ra.
 
 ### Hành vi "thêm ngôn ngữ làm cả nhóm về chờ duyệt"
 
