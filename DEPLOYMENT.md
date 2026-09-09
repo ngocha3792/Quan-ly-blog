@@ -447,6 +447,25 @@ còn khoảng 45-60s (thời gian healthcheck phát hiện + `docker restart`)
 thay vì treo tới khi có người phát hiện thủ công, không phải fix ngăn nó
 xảy ra.
 
+**Sửa lại ngay hôm sau (2026-09-09) — retries=3 quá nhạy, tự giết nhầm
+worker đang bận dịch thật**: `LT_THREADS=1` nghĩa là chỉ MỘT worker xử lý
+tuần tự — healthcheck (`GET /languages`) cũng phải xếp hàng sau bất kỳ
+request `/translate` nào đang chạy, không có worker rảnh nào khác để trả
+lời. Dịch một bài viết dài ra cả 4 ngôn ngữ trong một lần bấm là tác vụ
+HỢP LỆ có thể chạy 10-20 phút trên CPU-only — với ngưỡng 45s, autoheal
+liên tục "phát hiện unhealthy" và giết ngay giữa lúc worker vẫn đang dịch
+bình thường, không hề treo. Hậu quả quan sát được thật: mất luôn model đã
+load + job dở dang, job kế tiếp phải load lại (chậm hơn), làm khoảng cách
+giữa các lần bị "autoheal giết nhầm" càng lúc càng ngắn (15 phút → 4 phút
+→ 1.5 phút) trong một phiên dịch dài thật.
+
+Nới `interval: 30s` / `timeout: 10s` / `retries: 40` (~20 phút dung sai)
+— đủ cho job dịch dài nhất từng gặp, vẫn tự phục hồi (không chờ vô thời
+hạn) nếu worker thật sự chết hẳn. Đánh đổi: worker chết THẬT giờ mất tới
+~20 phút mới được autoheal phát hiện + restart, thay vì ~45-60s — chấp
+nhận được vì mục tiêu chính là không giết nhầm job hợp lệ, không phải tối
+ưu thời gian phát hiện.
+
 ### Hành vi "thêm ngôn ngữ làm cả nhóm về chờ duyệt"
 
 Khi Blog Owner thêm bản dịch ngôn ngữ mới cho một bài **đã có sẵn** (kể cả
