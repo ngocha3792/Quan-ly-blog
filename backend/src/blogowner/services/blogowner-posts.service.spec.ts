@@ -11,7 +11,7 @@ import {
 } from './blogowner-post-helper.service';
 import { BlogownerPostsService } from './blogowner-posts.service';
 import { TranslationService } from './translation.service';
-
+import { BLOGOWNER_TRANSLATION_QUEUE_SERVICE } from '../queues/blogowner-translation.constants';
 describe('BlogownerPostsService', () => {
   let service: BlogownerPostsService;
 
@@ -60,6 +60,10 @@ describe('BlogownerPostsService', () => {
 
   const mockTranslationService = {
     translatePost: jest.fn(),
+  };
+
+  const mockTranslationQueueService = {
+    enqueueBatch: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -148,6 +152,11 @@ describe('BlogownerPostsService', () => {
         {
           provide: TranslationService,
           useValue: mockTranslationService,
+        },
+
+        {
+          provide: BLOGOWNER_TRANSLATION_QUEUE_SERVICE,
+          useValue: mockTranslationQueueService,
         },
       ],
     }).compile();
@@ -676,6 +685,96 @@ describe('BlogownerPostsService', () => {
      * không bị lỗi cleanup ghi đè.
      */
     expect(mockPrismaService.post.update).toHaveBeenCalledTimes(1);
+  });
+
+
+  it('should enqueue translations and keep root as draft during async translation', async () => {
+    const sourceUpdatedAt = new Date('2026-09-10T01:00:00.000Z');
+
+    mockPostsService.create.mockResolvedValue({
+      id: 40,
+    });
+
+    mockHelper.uploadMediaFiles.mockResolvedValue(undefined);
+
+    mockPrismaService.post.findFirst.mockResolvedValue({
+      id: 40,
+      languageId: 4,
+      updatedAt: sourceUpdatedAt,
+    });
+
+    mockTranslationQueueService.enqueueBatch.mockResolvedValue({
+      batchId: 'translation-batch-40-test',
+      targetLanguageIds: [5, 6],
+    });
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
+        id: 40,
+        title: 'Bài gốc',
+        status: PostStatus.DRAFT,
+        languageId: 4,
+      }),
+    );
+
+    const result = await service.create(3, {
+      title: 'Bài gốc',
+      content: '<p>Nội dung</p>',
+      languageId: 4,
+      categoryIds: [13],
+      translationLanguageIds: [5, 6],
+      submitForReview: true,
+    });
+
+    expect(mockPostsService.create).toHaveBeenCalledWith(3, {
+      title: 'Bài gốc',
+      content: '<p>Nội dung</p>',
+      languageId: 4,
+      categoryIds: [13],
+      status: PostStatus.DRAFT,
+    });
+
+    /**
+     * Còn translation chạy background nên HTTP request
+     * chưa được chuyển group sang PENDING_REVIEW.
+     */
+    expect(mockHelper.updateOwnedPostGroupStatus).not.toHaveBeenCalled();
+
+    expect(mockTranslationQueueService.enqueueBatch).toHaveBeenCalledWith({
+      rootPostId: 40,
+      ownerId: 3,
+      sourceLanguageId: 4,
+      sourceUpdatedAt: sourceUpdatedAt.toISOString(),
+      targetLanguageIds: [5, 6],
+      submitForReview: true,
+    });
+
+    /**
+     * Request create không còn gọi LibreTranslate trực tiếp.
+     */
+    expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
+
+    expect(service.findOne).toHaveBeenCalledWith(3, 40);
+    expect(result.status).toBe(PostStatus.DRAFT);
+  });
+
+  it('should reject translation target equal to source language when creating', async () => {
+    await expect(
+      service.create(3, {
+        title: 'Vietnamese post',
+        content: 'Content',
+        languageId: 4,
+        categoryIds: [13],
+        translationLanguageIds: [4, 5],
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Ngôn ngữ bản dịch không được trùng với ngôn ngữ bài gốc.',
+      ),
+    );
+
+    expect(mockPostsService.create).not.toHaveBeenCalled();
+    expect(mockTranslationQueueService.enqueueBatch).not.toHaveBeenCalled();
   });
 
   /**
@@ -1321,6 +1420,152 @@ describe('BlogownerPostsService', () => {
   /**
    * UPDATE POST
    */
+
+  it('should enqueue all existing and newly selected translations when updating root', async () => {
+    const root = {
+      id: 100,
+      authorId: 3,
+      title: 'Bài cũ',
+      content: 'Nội dung cũ',
+      status: PostStatus.PUBLISH,
+      languageId: 4,
+      thumbnailUrl: null,
+    };
+
+    const translations = [
+      {
+        id: 101,
+        authorId: 3,
+        parentPostId: 100,
+        languageId: 5,
+        status: PostStatus.PUBLISH,
+      },
+      {
+        id: 102,
+        authorId: 3,
+        parentPostId: 100,
+        languageId: 6,
+        status: PostStatus.DRAFT,
+      },
+    ];
+
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 100,
+      root,
+      translations,
+      posts: [root, ...translations],
+    });
+
+    mockPostsService.update.mockResolvedValue({
+      id: 100,
+    });
+
+    mockHelper.updateOwnedPostGroupStatus.mockResolvedValue(undefined);
+    mockHelper.uploadMediaFiles.mockResolvedValue(undefined);
+
+    const sourceUpdatedAt = new Date('2026-09-10T02:00:00.000Z');
+
+    mockPrismaService.post.findFirst.mockResolvedValue({
+      id: 100,
+      languageId: 4,
+      updatedAt: sourceUpdatedAt,
+    });
+
+    mockTranslationQueueService.enqueueBatch.mockResolvedValue({
+      batchId: 'translation-batch-100-test',
+      targetLanguageIds: [5, 6, 7],
+    });
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      new BlogownerPostEntity({
+        id: 100,
+        title: 'Bài mới',
+        status: PostStatus.DRAFT,
+      }),
+    );
+
+    const result = await service.update(3, 100, {
+      title: 'Bài mới',
+      translationLanguageIds: [5, 7],
+      submitForReview: true,
+    });
+
+    expect(mockPostsService.update).toHaveBeenCalledWith(
+      100,
+      expect.objectContaining({
+        title: 'Bài mới',
+        status: PostStatus.DRAFT,
+        reviewedById: null,
+        reviewedAt: null,
+        rejectionReason: null,
+      }),
+    );
+
+    /**
+     * Existing: 5, 6
+     * Selected: 5, 7
+     * Batch:    5, 6, 7
+     */
+    expect(mockTranslationQueueService.enqueueBatch).toHaveBeenCalledWith({
+      rootPostId: 100,
+      ownerId: 3,
+      sourceLanguageId: 4,
+      sourceUpdatedAt: sourceUpdatedAt.toISOString(),
+      targetLanguageIds: [5, 6, 7],
+      submitForReview: true,
+    });
+
+    expect(mockTranslationService.translatePost).not.toHaveBeenCalled();
+
+    /**
+     * Trong lúc worker dịch lại, toàn bộ group phải ở DRAFT.
+     */
+    expect(mockHelper.updateOwnedPostGroupStatus).toHaveBeenCalledWith(
+      3,
+      100,
+      PostStatus.DRAFT,
+    );
+
+    expect(result.status).toBe(PostStatus.DRAFT);
+  });
+
+  it('should reject updating a translation directly', async () => {
+    const root = {
+      id: 100,
+      authorId: 3,
+      languageId: 4,
+      status: PostStatus.DRAFT,
+      thumbnailUrl: null,
+    };
+
+    const translation = {
+      id: 101,
+      authorId: 3,
+      parentPostId: 100,
+      languageId: 5,
+      status: PostStatus.DRAFT,
+    };
+
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 100,
+      root,
+      translations: [translation],
+      posts: [root, translation],
+    });
+
+    await expect(
+      service.update(3, 101, {
+        title: 'Không được sửa trực tiếp',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Chỉ được chỉnh sửa bài gốc. Các bản dịch sẽ được tự động đồng bộ từ bài gốc.',
+      ),
+    );
+
+    expect(mockPostsService.update).not.toHaveBeenCalled();
+    expect(mockTranslationQueueService.enqueueBatch).not.toHaveBeenCalled();
+  });
 
   it('should reject an empty update without changing post status', async () => {
     const root = {
