@@ -5,7 +5,11 @@ import {
   PostLikeEntity,
   PostBookmarkEntity,
 } from '@app/core/modules/posts/entities';
-import type { PaginationParams, PaginatedResult } from '@app/core';
+import {
+  getVietnamCalendarDate,
+  type PaginationParams,
+  type PaginatedResult,
+} from '@app/core';
 import { Prisma } from '@prisma/client';
 import { UserPostEntity } from '../entities';
 
@@ -61,38 +65,117 @@ export class PostInteractionService {
     return post;
   }
 
-  async likePost(userId: number, postId: number) {
-    await this.findOnePost(postId);
+async likePost(userId: number, postId: number) {
+  await this.findOnePost(postId);
 
-    const postLike = await this.prisma.postLike.upsert({
+  const metricDate = getVietnamCalendarDate();
+
+  const postLike = await this.prisma.$transaction(async (tx) => {
+    /**
+     * createMany + skipDuplicates giúp thao tác LIKE idempotent.
+     *
+     * Nếu user chưa like:
+     * count = 1
+     *
+     * Nếu đã like:
+     * count = 0
+     */
+    const created = await tx.postLike.createMany({
+      data: [
+        {
+          postId,
+          userId,
+        },
+      ],
+      skipDuplicates: true,
+    });
+
+    /**
+     * Chỉ khi thực sự tạo một like mới
+     * mới tăng analytics của ngày hôm nay.
+     */
+    if (created.count > 0) {
+      await tx.postDailyMetric.upsert({
+        where: {
+          postId_metricDate: {
+            postId,
+            metricDate,
+          },
+        },
+        create: {
+          postId,
+          metricDate,
+          viewCount: 0,
+          likeCount: 1,
+        },
+        update: {
+          likeCount: {
+            increment: 1,
+          },
+        },
+      });
+    }
+
+    return tx.postLike.findUniqueOrThrow({
       where: {
         postId_userId: {
           postId,
           userId,
         },
       },
-      update: {},
-      create: {
-        postId,
-        userId,
-      },
     });
+  });
 
-    return new PostLikeEntity(postLike);
-  }
+  return new PostLikeEntity(postLike);
+}
 
-  async unlikePost(userId: number, postId: number) {
-    await this.findOnePost(postId);
+async unlikePost(userId: number, postId: number) {
+  await this.findOnePost(postId);
 
-    await this.prisma.postLike.deleteMany({
+  const metricDate = getVietnamCalendarDate();
+
+  await this.prisma.$transaction(async (tx) => {
+    const deleted = await tx.postLike.deleteMany({
       where: {
         postId,
         userId,
       },
     });
 
-    return { message: 'Đã bỏ thích bài viết thành công' };
-  }
+    /**
+     * Chỉ khi thực sự xóa một PostLike
+     * mới ghi biến động -1 cho ngày hôm nay.
+     *
+     * Vì PostDailyMetric.likeCount là NET CHANGE:
+     *
+     * like   = +1
+     * unlike = -1
+     */
+    if (deleted.count > 0) {
+      await tx.postDailyMetric.upsert({
+        where: {
+          postId_metricDate: {
+            postId,
+            metricDate,
+          },
+        },
+        create: {
+          postId,
+          metricDate,
+          viewCount: 0,
+          likeCount: -1,
+        },
+        update: {
+          likeCount: {
+            decrement: 1,
+          },
+        },
+      });
+    }
+  });
+
+  return { message: 'Đã bỏ thích bài viết thành công' };
+}
 
   async bookmarkPost(userId: number, postId: number) {
     await this.findOnePost(postId);
