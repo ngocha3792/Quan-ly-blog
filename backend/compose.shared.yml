@@ -126,7 +126,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${TRANSLATE_MEM_LIMIT:-1300M}
+          # Hạ từ 1300M xuống 1200M (2026-09-10) để nhường chỗ cho Redis
+          # mới thêm — VPS chỉ 1.9GB, không thể cứ cộng dồn cap mà không
+          # bớt chỗ khác. Vẫn còn margin ~126MB so với peak đo thật
+          # 1.074GB (4 ngôn ngữ, 6 cặp model, cả 2 chiều — xem mục "Dịch
+          # tự động" bên dưới) nên không tăng rủi ro OOM so với trước.
+          memory: ${TRANSLATE_MEM_LIMIT:-1200M}
     healthcheck:
       test:
         [
@@ -152,10 +157,32 @@ services:
       # sự chết hẳn (không phải chỉ bận).
       retries: 40
       start_period: 60s
+  # Backing store cho BullMQ (queue dịch bài viết nền — xem
+  # backend/src/blogowner/queues/). VPS chỉ 1.9GB nên PHẢI giới hạn RAM,
+  # khác với để Redis mặc định không giới hạn:
+  #   - `--maxmemory 200mb --maxmemory-policy noeviction`: giới hạn Ở TẦNG
+  #     REDIS, không phải chỉ tầng Docker cgroup. Với noeviction, đầy bộ
+  #     nhớ thì Redis từ chối WRITE mới (BullMQ enqueue sẽ ném lỗi bắt
+  #     được) thay vì bị Docker OOM-kill cả container — job đang có trong
+  #     queue không bị mất do kill đột ngột. Không dùng chính sách evict
+  #     kiểu allkeys-lru vì đây là queue (mất dữ liệu = mất job thật), không
+  #     phải cache (mất dữ liệu chỉ là cache miss).
+  #   - `deploy.resources.limits.memory: 256M`: cap Docker cứng, cao hơn
+  #     maxmemory một chút để chừa chỗ cho overhead riêng của tiến trình
+  #     Redis (không phải dataset) — lớp phòng thủ thứ hai nếu tầng
+  #     maxmemory vì lý do gì đó không chặn kịp.
+  #   - `--save 60 1`: bật persist RDB (mặc định image đã bật, ghi rõ lại
+  #     cho dễ thấy) — queue mất dữu liệu khi Redis restart là mất job
+  #     dịch thật của user, không chấp nhận được như một cache thông thường.
   redis:
     image: redis:7-alpine
     container_name: blog-redis
     restart: unless-stopped
+    command: redis-server --maxmemory 200mb --maxmemory-policy noeviction --save 60 1
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     volumes:
       - blog_redis_data:/data
     networks:

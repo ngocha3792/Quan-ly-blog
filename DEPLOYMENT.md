@@ -366,6 +366,12 @@ về 4 ngôn ngữ. Bảng số liệu đầy đủ (2, 4, 10 ngôn ngữ) ở
   `TRANSLATE_MEM_LIMIT=1300M`. Tổng cả 5 container thực tế ~900MB/1.9GB.
 - Đĩa VPS sau khi ship: ~5.4GB trống.
 
+**Hạ cap xuống 1200M (2026-09-10)** khi thêm Redis cho queue dịch bài viết
+nền (mục "Queue dịch bài viết nền" bên dưới) — VPS chỉ 1.9GB, thêm một
+service mới bắt buộc phải nhường chỗ từ đâu đó thay vì cứ cộng dồn cap.
+Vẫn còn margin ~126MB so với peak đo thật (1.074GB) nên không tăng rủi ro
+OOM so với trước.
+
 **Vì sao grace period của blue-green chỉ 90s, không phải 5-15 phút**: số
 đo RAM ở trên (~900MB/1.9GB với 1 instance API) không còn nhiều margin để
 giữ **2 instance API** sống song song lâu — mỗi container Nest thêm
@@ -477,6 +483,60 @@ trong khi bản khác chưa duyệt), đã xác nhận với người vận hàn
 2026-09-03, giữ nguyên không sửa. Ghi lại ở đây vì dễ bị hiểu nhầm là bug
 — bài đã publish "tự nhiên" chuyển về chờ duyệt ngay khi ai đó thêm ngôn
 ngữ dịch cho nó.
+
+## 10b. Queue dịch bài viết nền (BullMQ + Redis)
+
+Thêm 2026-09-10, sau khi xác nhận thật trên production rằng dịch một bài
+dài ra nhiều ngôn ngữ trong cùng một request `POST/PATCH /blog-owner/posts`
+có thể chạy 10-20 phút — chặn cả request đó cho tới khi dịch xong là
+nguyên nhân trực tiếp gây 502 (nginx `proxy_read_timeout` không phải vấn
+đề chính lúc đó — LibreTranslate bị `autoheal` giết giữa chừng khiến kết
+nối đứt trước cả khi chạm ngưỡng 180s, xem mục 10). Việc dịch giờ chạy
+NỀN qua BullMQ, request tạo/sửa bài trả lời ngay, không chờ dịch xong.
+
+**Kiến trúc**: worker BullMQ (`backend/src/blogowner/queues/`) chạy
+**ngay trong process API** (`api-blue`/`api-green`), không phải container
+riêng — `@Processor` của `@nestjs/bullmq` tự đăng ký một `Worker` khi
+module khởi tạo. Không có service "worker" tách biệt nào trong
+`compose.shared.yml`/`compose.slot.yml`.
+
+**Redis** (`blog-redis`, `compose.shared.yml`) là backing store cho
+queue — bắt buộc giới hạn RAM vì VPS chỉ 1.9GB:
+- `--maxmemory 200mb --maxmemory-policy noeviction`: giới hạn ở TẦNG
+  REDIS. `noeviction` (không phải `allkeys-lru` kiểu cache) vì đây là
+  queue — đầy bộ nhớ thì từ chối ghi mới (BullMQ enqueue ném lỗi bắt
+  được) thay vì âm thầm xoá job cũ để nhường chỗ (mất job dịch thật của
+  user).
+- `deploy.resources.limits.memory: 256M`: cap Docker cứng, cao hơn
+  `maxmemory` một chút để chừa overhead riêng của tiến trình Redis — lớp
+  phòng thủ thứ hai.
+- Kéo theo phải hạ `TRANSLATE_MEM_LIMIT` từ 1300M xuống 1200M (mục 10) để
+  nhường chỗ trong ngân sách RAM chung.
+
+**Job đang dịch dở khi deploy blue-green**: vì worker sống chung process
+với API, mỗi lần deploy switch traffic xong, slot cũ bị `docker compose
+down` sau `GRACE_SECONDS`. `main.ts` đã `enableShutdownHooks()` nên
+`@nestjs/bullmq` tự gọi `worker.close()` (đợi job ĐANG xử lý xong hẳn) khi
+nhận SIGTERM — nhưng Docker mặc định chỉ đợi 10s giữa SIGTERM và SIGKILL,
+quá ngắn cho job có thể hợp lệ chạy 10-20 phút. Đã thêm
+`stop_grace_period: 15m` cho service `api` trong `compose.slot.yml` — chờ
+lâu ở bước dừng slot cũ không ảnh hưởng user (traffic đã ở slot mới), chỉ
+làm job CI deploy tốn thời gian hơn. Nếu vẫn hết 15 phút mà chưa xong
+(hiếm, chỉ với bài cực dài), job bị "stall" — BullMQ tự phát hiện và giao
+lại cho slot mới xử lý lại, không mất job nhưng bị gián đoạn + chậm hơn.
+
+**Thao tác tay cần làm khi merge nhánh này** (`.env.production` trên VPS
+KHÔNG nằm trong git, merge code không tự thêm biến mới được):
+```
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_USERNAME=
+REDIS_PASSWORD=
+```
+Thiếu bước này: container API cố nối `127.0.0.1:6379` (rỗng, theo giá trị
+fallback trong code) → enqueue job dịch lỗi ngầm, nhưng các API khác
+(đăng nhập, đọc bài...) vẫn chạy bình thường — không sập cả app, chỉ mất
+tính năng dịch.
 
 ## 11. Domain + HTTPS
 
