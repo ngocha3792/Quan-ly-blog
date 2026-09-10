@@ -3,6 +3,10 @@ import { PostStatus } from '@prisma/client';
 
 import { MediaEntity, PostEntity } from '@app/core';
 
+import type {
+  BlogownerTranslationBatchStatus,
+} from '../queues/blogowner-translation.types';
+
 /**
  * Thông tin tóm tắt của một phiên bản ngôn ngữ
  * trong cùng nhóm bài viết.
@@ -48,6 +52,17 @@ export type BlogownerPostGroup = {
 };
 
 /**
+ * Thông tin batch dịch nền BullMQ.
+ *
+ * Field này chỉ xuất hiện khi create/update
+ * thực sự enqueue translation jobs.
+ */
+export type BlogownerTranslationBatchInfo = {
+  batchId: string;
+  status: BlogownerTranslationBatchStatus;
+};
+
+/**
  * Entity trả dữ liệu riêng cho Blog Owner.
  *
  * Kế thừa PostEntity và bổ sung/ẩn:
@@ -56,9 +71,16 @@ export type BlogownerPostGroup = {
  * - chuyển _count.postLikes thành likeCount;
  * - đặt likeCount ngay sau viewCount trong JSON;
  * - trả danh sách media;
- * - trả các phiên bản ngôn ngữ cùng nhóm.
+ * - trả các phiên bản ngôn ngữ cùng nhóm;
+ * - có thể trả translationBatch khi đang dịch nền.
  */
 export class BlogownerPostEntity extends PostEntity {
+  /**
+   * Chỉ có khi request create/update vừa enqueue
+   * một translation batch.
+   */
+  translationBatch?: BlogownerTranslationBatchInfo;
+
   @Exclude()
   declare reviewedById: number | null;
 
@@ -100,11 +122,15 @@ export class BlogownerPostEntity extends PostEntity {
 
       media,
       translations,
+      translationBatch,
 
       ...remainingData
     } = partial;
 
-    const likeCount = providedLikeCount ?? _count?.postLikes ?? 0;
+    const likeCount =
+      providedLikeCount ??
+      _count?.postLikes ??
+      0;
 
     /**
      * Chủ động sắp xếp property trước khi PostEntity
@@ -113,7 +139,8 @@ export class BlogownerPostEntity extends PostEntity {
      * Nhờ vậy JSON trả về có thứ tự:
      * status -> viewCount -> likeCount -> publishedAt.
      */
-    const orderedPartial: Partial<BlogownerPostEntity> = {
+    const orderedPartial:
+      Partial<BlogownerPostEntity> = {
       id,
       title,
       thumbnailUrl,
@@ -126,6 +153,7 @@ export class BlogownerPostEntity extends PostEntity {
 
       media,
       translations,
+      translationBatch,
     };
 
     super(orderedPartial);
@@ -135,17 +163,20 @@ export class BlogownerPostEntity extends PostEntity {
      * property của class con có thể được khởi tạo lại
      * sau khi super() hoàn tất.
      *
-     * Gán lại để bảo đảm giá trị luôn chính xác,
-     * nhưng không làm thay đổi vị trí property.
+     * Vì vậy gán lại các field của class con
+     * để bảo đảm không bị reset thành undefined.
      */
     this.likeCount = likeCount;
 
     if (media) {
       this.media = media.map((item) =>
-        item instanceof MediaEntity ? item : new MediaEntity(item),
+        item instanceof MediaEntity
+          ? item
+          : new MediaEntity(item),
       );
     }
 
     this.translations = translations;
+    this.translationBatch = translationBatch;
   }
 }

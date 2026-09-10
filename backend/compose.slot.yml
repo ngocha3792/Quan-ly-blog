@@ -34,6 +34,16 @@ services:
     security_opt:
       - no-new-privileges:true
     init: true
+    # BullMQ worker (blogowner/queues/) chạy NGAY TRONG process API này,
+    # không phải container riêng — main.ts đã enableShutdownHooks() nên
+    # @nestjs/bullmq tự gọi worker.close() (đợi job ĐANG xử lý xong rồi
+    # mới thoát) khi nhận SIGTERM. Nhưng Docker mặc định chỉ đợi 10s giữa
+    # SIGTERM và SIGKILL — quá ngắn cho một job dịch có thể chạy hợp lệ
+    # 10-20 phút (bài dài × nhiều ngôn ngữ). scripts/deploy-blue-green.sh
+    # gọi `stop_slot()` (= `docker compose down`) cho slot CŨ chỉ SAU KHI
+    # traffic đã chuyển hẳn sang slot mới, nên chờ lâu ở bước này không
+    # ảnh hưởng user — chỉ làm job CI deploy tốn thời gian hơn.
+    stop_grace_period: 15m
     healthcheck:
       test:
         [

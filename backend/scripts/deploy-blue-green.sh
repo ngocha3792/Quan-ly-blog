@@ -41,7 +41,32 @@ if is_older_commit "${COMMIT_EPOCH}" "${CURRENT_EPOCH}"; then
     "${CURRENT_SHA} (epoch=${CURRENT_EPOCH}) — một job deploy khác đã xử lý một commit mới hơn hoặc bằng rồi."
   exit 0
 fi
+log "--- Đảm bảo Redis shared đang chạy ---"
 
+docker compose \
+  --env-file "${ENV_FILE}" \
+  -f compose.shared.yml \
+  up -d redis
+
+for i in $(seq 1 20); do
+  REDIS_HEALTH="$(
+    docker inspect \
+      --format '{{.State.Health.Status}}' \
+      blog-redis 2>/dev/null || echo "missing"
+  )"
+
+  if [[ "${REDIS_HEALTH}" == "healthy" ]]; then
+    log "Redis healthy."
+    break
+  fi
+
+  if [[ "${i}" -eq 20 ]]; then
+    log "Redis không healthy sau thời gian chờ — dừng deploy."
+    exit 1
+  fi
+
+  sleep 2
+done
 log "--- [1/8] Pull image ---"
 docker pull "${API_IMAGE}"
 docker pull "${MIGRATION_IMAGE}"

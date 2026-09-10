@@ -18,15 +18,17 @@ import { BlogownerOptionsService } from './services/blogowner-options.service';
 import { BlogownerPostHelperService } from './services/blogowner-post-helper.service';
 import { BlogownerPostsService } from './services/blogowner-posts.service';
 import { TranslationService } from './services/translation.service';
-
+import { BlogownerTranslationQueueModule } from './queues';
+import { BlogownerTranslationController } from './controllers/blogowner-translation.controller';
 @Module({
-  imports: [AuthsModule, PostsModule, MediaModule, CloudinaryModule],
+  imports: [AuthsModule, PostsModule, MediaModule, CloudinaryModule,  BlogownerTranslationQueueModule,],
 
   controllers: [
     BlogownerPostsController,
     BlogownerOptionsController,
     BlogownerDashboardController,
     BlogownerMediaController,
+    BlogownerTranslationController,
   ],
 
   providers: [
