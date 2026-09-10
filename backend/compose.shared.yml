@@ -133,14 +133,24 @@ services:
           'CMD',
           'python3',
           '-c',
-          "import urllib.request; urllib.request.urlopen('http://localhost:5000/languages', timeout=5)",
+          "import urllib.request; urllib.request.urlopen('http://localhost:5000/languages', timeout=8)",
         ]
-      interval: 15s
-      timeout: 5s
-      # Giảm từ 10 xuống 3 (45s thay vì 150s để chuyển "unhealthy") — worker
-      # chết là treo VÔ THỜI HẠN chứ không tự hồi, đợi lâu chỉ kéo dài thời
-      # gian user thấy quay vòng vô ích, không đổi được kết quả cuối.
-      retries: 3
+      interval: 30s
+      timeout: 10s
+      # SAI LẦM đã gặp thật 2026-09-09: từng để retries=3 (45s) — LT_THREADS=1
+      # nghĩa là CHỈ MỘT worker xử lý TUẦN TỰ, kể cả healthcheck cũng phải
+      # xếp hàng sau request /translate đang chạy. Dịch một bài viết dài ra
+      # 4 ngôn ngữ có thể chạy 10-20 phút một cách HỢP LỆ (không hề treo) —
+      # với ngưỡng 45s, autoheal liên tục giết nhầm worker đang bận dịch
+      # thật, làm mất luôn model đã load + job đang chạy dở, job sau phải
+      # load lại từ đầu (chậm hơn) → vòng lặp autoheal-giết-nhầm càng lúc
+      # càng dày (quan sát thật: khoảng cách giữa các lần restart rút ngắn
+      # dần 15 phút → 4 phút → 1.5 phút khi user đang dịch một bài dài).
+      #
+      # Nới lên 40 lần (~20 phút) — đủ dung sai cho job dịch dài nhất từng
+      # gặp, vẫn tự phục hồi (không phải chờ vô thời hạn) nếu worker thật
+      # sự chết hẳn (không phải chỉ bận).
+      retries: 40
       start_period: 60s
   redis:
     image: redis:7-alpine

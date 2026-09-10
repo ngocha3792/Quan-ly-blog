@@ -1,20 +1,21 @@
 import {
+  Body,
   Controller,
   Get,
-  Query,
+  Headers,
   Param,
   ParseIntPipe,
+  Post,
+  Query,
   UseInterceptors,
   ClassSerializerInterceptor,
-  Ip,
-  Headers,
 } from '@nestjs/common';
 import { Public, GetPostsDto, LangCode } from '@app/core';
 import type { PaginationParams } from '@app/core';
 import { Pagination } from '@app/core/common/decorators';
 import { PostsPublicService } from '../services/posts-public.service';
 
-import { GetTopQueryDto } from '../dto';
+import { GetTopQueryDto, RecordPostViewDto } from '../dto';
 
 @Controller('/posts')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -44,6 +45,25 @@ export class PublicPostsController {
   }
 
   @Public()
+  @Post(':id/view')
+  async recordView(
+    @Param('id', ParseIntPipe)
+    id: number,
+
+    @Body()
+    dto: RecordPostViewDto,
+
+    @Headers('authorization')
+    authorization?: string,
+  ) {
+    return this.postsPublicService.recordView(
+      id,
+      dto.visitorId,
+      authorization || null,
+    );
+  }
+
+  @Public()
   @Get(':id')
   async findOne(
     @Param('id', ParseIntPipe)
@@ -51,28 +71,7 @@ export class PublicPostsController {
 
     @LangCode()
     langCode: string | null,
-
-    @Ip()
-    viewerIp: string,
-
-    @Headers('user-agent')
-    userAgent?: string,
-
-    /**
-     * Public endpoint vẫn nhận Authorization nếu FE
-     * đang đăng nhập.
-     *
-     * Không bắt buộc phải có token.
-     */
-    @Headers('authorization')
-    authorization?: string,
   ) {
-    return this.postsPublicService.findOne(
-      id,
-      langCode,
-      viewerIp || null,
-      userAgent || null,
-      authorization || null,
-    );
+    return this.postsPublicService.findOne(id, langCode);
   }
 }

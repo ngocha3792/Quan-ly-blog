@@ -13,20 +13,24 @@ import { PostStatus, Prisma } from '@prisma/client';
 describe('PostsPublicService', () => {
   let service: PostsPublicService;
 
-  const mockPrismaService = {
-    post: {
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      update: jest.fn(),
-      aggregate: jest.fn(),
-    },
-    postViewLog: {
-      findFirst: jest.fn(),
-      create: jest.fn(),
-    },
-    $queryRaw: jest.fn(),
-    $transaction: jest.fn(),
-  };
+const mockPrismaService = {
+  post: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    aggregate: jest.fn(),
+  },
+  postViewLog: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+  },
+  postDailyMetric: {
+    upsert: jest.fn(),
+  },
+  $queryRaw: jest.fn(),
+  $transaction: jest.fn(),
+};
 
   const mockPostsService = {
     findAll: jest.fn(),
@@ -175,264 +179,375 @@ describe('PostsPublicService', () => {
   });
 
   describe('findOne', () => {
-    const mockPost = {
+  it('should require the post language to be active and non-deleted', async () => {
+    mockPostsService.findOne.mockResolvedValueOnce({
       id: 1,
       title: 'Test Post',
       status: PostStatus.PUBLISH,
       languageId: 1,
-    };
+    });
 
-    it('should require the post language to be active and non-deleted', async () => {
-      mockPostsService.findOne.mockResolvedValueOnce({
-        id: 1,
-        title: 'Test Post',
-        status: PostStatus.PUBLISH,
-        languageId: 1,
-      });
+    const result = await service.findOne(1, null);
 
-      mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce({
-        id: 99,
-      });
+    expect(result.id).toBe(1);
 
-      await service.findOne(1, null, '127.0.0.1', 'Mozilla/5.0', null);
-
-      expect(mockPostsService.findOne).toHaveBeenCalledWith(
-        1,
-        expect.anything(),
-        {
-          language: {
-            is: {
-              isActive: true,
-              deletedAt: null,
-            },
+    expect(mockPostsService.findOne).toHaveBeenCalledWith(
+      1,
+      expect.anything(),
+      {
+        language: {
+          is: {
+            isActive: true,
+            deletedAt: null,
           },
         },
-      );
+      },
+    );
+  });
+
+  it('should not record a view when merely fetching post detail', async () => {
+    mockPostsService.findOne.mockResolvedValueOnce({
+      id: 1,
+      title: 'Test Post',
+      status: PostStatus.PUBLISH,
+      languageId: 1,
+      viewCount: 10,
     });
 
-    it('should hash viewer identity before storing view log', async () => {
-      mockPostsService.findOne.mockResolvedValueOnce({
-        id: 1,
-        title: 'Test Post',
-        status: PostStatus.PUBLISH,
-        languageId: 1,
-      });
-
-      mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
-
-      mockPrismaService.postViewLog.create.mockResolvedValueOnce({
-        id: 100,
-      });
-
-      mockPrismaService.post.update.mockResolvedValueOnce({
-        id: 1,
-        viewCount: 1,
-      });
-
-      const result = await service.findOne(
-        1,
-        null,
-        // IPv4 mapped IPv6
-        '::ffff:127.0.0.1',
-        'Mozilla/5.0 Test Browser',
-        null,
-      );
-
-      expect(result.id).toBe(1);
-
-      const expectedViewerKey = `v2:${createHmac(
-        'sha256',
-        'test-viewer-key-secret',
-      )
-        .update(
-          ['post:1', 'ip:127.0.0.1', 'ua:Mozilla/5.0 Test Browser'].join('\n'),
-        )
-        .digest('hex')}`;
-
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(mockPrismaService.postViewLog.findFirst).toHaveBeenCalledWith({
-        where: {
-          postId: 1,
-          viewerKey: expectedViewerKey,
-          viewedAt: {
-            gte: expect.any(Date),
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      expect(mockPrismaService.postViewLog.create).toHaveBeenCalledWith({
-        data: {
-          postId: 1,
-          viewerKey: expectedViewerKey,
-        },
-      });
-
-      expect(expectedViewerKey).not.toContain('127.0.0.1');
+    /**
+     * viewCount trả về là tổng cả nhóm (getGroupViewCount), không phải
+     * viewCount thô 10 của riêng bản ghi này — xem test
+     * "should return the group total..." bên dưới cho chi tiết vì sao.
+     */
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 42 },
     });
 
-    it('should key the view by account id instead of IP/User-Agent when a valid Bearer token is sent', async () => {
-      mockPostsService.findOne.mockResolvedValueOnce({
-        id: 1,
-        title: 'Test Post',
-        status: PostStatus.PUBLISH,
-        languageId: 1,
-      });
+    const result = await service.findOne(1, null);
 
-      mockJwtUtil.verifyAccessToken.mockReturnValueOnce({ sub: '42' });
+    expect(result.id).toBe(1);
+    expect(result.viewCount).toBe(42);
 
-      mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
-      mockPrismaService.postViewLog.create.mockResolvedValueOnce({ id: 100 });
-      mockPrismaService.post.update.mockResolvedValueOnce({
-        id: 1,
-        viewCount: 1,
-      });
+    expect(mockJwtUtil.verifyAccessToken).not.toHaveBeenCalled();
+    expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    expect(mockPrismaService.postViewLog.findFirst).not.toHaveBeenCalled();
+    expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+    expect(mockPrismaService.postDailyMetric.upsert).not.toHaveBeenCalled();
+  });
 
-      await service.findOne(
-        1,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-        'Bearer some-valid-token',
-      );
-
-      const expectedViewerKey = `v2:${createHmac(
-        'sha256',
-        'test-viewer-key-secret',
-      )
-        .update(['post:1', 'user:42'].join('\n'))
-        .digest('hex')}`;
-
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(mockJwtUtil.verifyAccessToken).toHaveBeenCalledWith(
-        'some-valid-token',
-      );
-
-      expect(mockPrismaService.postViewLog.create).toHaveBeenCalledWith({
-        data: {
-          postId: 1,
-          viewerKey: expectedViewerKey,
-        },
-      });
+  it('should return the group total (root + all translations) as viewCount, not just the exact version read', async () => {
+    /**
+     * Bug đã gặp thật: chỉ trả viewCount thô của đúng bản ghi đang đọc
+     * (recordView() tăng riêng từng bản dịch) khiến người đọc chuyển
+     * ngôn ngữ thấy view "biến mất" — vì phần lớn lịch sử view đã dồn
+     * vào ROOT từ hồi còn tính view theo kiểu cũ. findOne() phải luôn
+     * trả về TỔNG cả nhóm ngôn ngữ.
+     */
+    mockPostsService.findOne.mockResolvedValueOnce({
+      id: 12,
+      parentPostId: 10,
+      title: 'Bản dịch tiếng Nhật',
+      status: PostStatus.PUBLISH,
+      languageId: 3,
+      viewCount: 2,
     });
 
-    it('should fall back to the anonymous fingerprint when the Bearer token is invalid', async () => {
-      mockPostsService.findOne.mockResolvedValueOnce({
-        id: 1,
-        title: 'Test Post',
-        status: PostStatus.PUBLISH,
-        languageId: 1,
-      });
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 137 },
+    });
 
-      mockJwtUtil.verifyAccessToken.mockImplementation(() => {
-        throw new Error('invalid token');
-      });
+    const result = await service.findOne(12, null);
 
-      mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce({
-        id: 99,
-      });
+    expect(result.viewCount).toBe(137);
 
-      const result = await service.findOne(
-        1,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-        'Bearer bad-token',
-      );
-
-      expect(result.id).toBe(1);
-
-      await new Promise((resolve) => setTimeout(resolve, 20));
-
-      const expectedViewerKey = `v2:${createHmac(
-        'sha256',
-        'test-viewer-key-secret',
-      )
-        .update(['post:1', 'ip:127.0.0.1', 'ua:Mozilla/5.0'].join('\n'))
-        .digest('hex')}`;
-
-      expect(mockPrismaService.postViewLog.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ viewerKey: expectedViewerKey }),
+    expect(mockPrismaService.post.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { id: 10, parentPostId: null },
+            { parentPostId: 10 },
+          ],
         }),
-      );
+      }),
+    );
+  });
+});
+
+describe('recordView', () => {
+  const visitorId = '550e8400-e29b-41d4-a716-446655440000';
+
+  it('should record a guest view for the exact post version and daily metric', async () => {
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 101,
     });
 
-    it('should deduplicate view if viewed within 5 minutes', async () => {
-      mockPostsService.findOne.mockResolvedValueOnce(mockPost);
-      mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce({
-        id: 99,
-      });
+    mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
 
-      const result = await service.findOne(
-        1,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-        null,
-      );
-
-      expect(result.id).toBe(1);
-
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(mockPrismaService.postViewLog.findFirst).toHaveBeenCalled();
-      expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
-      expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+    mockPrismaService.postViewLog.create.mockResolvedValueOnce({
+      id: 1,
     });
 
-    it('should skip view tracking when both IP and User-Agent are missing', async () => {
-      mockPostsService.findOne.mockResolvedValueOnce({
-        id: 1,
-        title: 'Test Post',
-        status: PostStatus.PUBLISH,
-        languageId: 1,
-      });
-
-      const result = await service.findOne(1, null, null, null, null);
-
-      expect(result.id).toBe(1);
-
-      await new Promise((resolve) => setTimeout(resolve, 20));
-
-      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
-      expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
-      expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+    mockPrismaService.post.update.mockResolvedValueOnce({
+      id: 101,
+      viewCount: 11,
     });
 
-    it('should not store raw viewer data when VIEWER_KEY_SECRET is missing', async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'app.viewerKeySecret') return undefined;
-        return undefined;
-      });
+    mockPrismaService.postDailyMetric.upsert.mockResolvedValueOnce({
+      id: 1,
+    });
 
-      mockPostsService.findOne.mockResolvedValueOnce({
-        id: 1,
-        title: 'Test Post',
-        status: PostStatus.PUBLISH,
-        languageId: 1,
-      });
+    mockPrismaService.post.findUnique.mockResolvedValueOnce({
+      viewCount: 11,
+    });
 
-      const result = await service.findOne(
-        1,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-        null,
-      );
+    const result = await service.recordView(
+      101,
+      visitorId,
+      null,
+    );
 
-      expect(result.id).toBe(1);
+    const expectedViewerKey = `v3:${createHmac(
+      'sha256',
+      'test-viewer-key-secret',
+    )
+      .update(['post:101', `guest:${visitorId}`].join('\n'))
+      .digest('hex')}`;
 
-      await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(result).toEqual({
+      counted: true,
+      viewCount: 11,
+    });
 
-      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
-      expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
+    expect(mockPrismaService.postViewLog.findFirst).toHaveBeenCalledWith({
+      where: {
+        postId: 101,
+        viewerKey: expectedViewerKey,
+        viewedAt: {
+          gte: expect.any(Date),
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(mockPrismaService.postViewLog.create).toHaveBeenCalledWith({
+      data: {
+        postId: 101,
+        viewerKey: expectedViewerKey,
+      },
+    });
+
+    expect(mockPrismaService.post.update).toHaveBeenCalledWith({
+      where: {
+        id: 101,
+      },
+      data: {
+        viewCount: {
+          increment: 1,
+        },
+      },
+    });
+
+    expect(mockPrismaService.postDailyMetric.upsert).toHaveBeenCalledWith({
+      where: {
+        postId_metricDate: {
+          postId: 101,
+          metricDate: expect.any(Date),
+        },
+      },
+      create: {
+        postId: 101,
+        metricDate: expect.any(Date),
+        viewCount: 1,
+        likeCount: 0,
+      },
+      update: {
+        viewCount: {
+          increment: 1,
+        },
+      },
     });
   });
+
+  it('should use account id instead of visitorId when access token is valid', async () => {
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 101,
+    });
+
+    mockJwtUtil.verifyAccessToken.mockReturnValueOnce({
+      sub: '42',
+    });
+
+    mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
+    mockPrismaService.postViewLog.create.mockResolvedValueOnce({ id: 1 });
+    mockPrismaService.post.update.mockResolvedValueOnce({
+      id: 101,
+      viewCount: 20,
+    });
+    mockPrismaService.postDailyMetric.upsert.mockResolvedValueOnce({
+      id: 1,
+    });
+    mockPrismaService.post.findUnique.mockResolvedValueOnce({
+      viewCount: 20,
+    });
+
+    const result = await service.recordView(
+      101,
+      visitorId,
+      'Bearer some-valid-token',
+    );
+
+    const expectedViewerKey = `v3:${createHmac(
+      'sha256',
+      'test-viewer-key-secret',
+    )
+      .update(['post:101', 'user:42'].join('\n'))
+      .digest('hex')}`;
+
+    expect(mockJwtUtil.verifyAccessToken).toHaveBeenCalledWith(
+      'some-valid-token',
+    );
+
+    expect(mockPrismaService.postViewLog.create).toHaveBeenCalledWith({
+      data: {
+        postId: 101,
+        viewerKey: expectedViewerKey,
+      },
+    });
+
+    expect(result).toEqual({
+      counted: true,
+      viewCount: 20,
+    });
+  });
+
+  it('should fall back to visitorId when Bearer token is invalid', async () => {
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 101,
+    });
+
+    mockJwtUtil.verifyAccessToken.mockImplementationOnce(() => {
+      throw new Error('invalid token');
+    });
+
+    mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
+    mockPrismaService.postViewLog.create.mockResolvedValueOnce({ id: 1 });
+    mockPrismaService.post.update.mockResolvedValueOnce({
+      id: 101,
+      viewCount: 5,
+    });
+    mockPrismaService.postDailyMetric.upsert.mockResolvedValueOnce({
+      id: 1,
+    });
+    mockPrismaService.post.findUnique.mockResolvedValueOnce({
+      viewCount: 5,
+    });
+
+    await service.recordView(
+      101,
+      visitorId,
+      'Bearer bad-token',
+    );
+
+    const expectedViewerKey = `v3:${createHmac(
+      'sha256',
+      'test-viewer-key-secret',
+    )
+      .update(['post:101', `guest:${visitorId}`].join('\n'))
+      .digest('hex')}`;
+
+    expect(mockPrismaService.postViewLog.create).toHaveBeenCalledWith({
+      data: {
+        postId: 101,
+        viewerKey: expectedViewerKey,
+      },
+    });
+  });
+
+  it('should not increment again when the same viewer viewed the same post within 10 minutes', async () => {
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 101,
+    });
+
+    mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce({
+      id: 99,
+    });
+
+    mockPrismaService.post.findUnique.mockResolvedValueOnce({
+      viewCount: 10,
+    });
+
+    const beforeRequest = Date.now();
+
+    const result = await service.recordView(
+      101,
+      visitorId,
+      null,
+    );
+
+    expect(result).toEqual({
+      counted: false,
+      viewCount: 10,
+    });
+
+    const findViewCall =
+      mockPrismaService.postViewLog.findFirst.mock.calls[0][0];
+
+    const viewedAfter =
+      findViewCall.where.viewedAt.gte as Date;
+
+    /**
+     * Threshold phải xấp xỉ now - 10 phút.
+     */
+    expect(viewedAfter.getTime()).toBeGreaterThanOrEqual(
+      beforeRequest - 10 * 60 * 1000 - 1000,
+    );
+
+    expect(viewedAfter.getTime()).toBeLessThanOrEqual(
+      Date.now() - 10 * 60 * 1000 + 1000,
+    );
+
+    expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+    expect(mockPrismaService.postDailyMetric.upsert).not.toHaveBeenCalled();
+  });
+
+  it('should not store raw visitor data when VIEWER_KEY_SECRET is missing', async () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'app.viewerKeySecret') {
+        return undefined;
+      }
+
+      return undefined;
+    });
+
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 101,
+    });
+
+    mockPrismaService.post.findUnique.mockResolvedValueOnce({
+      viewCount: 7,
+    });
+
+    const result = await service.recordView(
+      101,
+      visitorId,
+      null,
+    );
+
+    expect(result).toEqual({
+      counted: false,
+      viewCount: 7,
+    });
+
+    expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
+    expect(mockPrismaService.post.update).not.toHaveBeenCalled();
+    expect(mockPrismaService.postDailyMetric.upsert).not.toHaveBeenCalled();
+  });
+});
 
   describe('getTopPosts', () => {
     it('should reuse cached ranking ids instead of aggregating again', async () => {
@@ -525,46 +640,61 @@ describe('PostsPublicService', () => {
     });
   });
 
-  describe('buildViewerKey', () => {
-    it('should produce different keys for the same viewer on different posts', () => {
-      const firstKey = (service as any).buildViewerKey(
-        1,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-      );
+describe('buildViewerKey', () => {
+  const visitorId = '550e8400-e29b-41d4-a716-446655440000';
 
-      const secondKey = (service as any).buildViewerKey(
-        2,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-      );
+  it('should produce different keys for the same guest on different post versions', () => {
+    const firstKey = (service as any).buildViewerKey(
+      1,
+      null,
+      visitorId,
+    );
 
-      expect(firstKey).toMatch(/^v2:[a-f0-9]{64}$/);
-      expect(secondKey).toMatch(/^v2:[a-f0-9]{64}$/);
-      expect(firstKey).not.toBe(secondKey);
-    });
+    const secondKey = (service as any).buildViewerKey(
+      2,
+      null,
+      visitorId,
+    );
 
-    it('should produce different keys for a logged-in viewer than for a guest with the same IP/User-Agent', () => {
-      const guestKey = (service as any).buildViewerKey(
-        1,
-        null,
-        '127.0.0.1',
-        'Mozilla/5.0',
-      );
-
-      const accountKey = (service as any).buildViewerKey(
-        1,
-        42,
-        '127.0.0.1',
-        'Mozilla/5.0',
-      );
-
-      expect(accountKey).toMatch(/^v2:[a-f0-9]{64}$/);
-      expect(accountKey).not.toBe(guestKey);
-    });
+    expect(firstKey).toMatch(/^v3:[a-f0-9]{64}$/);
+    expect(secondKey).toMatch(/^v3:[a-f0-9]{64}$/);
+    expect(firstKey).not.toBe(secondKey);
   });
+
+  it('should produce different keys for a logged-in viewer and a guest', () => {
+    const guestKey = (service as any).buildViewerKey(
+      1,
+      null,
+      visitorId,
+    );
+
+    const accountKey = (service as any).buildViewerKey(
+      1,
+      42,
+      visitorId,
+    );
+
+    expect(guestKey).toMatch(/^v3:[a-f0-9]{64}$/);
+    expect(accountKey).toMatch(/^v3:[a-f0-9]{64}$/);
+    expect(accountKey).not.toBe(guestKey);
+  });
+
+  it('should use the same key for the same logged-in account regardless of visitorId', () => {
+    const firstKey = (service as any).buildViewerKey(
+      1,
+      42,
+      '550e8400-e29b-41d4-a716-446655440000',
+    );
+
+    const secondKey = (service as any).buildViewerKey(
+      1,
+      42,
+      '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+    );
+
+    expect(firstKey).toBe(secondKey);
+  });
+});
 
   describe('recordViewWithDeduplication', () => {
     it('should retry when transaction has write conflict (P2034)', async () => {
@@ -576,13 +706,13 @@ describe('PostsPublicService', () => {
         },
       );
 
-      mockPrismaService.$transaction
-        .mockRejectedValueOnce(conflictError)
-        .mockResolvedValueOnce(undefined);
+        mockPrismaService.$transaction
+          .mockRejectedValueOnce(conflictError)
+          .mockResolvedValueOnce(true);
 
-      await expect(
-        (service as any).recordViewWithDeduplication(1, 'viewer-1'),
-      ).resolves.toBeUndefined();
+        await expect(
+          (service as any).recordViewWithDeduplication(1, 'viewer-1'),
+        ).resolves.toBe(true);
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(2);
     });

@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto';
 import { PrismaService } from '@app/core/core/prisma/prisma.service';
 import {
   GetPostsDto,
+  getVietnamCalendarDate,
   JWTUtil,
   LanguagesService,
   PostNotFoundException,
@@ -235,13 +236,7 @@ export class PostsPublicService {
     };
   }
 
-  async findOne(
-    id: number,
-    langCode: string | null,
-    viewerIp: string | null,
-    userAgent: string | null,
-    authorizationHeader: string | null,
-  ) {
+  async findOne(id: number, langCode: string | null) {
     let post = new PublicPostEntity(
       await this.postsService.findOne(
         id,
@@ -293,61 +288,120 @@ export class PostsPublicService {
     }
 
     /**
-     * =====================================================
-     * VIEW ĐƯỢC TÍNH THEO LOGICAL ARTICLE
-     * =====================================================
+     * View hiển thị cho người đọc là tổng của CẢ LOGICAL ARTICLE
+     * (root + mọi bản dịch), không phải riêng bản đang đọc.
      *
-     * ROOT 10
-     * ├── EN 11
-     * └── JA 12
-     *
-     * Cả 3 đều dùng rootPostId = 10 để track view.
+     * recordView()/recordViewWithDeduplication() bên dưới tăng đúng
+     * viewCount của EXACT VERSION đang đọc (phục vụ thống kê theo từng
+     * ngôn ngữ cho Blog Owner) — nhưng con số ĐỌC GIẢ nhìn thấy vẫn phải
+     * nhất quán dù họ đang xem bản ngôn ngữ nào, nếu không chuyển ngôn
+     * ngữ sẽ trông như "mất hết view" (bản dịch ít người đọc trực tiếp
+     * hơn ROOT, nhất là data cũ từ hồi view từng chỉ cộng dồn vào ROOT).
      */
     const rootPostId = post.parentPostId ?? post.id;
 
-    /**
-     * Nếu request có access token hợp lệ:
-     *
-     * viewer = account ID
-     *
-     * Nếu không:
-     *
-     * viewer = IP + User-Agent.
-     */
-    const viewerUserId = this.resolveOptionalViewerUserId(authorizationHeader);
-
-    const viewerKey = this.buildViewerKey(
-      rootPostId,
-      viewerUserId,
-      viewerIp,
-      userAgent,
-    );
-
-    /**
-     * Không fire-and-forget nữa.
-     *
-     * Phải đợi view update xong để response đầu tiên
-     * có thể hiện ngay 1 view.
-     */
-    if (viewerKey) {
-      try {
-        await this.recordViewWithDeduplication(rootPostId, viewerKey);
-      } catch {
-        /**
-         * Tracking lỗi không được làm API đọc bài lỗi.
-         */
-      }
-    }
-
-    /**
-     * View hiển thị là tổng logical article.
-     *
-     * Dữ liệu cũ có thể từng có view trên translation,
-     * vì vậy cộng toàn group để không làm mất lịch sử.
-     */
     post.viewCount = await this.getGroupViewCount(rootPostId);
 
     return post;
+  }
+
+  private async getGroupViewCount(rootPostId: number): Promise<number> {
+    const result = await this.prisma.post.aggregate({
+      where: {
+        deletedAt: null,
+
+        OR: [
+          {
+            id: rootPostId,
+            parentPostId: null,
+          },
+          {
+            parentPostId: rootPostId,
+          },
+        ],
+      },
+
+      _sum: {
+        viewCount: true,
+      },
+    });
+
+    return result._sum.viewCount ?? 0;
+  }
+
+  async recordView(
+    postId: number,
+    visitorId: string,
+    authorizationHeader: string | null,
+  ) {
+    /**
+     * Chỉ bài public thật sự mới được ghi view.
+     *
+     * postId là EXACT VERSION đang được đọc,
+     * không quy về root.
+     */
+    const post = await this.prisma.post.findFirst({
+      where: {
+        id: postId,
+        status: PostStatus.PUBLISH,
+        deletedAt: null,
+        ...PUBLIC_POST_WHERE,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!post) {
+      throw new PostNotFoundException(postId.toString());
+    }
+
+    const viewerUserId =
+      this.resolveOptionalViewerUserId(authorizationHeader);
+
+    const viewerKey = this.buildViewerKey(
+      postId,
+      viewerUserId,
+      visitorId,
+    );
+
+    /**
+     * VIEWER_KEY_SECRET thiếu thì không lưu raw userId/visitorId.
+     */
+    if (!viewerKey) {
+      const currentPost = await this.prisma.post.findUnique({
+        where: {
+          id: postId,
+        },
+        select: {
+          viewCount: true,
+        },
+      });
+
+      return {
+        counted: false,
+        viewCount: currentPost?.viewCount ?? 0,
+      };
+    }
+
+    const counted = await this.recordViewWithDeduplication(
+      postId,
+      viewerKey,
+    );
+
+    const currentPost = await this.prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        viewCount: true,
+      },
+    });
+
+    return {
+      counted,
+      viewCount: currentPost?.viewCount ?? 0,
+    };
   }
 
   /**
@@ -394,25 +448,22 @@ export class PostsPublicService {
     }
   }
 
+
   /**
-   * Tạo viewer key theo LOGICAL ARTICLE.
+   * Tạo pseudonymous viewer key cho EXACT POST VERSION.
    *
    * Logged-in:
+   * postId + userId
    *
-   * rootPostId + userId
+   * Guest:
+   * postId + visitorId
    *
-   * Anonymous:
-   *
-   * rootPostId + IP + User-Agent
-   *
-   * Tất cả đều HMAC trước khi lưu DB,
-   * không lưu raw userId/IP/UA trong viewer_key.
+   * Không lưu raw userId/visitorId trong PostViewLog.
    */
   private buildViewerKey(
-    rootPostId: number,
+    postId: number,
     viewerUserId: number | null,
-    viewerIp: string | null,
-    userAgent: string | null,
+    visitorId: string,
   ): string | null {
     const secret = this.configService.get<string>('app.viewerKeySecret');
 
@@ -420,208 +471,158 @@ export class PostsPublicService {
       return null;
     }
 
-    /**
-     * ==========================================
-     * CASE 1 — USER ĐÃ ĐĂNG NHẬP
-     * ==========================================
-     *
-     * Account A và Account B trên cùng máy
-     * sẽ có viewerKey khác nhau.
-     */
+    let viewerIdentity: string;
+
     if (viewerUserId !== null) {
-      const fingerprint = [`post:${rootPostId}`, `user:${viewerUserId}`].join(
-        '\n',
-      );
+      viewerIdentity = `user:${viewerUserId}`;
+    } else {
+      const normalizedVisitorId = visitorId.trim().toLowerCase();
 
-      const digest = createHmac('sha256', secret)
-        .update(fingerprint)
-        .digest('hex');
+      if (!normalizedVisitorId) {
+        return null;
+      }
 
-      return `v2:${digest}`;
-    }
-
-    /**
-     * ==========================================
-     * CASE 2 — GUEST
-     * ==========================================
-     */
-    const normalizedIp = this.normalizeIp(viewerIp);
-
-    const normalizedUserAgent = userAgent?.trim().slice(0, 512) || null;
-
-    if (!normalizedIp && !normalizedUserAgent) {
-      return null;
+      viewerIdentity = `guest:${normalizedVisitorId}`;
     }
 
     const fingerprint = [
-      `post:${rootPostId}`,
-      `ip:${normalizedIp ?? 'missing'}`,
-      `ua:${normalizedUserAgent ?? 'missing'}`,
+      `post:${postId}`,
+      viewerIdentity,
     ].join('\n');
 
     const digest = createHmac('sha256', secret)
       .update(fingerprint)
       .digest('hex');
 
-    return `v2:${digest}`;
-  }
-
-  private normalizeIp(viewerIp: string | null): string | null {
-    const ip = viewerIp?.trim().toLowerCase();
-
-    if (!ip) {
-      return null;
-    }
-
     /**
-     * Nest/Express đôi lúc trả IPv4 dưới dạng:
+     * v3 vì semantics đã đổi:
      *
-     * ::ffff:127.0.0.1
-     *
-     * Normalize để:
-     *
-     * ::ffff:127.0.0.1
-     *
-     * và
-     *
-     * 127.0.0.1
-     *
-     * không trở thành hai viewer khác nhau.
+     * v2 = root + user hoặc IP/UA
+     * v3 = exact post + user hoặc visitorId
      */
-    return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+    return `v3:${digest}`;
   }
 
   /**
-   * Tổng view của một logical article.
-   *
-   * ROOT
-   * +
-   * tất cả translations active.
-   *
-   * Hiện dữ liệu mới sẽ chỉ increment ROOT,
-   * nhưng cộng cả group để giữ đúng lịch sử
-   * của dữ liệu trước khi sửa flow.
-   */
-  private async getGroupViewCount(rootPostId: number): Promise<number> {
-    const result = await this.prisma.post.aggregate({
-      where: {
-        deletedAt: null,
-
-        OR: [
-          {
-            id: rootPostId,
-            parentPostId: null,
-          },
-          {
-            parentPostId: rootPostId,
-          },
-        ],
-      },
-
-      _sum: {
-        viewCount: true,
-      },
-    });
-
-    return result._sum.viewCount ?? 0;
-  }
-
-  /**
-   * Deduplicate view theo:
-   *
-   * postId + pseudonymous viewerKey
-   *
-   * trong vòng 5 phút.
+   * Một viewer chỉ được tính một valid view
+   * cho cùng EXACT POST VERSION trong 10 phút.
    *
    * Serializable transaction + retry P2034
-   * giúp tránh duplicate increment khi có
-   * concurrent request.
+   * chống race khi nhiều tab gửi request cùng lúc.
    */
   private async recordViewWithDeduplication(
-    rootPostId: number,
+    postId: number,
     viewerKey: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const maxRetries = 3;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        await this.prisma.$transaction(
+        const counted = await this.prisma.$transaction(
           async (tx) => {
-            /**
-             * Một viewer chỉ được tính lại sau 5 phút.
-             */
-            const viewedAfter = new Date(Date.now() - 5 * 60 * 1000);
+            const viewedAfter = new Date(
+              Date.now() - 10 * 60 * 1000,
+            );
 
-            /**
-             * Quan trọng:
-             *
-             * Luôn log bằng ROOT ID.
-             *
-             * Xem VI → root 10
-             * Xem EN → vẫn root 10
-             * Xem JA → vẫn root 10
-             */
             const existingView = await tx.postViewLog.findFirst({
               where: {
-                postId: rootPostId,
-
+                postId,
                 viewerKey,
-
                 viewedAt: {
                   gte: viewedAfter,
                 },
               },
-
               select: {
                 id: true,
               },
             });
 
+            /**
+             * Tab khác / refresh cùng viewer
+             * đã được tính trong 10 phút.
+             */
             if (existingView) {
-              return;
+              return false;
             }
+
+            /**
+             * Ngày lịch Việt Nam YYYY-MM-DD,
+             * lưu dưới dạng UTC 00:00 cho cột @db.Date.
+             */
+            const metricDate = getVietnamCalendarDate();
 
             await tx.postViewLog.create({
               data: {
-                postId: rootPostId,
-
+                postId,
                 viewerKey,
               },
             });
 
             /**
-             * Chỉ ROOT giữ counter mới.
+             * Tăng đúng version đang được đọc.
              *
-             * Translation không increment riêng nữa.
+             * Xem EN → tăng EN.
+             * Xem JA → tăng JA.
+             * Không tự quy về ROOT.
              */
             await tx.post.update({
               where: {
-                id: rootPostId,
+                id: postId,
               },
-
               data: {
                 viewCount: {
                   increment: 1,
                 },
               },
             });
-          },
 
+            /**
+             * Đồng thời ghi analytics theo ngày.
+             *
+             * Post.viewCount và PostDailyMetric
+             * phải cùng commit hoặc cùng rollback.
+             */
+            await tx.postDailyMetric.upsert({
+              where: {
+                postId_metricDate: {
+                  postId,
+                  metricDate,
+                },
+              },
+              create: {
+                postId,
+                metricDate,
+                viewCount: 1,
+                likeCount: 0,
+              },
+              update: {
+                viewCount: {
+                  increment: 1,
+                },
+              },
+            });
+
+            return true;
+          },
           {
-            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            isolationLevel:
+              Prisma.TransactionIsolationLevel.Serializable,
           },
         );
 
-        return;
+        return counted;
       } catch (error) {
         const canRetry =
-          this.isTransactionConflict(error) && attempt < maxRetries - 1;
+          this.isTransactionConflict(error) &&
+          attempt < maxRetries - 1;
 
         if (!canRetry) {
           throw error;
         }
       }
     }
+
+    return false;
   }
 
   private isTransactionConflict(error: unknown): boolean {

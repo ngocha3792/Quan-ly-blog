@@ -6,15 +6,22 @@ import { PostInteractionService } from './post-interaction.service';
 describe('PostInteractionService', () => {
   let service: PostInteractionService;
   let prisma: {
-    post: { findFirst: jest.Mock };
+    post: {
+      findFirst: jest.Mock;
+    };
     postLike: {
       findUnique: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       create: jest.Mock;
+      createMany: jest.Mock;
       delete: jest.Mock;
       upsert: jest.Mock;
       deleteMany: jest.Mock;
       count: jest.Mock;
       findMany: jest.Mock;
+    };
+    postDailyMetric: {
+      upsert: jest.Mock;
     };
     postBookmark: {
       findUnique: jest.Mock;
@@ -25,6 +32,7 @@ describe('PostInteractionService', () => {
       count: jest.Mock;
       findMany: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -34,12 +42,17 @@ describe('PostInteractionService', () => {
       },
       postLike: {
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         create: jest.fn(),
+        createMany: jest.fn(),
         delete: jest.fn(),
         upsert: jest.fn(),
         deleteMany: jest.fn(),
         count: jest.fn(),
         findMany: jest.fn(),
+      },
+      postDailyMetric: {
+        upsert: jest.fn(),
       },
       postBookmark: {
         findUnique: jest.fn(),
@@ -50,7 +63,12 @@ describe('PostInteractionService', () => {
         count: jest.fn(),
         findMany: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
+
+    prisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof prisma) => unknown) => callback(prisma),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -76,39 +94,168 @@ describe('PostInteractionService', () => {
       await expect(service.likePost(1, 100)).rejects.toThrow(
         PostNotFoundException,
       );
+
       expect(prisma.post.findFirst).toHaveBeenCalledWith({
-        where: { id: 100, deletedAt: null, status: 'PUBLISH' },
+        where: {
+          id: 100,
+          deletedAt: null,
+          status: 'PUBLISH',
+        },
       });
     });
 
-    it('should upsert like and return entity idempotently', async () => {
-      prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postLike.upsert.mockResolvedValueOnce({
+    it('should create a new like and increment today daily metric by 1', async () => {
+      const createdAt = new Date();
+
+      prisma.post.findFirst.mockResolvedValueOnce({
+        id: 100,
+      });
+
+      prisma.postLike.createMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      prisma.postDailyMetric.upsert.mockResolvedValueOnce({
+        id: 1,
+      });
+
+      prisma.postLike.findUniqueOrThrow.mockResolvedValueOnce({
+        postId: 100,
+        userId: 1,
+        createdAt,
+      });
+
+      const result = await service.likePost(1, 100);
+
+      expect(prisma.postLike.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            postId: 100,
+            userId: 1,
+          },
+        ],
+        skipDuplicates: true,
+      });
+
+      expect(prisma.postDailyMetric.upsert).toHaveBeenCalledWith({
+        where: {
+          postId_metricDate: {
+            postId: 100,
+            metricDate: expect.any(Date),
+          },
+        },
+        create: {
+          postId: 100,
+          metricDate: expect.any(Date),
+          viewCount: 0,
+          likeCount: 1,
+        },
+        update: {
+          likeCount: {
+            increment: 1,
+          },
+        },
+      });
+
+      expect(result.postId).toBe(100);
+      expect(result.userId).toBe(1);
+    });
+
+    it('should not increment daily metric when the like already exists', async () => {
+      prisma.post.findFirst.mockResolvedValueOnce({
+        id: 100,
+      });
+
+      /**
+       * Duplicate bị skip.
+       */
+      prisma.postLike.createMany.mockResolvedValueOnce({
+        count: 0,
+      });
+
+      prisma.postLike.findUniqueOrThrow.mockResolvedValueOnce({
         postId: 100,
         userId: 1,
         createdAt: new Date(),
       });
 
       const result = await service.likePost(1, 100);
-      expect(prisma.postLike.upsert).toHaveBeenCalledWith({
-        where: { postId_userId: { postId: 100, userId: 1 } },
-        update: {},
-        create: { postId: 100, userId: 1 },
-      });
+
+      expect(prisma.postLike.createMany).toHaveBeenCalled();
+
+      expect(prisma.postDailyMetric.upsert).not.toHaveBeenCalled();
+
       expect(result.postId).toBe(100);
     });
   });
 
   describe('unlikePost', () => {
-    it('should deleteMany like idempotently and return success message', async () => {
-      prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
-      prisma.postLike.deleteMany.mockResolvedValueOnce({ count: 1 });
+    it('should delete an existing like and decrement today daily metric by 1', async () => {
+      prisma.post.findFirst.mockResolvedValueOnce({
+        id: 100,
+      });
+
+      prisma.postLike.deleteMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      prisma.postDailyMetric.upsert.mockResolvedValueOnce({
+        id: 1,
+      });
 
       const result = await service.unlikePost(1, 100);
+
       expect(prisma.postLike.deleteMany).toHaveBeenCalledWith({
-        where: { postId: 100, userId: 1 },
+        where: {
+          postId: 100,
+          userId: 1,
+        },
       });
-      expect(result.message).toBe('Đã bỏ thích bài viết thành công');
+
+      expect(prisma.postDailyMetric.upsert).toHaveBeenCalledWith({
+        where: {
+          postId_metricDate: {
+            postId: 100,
+            metricDate: expect.any(Date),
+          },
+        },
+        create: {
+          postId: 100,
+          metricDate: expect.any(Date),
+          viewCount: 0,
+          likeCount: -1,
+        },
+        update: {
+          likeCount: {
+            decrement: 1,
+          },
+        },
+      });
+
+      expect(result.message).toBe(
+        'Đã bỏ thích bài viết thành công',
+      );
+    });
+
+    it('should not decrement daily metric when the like does not exist', async () => {
+      prisma.post.findFirst.mockResolvedValueOnce({
+        id: 100,
+      });
+
+      /**
+       * User đã unlike trước đó.
+       */
+      prisma.postLike.deleteMany.mockResolvedValueOnce({
+        count: 0,
+      });
+
+      const result = await service.unlikePost(1, 100);
+
+      expect(prisma.postDailyMetric.upsert).not.toHaveBeenCalled();
+
+      expect(result.message).toBe(
+        'Đã bỏ thích bài viết thành công',
+      );
     });
   });
 
