@@ -214,10 +214,19 @@ const mockPrismaService = {
       viewCount: 10,
     });
 
+    /**
+     * viewCount trả về là tổng cả nhóm (getGroupViewCount), không phải
+     * viewCount thô 10 của riêng bản ghi này — xem test
+     * "should return the group total..." bên dưới cho chi tiết vì sao.
+     */
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 42 },
+    });
+
     const result = await service.findOne(1, null);
 
     expect(result.id).toBe(1);
-    expect(result.viewCount).toBe(10);
+    expect(result.viewCount).toBe(42);
 
     expect(mockJwtUtil.verifyAccessToken).not.toHaveBeenCalled();
     expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
@@ -225,6 +234,43 @@ const mockPrismaService = {
     expect(mockPrismaService.postViewLog.create).not.toHaveBeenCalled();
     expect(mockPrismaService.post.update).not.toHaveBeenCalled();
     expect(mockPrismaService.postDailyMetric.upsert).not.toHaveBeenCalled();
+  });
+
+  it('should return the group total (root + all translations) as viewCount, not just the exact version read', async () => {
+    /**
+     * Bug đã gặp thật: chỉ trả viewCount thô của đúng bản ghi đang đọc
+     * (recordView() tăng riêng từng bản dịch) khiến người đọc chuyển
+     * ngôn ngữ thấy view "biến mất" — vì phần lớn lịch sử view đã dồn
+     * vào ROOT từ hồi còn tính view theo kiểu cũ. findOne() phải luôn
+     * trả về TỔNG cả nhóm ngôn ngữ.
+     */
+    mockPostsService.findOne.mockResolvedValueOnce({
+      id: 12,
+      parentPostId: 10,
+      title: 'Bản dịch tiếng Nhật',
+      status: PostStatus.PUBLISH,
+      languageId: 3,
+      viewCount: 2,
+    });
+
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 137 },
+    });
+
+    const result = await service.findOne(12, null);
+
+    expect(result.viewCount).toBe(137);
+
+    expect(mockPrismaService.post.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { id: 10, parentPostId: null },
+            { parentPostId: 10 },
+          ],
+        }),
+      }),
+    );
   });
 });
 

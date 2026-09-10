@@ -287,7 +287,46 @@ export class PostsPublicService {
       }
     }
 
+    /**
+     * View hiển thị cho người đọc là tổng của CẢ LOGICAL ARTICLE
+     * (root + mọi bản dịch), không phải riêng bản đang đọc.
+     *
+     * recordView()/recordViewWithDeduplication() bên dưới tăng đúng
+     * viewCount của EXACT VERSION đang đọc (phục vụ thống kê theo từng
+     * ngôn ngữ cho Blog Owner) — nhưng con số ĐỌC GIẢ nhìn thấy vẫn phải
+     * nhất quán dù họ đang xem bản ngôn ngữ nào, nếu không chuyển ngôn
+     * ngữ sẽ trông như "mất hết view" (bản dịch ít người đọc trực tiếp
+     * hơn ROOT, nhất là data cũ từ hồi view từng chỉ cộng dồn vào ROOT).
+     */
+    const rootPostId = post.parentPostId ?? post.id;
+
+    post.viewCount = await this.getGroupViewCount(rootPostId);
+
     return post;
+  }
+
+  private async getGroupViewCount(rootPostId: number): Promise<number> {
+    const result = await this.prisma.post.aggregate({
+      where: {
+        deletedAt: null,
+
+        OR: [
+          {
+            id: rootPostId,
+            parentPostId: null,
+          },
+          {
+            parentPostId: rootPostId,
+          },
+        ],
+      },
+
+      _sum: {
+        viewCount: true,
+      },
+    });
+
+    return result._sum.viewCount ?? 0;
   }
 
   async recordView(
