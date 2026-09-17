@@ -9,7 +9,6 @@ describe('BlogownerDashboardController', () => {
   let controller: BlogownerDashboardController;
 
   const mockBlogownerDashboardService = {
-    getDashboard: jest.fn(),
     getSummary: jest.fn(),
     getActivity: jest.fn(),
     getFeatured: jest.fn(),
@@ -137,33 +136,5 @@ describe('BlogownerDashboardController', () => {
       'likes',
       5,
     );
-  });
-
-  it('should preserve the legacy dashboard endpoint', async () => {
-    const user = {
-      id: 99,
-    } as any;
-
-    const dashboard = {
-      postCounts: {},
-      totals: {},
-      last7Days: [],
-      featuredPosts: {
-        byViews: [],
-        byLikes: [],
-      },
-    };
-
-    mockBlogownerDashboardService.getDashboard.mockResolvedValueOnce(
-      dashboard,
-    );
-
-    await expect(
-      controller.getDashboard(user),
-    ).resolves.toEqual(dashboard);
-
-    expect(
-      mockBlogownerDashboardService.getDashboard,
-    ).toHaveBeenCalledWith(99);
   });
 });

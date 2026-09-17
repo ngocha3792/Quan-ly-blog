@@ -1,29 +1,30 @@
 # BLOGOWNER_API_DOCUMENTATION
 
-> Tài liệu API **Blog Owner** cho dự án Quản lý Blog (NestJS + Prisma). Nội dung mô tả payload frontend/backend thực sự chấp nhận, JSON response và quy tắc trạng thái theo source code đã rà soát.
+> Tài liệu API **Blog Owner** cho dự án Quản lý Blog (NestJS + Prisma). Cấu trúc tài liệu được xây dựng cùng kiểu với `ADMIN_API_DOCUMENTATION.md`: mô tả request backend thực sự chấp nhận, JSON response, HTTP status và các quy tắc nghiệp vụ theo source cuối sau clean code.
 
-- **Phạm vi:** 12 endpoint Blog Owner
+- **Phạm vi:** 14 endpoint Blog Owner
 - **Base URL:** `/api/v1`
 - **Controller prefix:** `/blog-owner`
 - **JWT / Role bắt buộc:** `BLOG_OWNER`
-- **Ngày rà soát:** 01/08/2026
-- **Lưu ý dữ liệu mẫu:** ID, token, URL, số liệu và timestamp chỉ mang tính minh họa. Tên field, vị trí payload, kiểu dữ liệu, HTTP status và luồng nghiệp vụ bám theo source hiện tại.
+- **Ngày rà soát:** 18/09/2026
+- **Công nghệ liên quan:** NestJS 11, Prisma 7, PostgreSQL, Cloudinary, LibreTranslate, BullMQ, Redis
+- **Lưu ý dữ liệu mẫu:** ID, token, URL, số liệu và timestamp chỉ mang tính minh họa; tên field, vị trí payload, kiểu dữ liệu, HTTP status và luồng nghiệp vụ bám theo source cuối.
 
 ## Mục lục
 
-- [Quy tắc chung frontend phải tuân theo](#quy-tắc-chung-frontend-phải-tuân-theo)
-- [Vòng đời trạng thái bài viết](#vòng-đời-trạng-thái-bài-viết)
-- [Quy tắc upload file](#quy-tắc-upload-file)
-- [Quy tắc bản dịch](#quy-tắc-bản-dịch)
+- [Quy tắc chung backend áp dụng](#quy-tắc-chung-backend-áp-dụng)
+- [Post Group và vòng đời trạng thái](#post-group-và-vòng-đời-trạng-thái)
+- [Dịch nền với BullMQ và Redis](#dịch-nền-với-bullmq-và-redis)
+- [Quy tắc upload thumbnail và media](#quy-tắc-upload-thumbnail-và-media)
 - [Danh mục API Blog Owner](#danh-mục-api-blog-owner)
-- [API Blog Owner — request và response chính xác](#api-blog-owner--request-và-response-chính-xác)
+- [API Blog Owner — request và response](#api-blog-owner--request-và-response)
 - [Bảng lỗi thường gặp](#bảng-lỗi-thường-gặp)
 
-## Quy tắc chung frontend phải tuân theo
+## Quy tắc chung backend áp dụng
 
 ### Success envelope
 
-Mọi dữ liệu controller/service trả về đều được `TransformInterceptor` bọc vào cấu trúc sau. Với Axios, payload nghiệp vụ nằm trong `response.data.data`.
+Dữ liệu controller/service trả về được `TransformInterceptor` bọc theo cấu trúc:
 
 ```json
 {
@@ -32,7 +33,7 @@ Mọi dữ liệu controller/service trả về đều được `TransformInterc
   "data": {
     "example": "payload nghiệp vụ"
   },
-  "timestamp": "2026-08-01T07:00:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
@@ -44,49 +45,52 @@ Mọi dữ liệu controller/service trả về đều được `TransformInterc
 {
   "success": false,
   "statusCode": 400,
-  "message": ["property status should not exist"],
+  "message": ["translationLanguageIds không được chứa ngôn ngữ trùng nhau"],
   "path": "/api/v1/blog-owner/posts",
-  "timestamp": "2026-08-01T07:00:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
 ### JWT và role
 
-Tất cả endpoint trong tài liệu này yêu cầu access token của tài khoản có role `BLOG_OWNER`.
+Tất cả endpoint Blog Owner yêu cầu access token:
 
 ```http
 Authorization: Bearer <ACCESS_TOKEN>
 ```
 
-Các trường hợp phổ biến:
-
-- Thiếu token, token hết hạn hoặc token không hợp lệ: `401 Unauthorized`.
-- Token hợp lệ nhưng role không phải `BLOG_OWNER`: `403 Forbidden`.
-- Bài viết tồn tại nhưng thuộc Blog Owner khác: `403 Forbidden`.
+- Không có token hoặc token không hợp lệ: `401`.
+- Token hợp lệ nhưng role không phải `BLOG_OWNER`: `403`.
+- Backend lấy `ownerId` từ JWT; không nhận `authorId` từ body/query để quyết định quyền sở hữu.
+- Tài nguyên thuộc Blog Owner khác bị từ chối theo rule của service.
 
 ### Validation, trim và field thừa
 
-- `ValidationPipe` bật `transform=true`, `whitelist=true`, `forbidNonWhitelisted=true`.
-- Field không có trong DTO không bị bỏ qua mà làm request thất bại `400`.
-- `TrimPipe` cắt khoảng trắng đệ quy đối với string trong request body.
-- `title` tối đa 255 ký tự.
-- `title`, `content`, `search` và tên tag chịu kiểm tra từ cấm theo decorator tương ứng.
-- Bài viết phải có ít nhất một category.
-- Category phải tồn tại, chưa bị soft-delete, thuộc Category Group chưa bị xóa và cùng ngôn ngữ với bài.
-- Ngôn ngữ phải tồn tại, chưa bị soft-delete và đang `isActive=true`.
-- Tổng số tag sau khi gộp `tagIds` và `tagNames` tối đa 5.
-- Tag ID đã bị xóa hoặc tên tag trùng với tag đã soft-delete bị từ chối.
+- `ValidationPipe` dùng `transform=true`, `whitelist=true`, `forbidNonWhitelisted=true`.
+- Field ngoài DTO làm request thất bại `400`.
+- `TrimPipe` trim đệ quy string trong body.
+- `title` bắt buộc khi create, tối đa 255 ký tự.
+- `title` và `content` được kiểm tra từ cấm ở DTO **và** kiểm tra lại tại service để không thể bypass validation khi gọi nội bộ.
+- `content` được sanitize trước khi xử lý nghiệp vụ.
+- Khi submit trực tiếp hoặc finalize translation batch sang `PENDING_REVIEW`, backend đọc lại toàn Post Group và kiểm tra từ cấm thêm một lần.
+- Output từ LibreTranslate cũng được kiểm tra; translation có từ cấm không được ghi vào DB.
+- Bài phải có ít nhất một category.
+- Category phải tồn tại, chưa bị soft-delete, đúng language và thuộc Category Group còn hoạt động.
+- Language phải tồn tại, chưa bị xóa và đang `isActive=true`.
+- Tổng tag sau khi xử lý `tagIds` + `tagNames` tối đa 5.
+- `translationLanguageIds` phải là mảng integer, không trùng và không chứa language của root.
+- `submitForReview` hỗ trợ boolean; multipart chấp nhận chuỗi `"true"` / `"false"` qua transform DTO.
 
 ### Pagination
 
-Các API danh sách sử dụng:
+Các API danh sách dùng pagination chuẩn:
 
-| Query   | Kiểu    | Mặc định | Quy tắc                                            |
-| ------- | ------- | -------- | -------------------------------------------------- |
-| `page`  | integer | `1`      | Giá trị nhỏ hơn 1 được ép về 1.                    |
-| `limit` | integer | `10`     | Giá trị nhỏ hơn 1 được ép về 1; tối đa thực tế 50. |
+| Query   | Kiểu    | Mặc định | Quy tắc                  |
+| ------- | ------- | -------: | ------------------------ |
+| `page`  | integer |        1 | nhỏ hơn 1 được chuẩn hóa |
+| `limit` | integer |       10 | tối đa thực tế 50        |
 
-Response phân trang:
+Response:
 
 ```json
 {
@@ -101,148 +105,212 @@ Response phân trang:
 }
 ```
 
-### Enum chính xác
+### Enum chính
 
-| Enum         | Giá trị hợp lệ                                                   |
-| ------------ | ---------------------------------------------------------------- |
-| `UserRole`   | `NORMAL` \| `BLOG_OWNER` \| `CONTENT_MODERATOR` \| `SUPER_ADMIN` |
-| `PostStatus` | `DRAFT` \| `PENDING_REVIEW` \| `PUBLISH` \| `REJECT`             |
-| `MediaType`  | `IMAGE` \| `VIDEO`                                               |
+| Enum                     | Giá trị hợp lệ                                                   |
+| ------------------------ | ---------------------------------------------------------------- |
+| `UserRole`               | `NORMAL` \| `BLOG_OWNER` \| `CONTENT_MODERATOR` \| `SUPER_ADMIN` |
+| `PostStatus`             | `DRAFT` \| `PENDING_REVIEW` \| `PUBLISH` \| `REJECT`             |
+| `MediaType`              | `IMAGE` \| `VIDEO`                                               |
+| Translation batch status | `QUEUED` \| `PROCESSING` \| `COMPLETED` \| `FAILED`              |
 
-### Quyền sở hữu
+## Post Group và vòng đời trạng thái
 
-Backend luôn lấy `ownerId` từ JWT, không nhận `authorId` từ client. Blog Owner chỉ có thể:
+### Cấu trúc nhóm bài đa ngôn ngữ
 
-- xem bài của chính mình;
-- sửa bài của chính mình;
-- xóa bài của chính mình;
-- gửi duyệt bài của chính mình;
-- quản lý media của bài thuộc chính mình;
-- tạo preview/bản dịch từ bài thuộc chính mình.
+```text
+ROOT (parentPostId = null)
+├─ Translation EN (parentPostId = root.id)
+├─ Translation JA (parentPostId = root.id)
+└─ Translation ...
+```
 
-## Vòng đời trạng thái bài viết
+Quy tắc:
+
+- Một logical article được quản lý theo **Post Group**.
+- Root là post có `parentPostId=null`.
+- Translation luôn trỏ về root qua `parentPostId`.
+- Mỗi language chỉ có tối đa một translation active trong group.
+- Danh sách Blog Owner phân trang theo group, không phân trang từng translation.
+- Filter chọn group khớp, sau đó backend trả toàn bộ version active trong group.
+- Update, submit, delete và standalone media chỉ thực hiện bằng **root ID**.
+- Không được chỉnh sửa hoặc xóa riêng một translation.
+- Translation được upsert theo `(parentPostId, languageId)` để không tạo duplicate khi chỉnh sửa.
 
 ### Tạo bài
 
-| Thao tác                                             | Trạng thái kết quả                                                    |
-| ---------------------------------------------------- | --------------------------------------------------------------------- |
-| Tạo với `submitForReview=false` hoặc không gửi field | `DRAFT`                                                               |
-| Tạo với `submitForReview=true`                       | Tạo `DRAFT`, hoàn tất thumbnail/media, sau đó chuyển `PENDING_REVIEW` |
-
-Blog Owner không được gửi trực tiếp `status` và không được tự chuyển bài sang `PUBLISH`.
+| Trường hợp                                              | Trạng thái                                                                                    |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Không có translation, `submitForReview=false/undefined` | `DRAFT`                                                                                       |
+| Không có translation, `submitForReview=true`            | tạo `DRAFT`, hoàn tất file rồi cả group → `PENDING_REVIEW`                                    |
+| Có translation                                          | root/group giữ `DRAFT`, enqueue BullMQ; finalize mới quyết định `DRAFT` hoặc `PENDING_REVIEW` |
 
 ### Chỉnh sửa bài
 
-| Trạng thái trước khi sửa | Có được sửa? | Trạng thái sau khi sửa thành công         |
-| ------------------------ | ------------ | ----------------------------------------- |
-| `DRAFT`                  | Có           | `DRAFT`                                   |
-| `REJECT`                 | Có           | `DRAFT`; xóa thông tin review cũ          |
-| `PUBLISH`                | Có           | `PENDING_REVIEW`; xóa thông tin review cũ |
-| `PENDING_REVIEW`         | Không        | Trả `400`                                 |
-
-Request `PATCH` không có field và không có file bị từ chối với message:
-
-```text
-Không có dữ liệu nào để cập nhật.
-```
+- Chỉ root được update.
+- Nếu bất kỳ version nào đang `PENDING_REVIEW` thì khóa toàn group.
+- `DRAFT`: chỉnh sửa và tiếp tục theo lựa chọn `submitForReview`.
+- `REJECT`: phải có thay đổi thật; sau update group quay về `DRAFT` hoặc đi tiếp `PENDING_REVIEW` nếu submit.
+- `PUBLISH`: khi thay đổi nội dung, group rời trạng thái public và đi qua quy trình duyệt lại.
+- Request không có thay đổi thật trả `400` với message `Không có dữ liệu nào để cập nhật.`.
+- Các translation cũ luôn được giữ; `translationLanguageIds` chỉ bổ sung target language mới, không xóa translation hiện có.
 
 ### Gửi duyệt
 
-Chỉ cho phép:
+Chỉ chấp nhận root ID và toàn group phải `DRAFT`:
 
 ```text
-DRAFT -> PENDING_REVIEW
+DRAFT (root + translations)
+        ↓
+PENDING_REVIEW (toàn group)
 ```
 
-- `REJECT` phải được chỉnh sửa trước để chuyển về `DRAFT`.
-- `PUBLISH` chỉ gửi duyệt lại thông qua thao tác chỉnh sửa.
-- `PENDING_REVIEW` không được submit lần nữa.
+### Xóa bài
 
-### Thay đổi media
+- Chỉ root ID.
+- Soft-delete root và toàn bộ translations active cùng một timestamp.
+- Không xóa riêng translation.
 
-| Trạng thái hiện tại | Kết quả khi thêm/xóa media                        |
-| ------------------- | ------------------------------------------------- |
-| `DRAFT`             | Giữ `DRAFT`                                       |
-| `REJECT`            | Sau khi thao tác media thành công, chuyển `DRAFT` |
-| `PUBLISH`           | Chuyển `PENDING_REVIEW` trước khi thay đổi media  |
-| `PENDING_REVIEW`    | Không được thêm/xóa media                         |
+## Dịch nền với BullMQ và Redis
 
-## Quy tắc upload file
-
-### Tạo và cập nhật bài
-
-Controller chấp nhận các field multipart sau:
-
-| Mục đích  | Field khuyến nghị | Alias tương thích | Giới hạn                                                       |
-| --------- | ----------------- | ----------------- | -------------------------------------------------------------- |
-| Thumbnail | `thumbnail`       | `thumbnailFile`   | 1 file; phải là ảnh; tối đa 10 MB                              |
-| Media     | `media`           | `files`, `file`   | Mỗi field tối đa 10 file; mỗi file tối đa 10 MB; chỉ ảnh/video |
-
-Frontend nên dùng duy nhất field chuẩn `thumbnail` và `media`, không trộn nhiều alias trong cùng request.
-
-Trong `multipart/form-data`, các mảng `categoryIds`, `tagIds`, `tagNames` có thể gửi dưới dạng JSON string hoặc chuỗi phân tách bằng dấu phẩy, ví dụ:
+### Kiến trúc
 
 ```text
-categoryIds = [73,75]
-tagIds      = 46,47
-tagNames    = NestJS,Prisma
+Create / Update root
+      ↓
+Post Group = DRAFT
+      ↓
+BullMQ FlowProducer
+      ↓
+Redis
+      ├─ queue state
+      ├─ progress
+      ├─ retry
+      └─ parent-child dependency
+      ↓
+translate-post jobs
+      ↓
+LibreTranslate
+      ↓
+upsert translations
+      ↓
+finalize-translation-batch
+      ↓
+DRAFT / PENDING_REVIEW
 ```
 
-### An toàn khi upload
+### Thành phần
 
-- Upload nhiều media có rollback: nếu một file phía sau thất bại, media đã upload trước đó được xóa theo thứ tự ngược lại.
-- Khi upload thumbnail mới nhưng cập nhật database thất bại, thumbnail mới được cleanup và lỗi database ban đầu được giữ nguyên.
-- Khi cập nhật thumbnail, thumbnail cũ chỉ bị xóa sau khi database đã lưu URL mới thành công.
-- Xóa media thực hiện soft-delete trong database trước; lỗi cleanup Cloudinary không làm media xuất hiện lại.
+| Thành phần    | Giá trị / trách nhiệm                              |
+| ------------- | -------------------------------------------------- |
+| Queue         | `blogowner-translation`                            |
+| Flow producer | `blogowner-translation-flow`                       |
+| Child job     | `translate-post`                                   |
+| Parent job    | `finalize-translation-batch`                       |
+| Storage queue | Redis                                              |
+| Dịch nội dung | shared `LibreTranslateService`                     |
+| Retry         | exponential backoff cho lỗi tạm thời               |
+| Stale guard   | so sánh `sourceUpdatedAt` với `updatedAt` hiện tại |
 
-## Quy tắc bản dịch
+Job chỉ mang ID/metadata cần thiết, không lưu toàn bộ HTML vào Redis. Worker đọc lại database trước khi dịch/ghi dữ liệu.
 
-- `translate-preview` gọi LibreTranslate để dịch `title` và `content`, nhưng không ghi database.
-- `translations` nhận nội dung đã dịch hoặc nội dung người dùng chỉnh sửa để lưu thành Post mới.
-- Bản dịch mới hoặc bản dịch được restore luôn ở trạng thái `DRAFT`.
-- Tất cả bản dịch trỏ về bài gốc bằng `parentPostId`.
-- Mỗi nhóm bài chỉ có một phiên bản chưa xóa cho mỗi ngôn ngữ.
-- Category không được dịch tự động; backend ánh xạ category cùng `CategoryGroup` sang ngôn ngữ đích.
-- Tag chưa bị soft-delete được sao chép từ bài nguồn.
-- Ngôn ngữ đích phải đang hoạt động.
-- Mã ngôn ngữ được trim/lowercase; các alias Chinese được chuẩn hóa (`zh-CN`/`zh-Hans` → `zh`, `zh-TW`/`zh-Hant` → `zt`).
-- Thiếu cấu hình LibreTranslate trả `503`; mất kết nối hoặc response hỏng trả `502`; request/cặp ngôn ngữ không được hỗ trợ trả `400`.
+### Mapping category
+
+Khi tạo translation của post:
+
+- backend không dịch lại tên category;
+- lấy `categoryGroupId` từ category nguồn;
+- tìm category trong cùng Category Group và đúng target language;
+- nếu mapping nghiệp vụ không hợp lệ, job không được ghi translation sai.
+
+### Batch progress
+
+Create/Update có translation trả thêm:
+
+```json
+{
+  "translationBatch": {
+    "batchId": "translation-batch-1766-...",
+    "status": "QUEUED"
+  }
+}
+```
+
+Batch status API trả progress toàn batch và từng language.
+
+## Quy tắc upload thumbnail và media
+
+### Create/Update Post
+
+Controller chấp nhận:
+
+| Mục đích  | Field chính | Alias           | Giới hạn                                           |
+| --------- | ----------- | --------------- | -------------------------------------------------- |
+| Thumbnail | `thumbnail` | `thumbnailFile` | 1 file; **JPEG / PNG / WEBP thật**; tối đa 10 MB   |
+| Media     | `media`     | `files`, `file` | ảnh/video theo MediaService; mỗi file tối đa 10 MB |
+
+Đối với **thumbnail**, backend không tin tên file hoặc MIME do client khai báo. `BlogownerPostHelperService` kiểm tra đồng thời:
+
+1. buffer tồn tại và không rỗng;
+2. kích thước thực tế không vượt quá 10 MB;
+3. magic bytes nhận diện đúng JPEG / PNG / WEBP;
+4. `mimetype` phải khớp loại file được nhận diện;
+5. extension phải khớp loại file được nhận diện.
+
+Các file HTML, SVG, JS, PDF, ZIP hoặc file giả `.png/.jpg/.webp` sẽ bị từ chối trước khi upload lên Cloudinary. `thumbnailUrl` không được nhận trực tiếp từ payload Blog Owner; thumbnail phải đi qua luồng upload file.
+
+`categoryIds`, `tagIds`, `tagNames`, `translationLanguageIds` hỗ trợ JSON array hoặc dạng chuỗi phù hợp transform DTO.
+
+### Standalone media sau clean code
+
+`POST /posts/:postId/media` và `DELETE /posts/:postId/media/:mediaId` áp dụng theo group:
+
+- `postId` bắt buộc là root ID.
+- Translation ID trả `400`.
+- Media standalone được gắn với root.
+- Media phải thuộc đúng root khi delete.
+- Nếu một version đang `PENDING_REVIEW`, cả group bị khóa thao tác media.
+
+| Trạng thái group    | Hành vi                                              |
+| ------------------- | ---------------------------------------------------- |
+| `DRAFT`             | thao tác media, giữ `DRAFT`                          |
+| `REJECT`            | sau thao tác thành công, cả group → `DRAFT`          |
+| `PUBLISH`           | cả group → `PENDING_REVIEW` trước khi thay đổi media |
+| có `PENDING_REVIEW` | từ chối thao tác                                     |
 
 ## Danh mục API Blog Owner
 
-| Mã  | Method | Endpoint                                          | Chức năng                                  | HTTP thành công |
-| --- | ------ | ------------------------------------------------- | ------------------------------------------ | --------------- |
-| B01 | GET    | `/api/v1/blog-owner/dashboard`                    | Dashboard của Blog Owner                   | 200             |
-| B02 | GET    | `/api/v1/blog-owner/options`                      | Dữ liệu ngôn ngữ, category và tag cho form | 200             |
-| B03 | GET    | `/api/v1/blog-owner/posts`                        | Danh sách bài của chính Blog Owner         | 200             |
-| B04 | GET    | `/api/v1/blog-owner/posts/:id`                    | Chi tiết bài và nhóm bản dịch              | 200             |
-| B05 | POST   | `/api/v1/blog-owner/posts`                        | Tạo bài                                    | 201             |
-| B06 | PATCH  | `/api/v1/blog-owner/posts/:id`                    | Chỉnh sửa bài                              | 200             |
-| B07 | DELETE | `/api/v1/blog-owner/posts/:id`                    | Soft-delete bài                            | 200             |
-| B08 | POST   | `/api/v1/blog-owner/posts/:id/submit`             | Gửi bài để Moderator duyệt                 | 200             |
-| B09 | POST   | `/api/v1/blog-owner/posts/:id/translate-preview`  | Xem trước bản dịch tự động                 | 200             |
-| B10 | POST   | `/api/v1/blog-owner/posts/:id/translations`       | Tạo hoặc restore bản dịch                  | 201             |
-| B11 | POST   | `/api/v1/blog-owner/posts/:postId/media`          | Thêm một media                             | 201             |
-| B12 | DELETE | `/api/v1/blog-owner/posts/:postId/media/:mediaId` | Xóa một media                              | 200             |
+| Mã  | Method | Endpoint                                          | JWT / Role                         | HTTP |
+| --- | ------ | ------------------------------------------------- | ---------------------------------- | ---: |
+| B01 | GET    | `/api/v1/blog-owner/dashboard/summary`            | JWT; `BLOG_OWNER`                  |  200 |
+| B02 | GET    | `/api/v1/blog-owner/dashboard/activity`           | JWT; `BLOG_OWNER`                  |  200 |
+| B03 | GET    | `/api/v1/blog-owner/dashboard/featured`           | JWT; `BLOG_OWNER`                  |  200 |
+| B04 | GET    | `/api/v1/blog-owner/options`                      | JWT; `BLOG_OWNER`                  |  200 |
+| B05 | GET    | `/api/v1/blog-owner/posts`                        | JWT; `BLOG_OWNER`                  |  200 |
+| B06 | GET    | `/api/v1/blog-owner/posts/:id`                    | JWT; `BLOG_OWNER`; ownership       |  200 |
+| B07 | POST   | `/api/v1/blog-owner/posts`                        | JWT; `BLOG_OWNER`                  |  201 |
+| B08 | PATCH  | `/api/v1/blog-owner/posts/:id`                    | JWT; `BLOG_OWNER`; root ownership  |  200 |
+| B09 | DELETE | `/api/v1/blog-owner/posts/:id`                    | JWT; `BLOG_OWNER`; root ownership  |  200 |
+| B10 | POST   | `/api/v1/blog-owner/posts/:id/submit`             | JWT; `BLOG_OWNER`; root ownership  |  200 |
+| B11 | POST   | `/api/v1/blog-owner/posts/:id/translate-preview`  | JWT; `BLOG_OWNER`; ownership       |  200 |
+| B12 | POST   | `/api/v1/blog-owner/posts/:postId/media`          | JWT; `BLOG_OWNER`; root ownership  |  201 |
+| B13 | DELETE | `/api/v1/blog-owner/posts/:postId/media/:mediaId` | JWT; `BLOG_OWNER`; root ownership  |  200 |
+| B14 | GET    | `/api/v1/blog-owner/translation-batches/:batchId` | JWT; `BLOG_OWNER`; batch ownership |  200 |
 
-## API Blog Owner — request và response chính xác
+## API Blog Owner — request và response
 
-### B01 — GET /api/v1/blog-owner/dashboard
+### B01 — GET /api/v1/blog-owner/dashboard/summary
 
-**Lấy thống kê dashboard của Blog Owner đang đăng nhập**
+**Lấy KPI tổng quan của Blog Owner**
 
-| Xác thực / phân quyền         | HTTP thành công | Content-Type request |
-| ----------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER` | 200             | Không có body        |
+| Xác thực / phân quyền    | HTTP thành công | Content-Type request |
+| ------------------------ | --------------: | -------------------- |
+| Bearer JWT; `BLOG_OWNER` |             200 | không có body        |
 
-#### Frontend phải gửi
-
-Không có body hoặc query bắt buộc.
-
-#### Request hoàn chỉnh
+#### Request backend chấp nhận
 
 ```http
-GET /api/v1/blog-owner/dashboard
+GET /api/v1/blog-owner/dashboard/summary
 Authorization: Bearer <ACCESS_TOKEN>
 ```
 
@@ -261,113 +329,124 @@ Authorization: Bearer <ACCESS_TOKEN>
       "rejected": 1
     },
     "totals": {
-      "views": 15420,
-      "likes": 985,
-      "comments": 241
-    },
-    "last7Days": [
-      {
-        "date": "2026-07-26",
-        "views": 180,
-        "likes": 12
-      },
-      {
-        "date": "2026-07-27",
-        "views": 205,
-        "likes": 17
-      },
-      {
-        "date": "2026-07-28",
-        "views": 0,
-        "likes": 0
-      },
-      {
-        "date": "2026-07-29",
-        "views": 260,
-        "likes": 21
-      },
-      {
-        "date": "2026-07-30",
-        "views": 310,
-        "likes": 28
-      },
-      {
-        "date": "2026-07-31",
-        "views": 288,
-        "likes": 25
-      },
-      {
-        "date": "2026-08-01",
-        "views": 95,
-        "likes": 8
-      }
-    ],
-    "featuredPosts": {
-      "byViews": [
-        {
-          "id": 501,
-          "title": "Hướng dẫn NestJS với Prisma",
-          "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/501/cover.jpg",
-          "status": "PUBLISH",
-          "views": 4200,
-          "likes": 245,
-          "language": {
-            "id": 26,
-            "code": "vi",
-            "name": "Tiếng Việt",
-            "flag": "🇻🇳"
-          }
-        }
-      ],
-      "byLikes": [
-        {
-          "id": 508,
-          "title": "Thiết kế REST API an toàn",
-          "thumbnailUrl": null,
-          "status": "PUBLISH",
-          "views": 3100,
-          "likes": 320,
-          "language": {
-            "id": 26,
-            "code": "vi",
-            "name": "Tiếng Việt",
-            "flag": "🇻🇳"
-          }
-        }
-      ]
+      "views": 1250,
+      "likes": 210,
+      "comments": 45
     }
   },
-  "timestamp": "2026-08-01T07:00:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
 #### Điểm cần chú ý
 
-- `postCounts` và `totals` chỉ tính bài chưa bị soft-delete của owner hiện tại.
-- `last7Days` luôn đủ 7 phần tử; ngày không có dữ liệu trả `views=0`, `likes=0`.
-- Ngày được tính theo lịch Việt Nam.
-- Hai danh sách nổi bật chỉ lấy bài `PUBLISH`, tối đa 5 bài mỗi danh sách.
+- `postCounts` đếm logical article bằng **root post**.
+- `totals.views/likes/comments` cộng trên toàn bộ version của owner gồm root + translations.
 
-### B02 — GET /api/v1/blog-owner/options
+### B02 — GET /api/v1/blog-owner/dashboard/activity
 
-**Lấy dữ liệu lựa chọn cho form tạo/sửa bài**
+**Lấy biến động view/like theo ngày**
 
-| Xác thực / phân quyền         | HTTP thành công | Content-Type request |
-| ----------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER` | 200             | Không có body        |
+| Xác thực / phân quyền    | HTTP thành công | Content-Type request |
+| ------------------------ | --------------: | -------------------- |
+| Bearer JWT; `BLOG_OWNER` |             200 | không có body        |
 
-#### Frontend phải gửi
+#### Request backend chấp nhận
 
-Không có body hoặc query bắt buộc. Frontend chỉ gửi Bearer access token của tài khoản `BLOG_OWNER`.
+| Vị trí | Field  | Kiểu    | Bắt buộc | Validation                |
+| ------ | ------ | ------- | -------- | ------------------------- |
+| Query  | `days` | integer | Không    | mặc định 7; min 1; max 30 |
 
-#### Request hoàn chỉnh
+```http
+GET /api/v1/blog-owner/dashboard/activity?days=7
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+#### JSON backend trả về
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "data": {
+    "days": 7,
+    "last7Days": [
+      {
+        "date": "2026-09-18",
+        "views": 18,
+        "likes": -1
+      }
+    ]
+  },
+  "timestamp": "2026-09-18T08:00:00.000Z"
+}
+```
+
+#### Điểm cần chú ý
+
+- View là valid view phát sinh trong ngày.
+- Like là **net change**: like `+1`, unlike `-1`; vì vậy có thể âm.
+- Backend luôn lấp đủ số ngày yêu cầu, ngày không có dữ liệu trả 0.
+
+### B03 — GET /api/v1/blog-owner/dashboard/featured
+
+**Lấy bài đã xuất bản nổi bật**
+
+#### Request backend chấp nhận
+
+| Vị trí | Field   | Kiểu    | Bắt buộc | Validation                             |
+| ------ | ------- | ------- | -------- | -------------------------------------- |
+| Query  | `sort`  | string  | Không    | `views` hoặc `likes`; mặc định `views` |
+| Query  | `limit` | integer | Không    | min 1; max 20; mặc định 5              |
+
+```http
+GET /api/v1/blog-owner/dashboard/featured?sort=views&limit=5
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+#### JSON backend trả về
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "data": {
+    "sort": "views",
+    "posts": [
+      {
+        "id": 1766,
+        "title": "NestJS và BullMQ",
+        "thumbnailUrl": null,
+        "status": "PUBLISH",
+        "views": 300,
+        "likes": 25,
+        "language": {
+          "id": 18,
+          "code": "vi",
+          "name": "Tiếng Việt",
+          "flag": "🇻🇳"
+        }
+      }
+    ]
+  },
+  "timestamp": "2026-09-18T08:00:00.000Z"
+}
+```
+
+#### Điểm cần chú ý
+
+Featured **không group root + translation**. Mỗi exact Post cạnh tranh độc lập; nhiều version của cùng logical article có thể cùng xuất hiện.
+
+### B04 — GET /api/v1/blog-owner/options
+
+**Lấy dữ liệu lựa chọn cho form bài viết**
 
 ```http
 GET /api/v1/blog-owner/options
 Authorization: Bearer <ACCESS_TOKEN>
 ```
 
-#### JSON backend trả về khi thành công
+#### JSON backend trả về
 
 ```json
 {
@@ -376,30 +455,22 @@ Authorization: Bearer <ACCESS_TOKEN>
   "data": {
     "languages": [
       {
-        "id": 26,
+        "id": 18,
         "code": "vi",
         "name": "Tiếng Việt",
         "flag": "🇻🇳",
         "isDefault": true,
         "isActive": true
-      },
-      {
-        "id": 27,
-        "code": "en",
-        "name": "English",
-        "flag": "🇬🇧",
-        "isDefault": false,
-        "isActive": true
       }
     ],
     "categories": [
       {
-        "id": 73,
-        "name": "Backend",
-        "languageId": 26,
-        "categoryGroupId": 33,
+        "id": 133,
+        "name": "Công nghệ",
+        "languageId": 18,
+        "categoryGroupId": 67,
         "language": {
-          "id": 26,
+          "id": 18,
           "code": "vi",
           "name": "Tiếng Việt",
           "flag": "🇻🇳",
@@ -407,8 +478,8 @@ Authorization: Bearer <ACCESS_TOKEN>
           "isActive": true
         },
         "categoryGroup": {
-          "id": 33,
-          "code": "BACKEND"
+          "id": 67,
+          "code": "technology"
         }
       }
     ],
@@ -416,58 +487,50 @@ Authorization: Bearer <ACCESS_TOKEN>
       {
         "id": 46,
         "name": "NestJS"
-      },
-      {
-        "id": 53,
-        "name": "Prisma"
       }
     ]
   },
-  "timestamp": "2026-08-01T07:00:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
 #### Điểm cần chú ý
 
-- Chỉ trả ngôn ngữ `isActive=true` và chưa bị xóa.
-- Ngôn ngữ mặc định đứng đầu; các ngôn ngữ còn lại sắp xếp theo `code`.
-- Chỉ trả category chưa bị xóa, thuộc ngôn ngữ đang hoạt động và Category Group chưa bị xóa.
-- Chỉ trả tag chưa bị soft-delete.
+- Chỉ language active/chưa xóa.
+- Chỉ category active, thuộc language active và Category Group chưa xóa.
+- Chỉ tag chưa soft-delete.
+- Default language được sắp lên trước.
 
-### B03 — GET /api/v1/blog-owner/posts
+### B05 — GET /api/v1/blog-owner/posts
 
-**Lấy danh sách bài của Blog Owner đang đăng nhập**
+**Lấy danh sách bài của owner theo Post Group**
 
-| Xác thực / phân quyền         | HTTP thành công | Content-Type request |
-| ----------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER` | 200             | Không có body        |
+#### Request backend chấp nhận
 
-#### Frontend phải gửi
+Các query từ `GetBlogownerPostsDto`:
 
-| Vị trí | Field          | Kiểu         | Bắt buộc | Backend xử lý                                     |
-| ------ | -------------- | ------------ | -------- | ------------------------------------------------- |
-| Query  | `search`       | string       | Không    | Tìm theo tiêu đề, không phân biệt hoa thường.     |
-| Query  | `categoryId`   | integer      | Không    | Lọc bài có category này.                          |
-| Query  | `languageId`   | integer      | Không    | Lọc theo ngôn ngữ.                                |
-| Query  | `parentPostId` | integer      | Không    | Lọc các bản dịch có parent cụ thể.                |
-| Query  | `status`       | `PostStatus` | Không    | Lọc theo trạng thái.                              |
-| Query  | `tagId`        | integer      | Không    | Lọc theo tag ID.                                  |
-| Query  | `tagName`      | string       | Không    | Lọc theo tên tag; chỉ dùng khi không gửi `tagId`. |
-| Query  | `page`         | integer      | Không    | Mặc định 1.                                       |
-| Query  | `limit`        | integer      | Không    | Mặc định 10; tối đa 50.                           |
+| Field                 | Kiểu           | Ghi chú                                            |
+| --------------------- | -------------- | -------------------------------------------------- |
+| `search`              | string         | search title/content theo Core                     |
+| `categoryId`          | integer        | lọc group có category                              |
+| `languageId`          | integer        | lọc language                                       |
+| `lang`                | string         | mã language                                        |
+| `status`              | `PostStatus`   | lọc trạng thái                                     |
+| `tagId`               | integer        | lọc tag ID                                         |
+| `tagName`             | string         | lọc tag name                                       |
+| `page`                | integer        | pagination                                         |
+| `limit`               | integer        | pagination                                         |
+| `sortBy`              | string         | group hỗ trợ `updatedAt`, `viewCount`, `likeCount` |
+| `sortOrder` / `order` | `asc` / `desc` | hướng sort                                         |
 
-|
-
-`authorId` và `bookmarkedByUserId` không thuộc DTO Blog Owner; gửi hai field này sẽ trả `400`.
-
-#### Request hoàn chỉnh
+`authorId` và `bookmarkedByUserId` không nhận từ query Blog Owner.
 
 ```http
-GET /api/v1/blog-owner/posts?status=DRAFT&languageId=26&page=1&limit=10
+GET /api/v1/blog-owner/posts?status=DRAFT&page=1&limit=10&sortBy=updatedAt&sortOrder=desc
 Authorization: Bearer <ACCESS_TOKEN>
 ```
 
-#### JSON backend trả về khi thành công
+#### JSON backend trả về
 
 ```json
 {
@@ -476,866 +539,401 @@ Authorization: Bearer <ACCESS_TOKEN>
   "data": {
     "items": [
       {
-        "id": 601,
-        "title": "NestJS Guards và Interceptors",
-        "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.jpg",
-        "content": "<p>Nội dung bài viết...</p>",
-        "status": "DRAFT",
-        "viewCount": 0,
-        "publishedAt": null,
-        "parentPostId": null,
-        "authorId": 102,
-        "languageId": 26,
-        "reviewedAt": null,
-        "rejectionReason": null,
-        "createdAt": "2026-08-01T06:30:00.000Z",
-        "updatedAt": "2026-08-01T06:45:00.000Z",
-        "author": {
-          "id": 102,
-          "username": "son_backend",
-          "bio": "Backend Developer",
-          "avatarUrl": null
+        "root": {
+          "id": 1766,
+          "title": "NestJS và BullMQ",
+          "status": "DRAFT",
+          "languageId": 18,
+          "parentPostId": null,
+          "viewCount": 100,
+          "likeCount": 8
         },
-        "language": {
-          "id": 26,
-          "code": "vi",
-          "name": "Tiếng Việt",
-          "flag": "🇻🇳",
-          "isDefault": true,
-          "isActive": true,
-          "createdAt": "2026-07-20T02:00:00.000Z",
-          "updatedAt": "2026-07-20T02:00:00.000Z",
-          "deletedAt": null
-        },
-        "categories": [
+        "translations": [
           {
-            "id": 73,
-            "name": "Backend",
-            "categoryGroupId": 33,
-            "languageId": 26
+            "id": 1767,
+            "title": "NestJS and BullMQ",
+            "status": "DRAFT",
+            "languageId": 19,
+            "parentPostId": 1766,
+            "viewCount": 20,
+            "likeCount": 3
           }
         ],
-        "tags": [
-          {
-            "id": 46,
-            "name": "NestJS"
-          }
-        ],
-        "media": []
+        "totals": {
+          "views": 120,
+          "likes": 11
+        },
+        "latestUpdatedAt": "2026-09-18T07:50:00.000Z"
       }
     ],
     "meta": {
-      "totalItems": 3,
+      "totalItems": 1,
       "itemCount": 1,
       "itemsPerPage": 10,
       "totalPages": 1,
       "currentPage": 1
     }
   },
-  "timestamp": "2026-08-01T07:00:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
 #### Điểm cần chú ý
 
-- Backend luôn ép `authorId` bằng user ID trong JWT.
-- Danh sách sắp xếp theo `updatedAt desc`.
-- Có thể xem đủ bốn trạng thái của chính owner.
-- `reviewedById` và `deletedAt` của Post bị ẩn khỏi `BlogownerPostEntity`.
-- Trường `translations` chỉ được bổ sung ở API chi tiết, không phải API danh sách.
+- Một group chỉ tính một item phân trang.
+- Filter xác định group khớp; response trả lại toàn bộ version active của group.
+- Tổng view/like là tổng của root + translations.
 
-### B04 — GET /api/v1/blog-owner/posts/:id
+### B06 — GET /api/v1/blog-owner/posts/:id
 
-**Xem chi tiết một bài và toàn bộ phiên bản ngôn ngữ trong cùng nhóm**
+**Xem chi tiết một version và context của Post Group**
 
-| Xác thực / phân quyền                          | HTTP thành công | Content-Type request |
-| ---------------------------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài | 200             | Không có body        |
-
-#### Frontend phải gửi
-
-| Vị trí | Field | Kiểu    | Bắt buộc | Validation      |
-| ------ | ----- | ------- | -------- | --------------- |
-| Path   | `id`  | integer | Có       | `ParseIntPipe`. |
-
-#### Request hoàn chỉnh
+| Vị trí | Field | Kiểu    | Bắt buộc |
+| ------ | ----- | ------- | -------- |
+| Path   | `id`  | integer | Có       |
 
 ```http
-GET /api/v1/blog-owner/posts/601
+GET /api/v1/blog-owner/posts/1766
 Authorization: Bearer <ACCESS_TOKEN>
 ```
 
-#### JSON backend trả về khi thành công
+#### JSON backend trả về
 
 ```json
 {
   "success": true,
   "statusCode": 200,
   "data": {
-    "id": 601,
-    "title": "NestJS Guards và Interceptors",
-    "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.jpg",
-    "content": "<p>Nội dung bài viết...</p>",
-    "status": "REJECT",
-    "viewCount": 20,
+    "id": 1766,
+    "title": "NestJS và BullMQ",
+    "thumbnailUrl": null,
+    "content": "<p>Nội dung...</p>",
+    "status": "DRAFT",
+    "viewCount": 100,
+    "likeCount": 8,
     "publishedAt": null,
     "parentPostId": null,
-    "authorId": 102,
-    "languageId": 26,
-    "reviewedAt": "2026-08-01T05:30:00.000Z",
-    "rejectionReason": "Cần bổ sung nguồn tham khảo.",
-    "createdAt": "2026-08-01T04:30:00.000Z",
-    "updatedAt": "2026-08-01T05:30:00.000Z",
-    "author": {
-      "id": 102,
-      "username": "son_backend",
-      "bio": "Backend Developer",
-      "avatarUrl": null
-    },
-    "language": {
-      "id": 26,
-      "code": "vi",
-      "name": "Tiếng Việt",
-      "flag": "🇻🇳",
-      "isDefault": true,
-      "isActive": true,
-      "createdAt": "2026-07-20T02:00:00.000Z",
-      "updatedAt": "2026-07-20T02:00:00.000Z",
-      "deletedAt": null
-    },
-    "categories": [
-      {
-        "id": 73,
-        "name": "Backend",
-        "categoryGroupId": 33,
-        "languageId": 26
-      }
-    ],
-    "tags": [
-      {
-        "id": 46,
-        "name": "NestJS"
-      }
-    ],
-    "media": [
-      {
-        "id": 900,
-        "postId": 601,
-        "mediaType": "IMAGE",
-        "mediaUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/diagram.png",
-        "publicId": "nestjs_blog/posts/601/diagram",
-        "createdAt": "2026-08-01T04:40:00.000Z",
-        "deletedAt": null
-      }
-    ],
+    "authorId": 21,
+    "languageId": 18,
+    "reviewedAt": null,
+    "rejectionReason": null,
+    "media": [],
     "translations": [
       {
-        "id": 602,
-        "title": "NestJS Guards and Interceptors",
-        "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.jpg",
+        "id": 1766,
+        "title": "NestJS và BullMQ",
+        "thumbnailUrl": null,
         "status": "DRAFT",
-        "parentPostId": 601,
-        "languageId": 27,
-        "language": {
-          "id": 27,
-          "code": "en",
-          "name": "English",
-          "flag": "🇬🇧"
-        }
-      },
-      {
-        "id": 601,
-        "title": "NestJS Guards và Interceptors",
-        "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.jpg",
-        "status": "REJECT",
         "parentPostId": null,
-        "languageId": 26,
+        "languageId": 18,
         "language": {
-          "id": 26,
+          "id": 18,
           "code": "vi",
           "name": "Tiếng Việt",
           "flag": "🇻🇳"
         }
+      },
+      {
+        "id": 1767,
+        "title": "NestJS and BullMQ",
+        "thumbnailUrl": null,
+        "status": "DRAFT",
+        "parentPostId": 1766,
+        "languageId": 19,
+        "language": {
+          "id": 19,
+          "code": "en",
+          "name": "English",
+          "flag": "🇬🇧"
+        }
       }
     ]
   },
-  "timestamp": "2026-08-01T07:00:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
 #### Điểm cần chú ý
 
-- `translations` gồm bài gốc và các bản dịch chưa bị xóa của cùng owner.
-- Có thể gọi bằng ID bài gốc hoặc ID một bản dịch; backend tự xác định `rootPostId`.
-- Bài không tồn tại/đã xóa trả `404`.
-- Bài thuộc owner khác trả `403`.
+- Có thể gọi bằng root ID hoặc translation ID.
+- Backend resolve group nhưng trả full detail của version được yêu cầu.
+- `translations` chứa summary các version active trong cùng group.
+- `reviewedById` và `deletedAt` bị ẩn.
 
-### B05 — POST /api/v1/blog-owner/posts
+### B07 — POST /api/v1/blog-owner/posts
 
-**Tạo bài viết mới**
+**Tạo root post và tùy chọn dịch nền**
 
-| Xác thực / phân quyền         | HTTP thành công | Content-Type request                          |
-| ----------------------------- | --------------- | --------------------------------------------- |
-| Bearer JWT; role `BLOG_OWNER` | 201             | `application/json` hoặc `multipart/form-data` |
+| Xác thực / phân quyền    | HTTP thành công | Content-Type request                          |
+| ------------------------ | --------------: | --------------------------------------------- |
+| Bearer JWT; `BLOG_OWNER` |             201 | `application/json` hoặc `multipart/form-data` |
 
-#### Frontend phải gửi
+#### Request backend chấp nhận
 
-| Vị trí | Field             | Kiểu          | Bắt buộc | Backend xử lý / validation                                           |
-| ------ | ----------------- | ------------- | -------- | -------------------------------------------------------------------- |
-| Body   | `title`           | string        | Có       | Không rỗng; tối đa 255 ký tự; kiểm tra từ cấm.                       |
-| Body   | `content`         | string        | Có       | Không rỗng; kiểm tra từ cấm. Có thể chứa HTML.                       |
-| Body   | `languageId`      | integer       | Có       | Ngôn ngữ phải tồn tại và đang hoạt động.                             |
-| Body   | `categoryIds`     | integer[]     | Có       | Ít nhất 1; không trùng; category phải cùng ngôn ngữ.                 |
-| Body   | `thumbnailUrl`    | URL string    | Không    | Dùng khi frontend đã có URL; file `thumbnail` sẽ ghi đè giá trị này. |
-| Body   | `tagIds`          | integer[]     | Không    | ID tag active; không trùng.                                          |
-| Body   | `tagNames`        | string[]      | Không    | Tag mới được tạo nếu chưa tồn tại; tên đã soft-delete bị từ chối.    |
-| Body   | `submitForReview` | boolean       | Không    | Mặc định `false`; multipart chấp nhận chuỗi `true`/`false`.          |
-| File   | `thumbnail`       | image         | Không    | Tối đa 1 file, 10 MB.                                                |
-| File   | `media`           | image/video[] | Không    | Tối đa 10 file ở field chuẩn; mỗi file 10 MB.                        |
+| Vị trí | Field                    | Kiểu          | Bắt buộc | Backend xử lý                                                           |
+| ------ | ------------------------ | ------------- | -------- | ----------------------------------------------------------------------- |
+| Body   | `title`                  | string        | Có       | không rỗng; max 255; kiểm tra từ cấm                                    |
+| Body   | `content`                | string        | Có       | sanitize; không rỗng; kiểm tra từ cấm                                   |
+| Body   | `languageId`             | integer       | Có       | language active                                                         |
+| Body   | `categoryIds`            | integer[]     | Có       | ít nhất 1; unique; đúng language                                        |
+| Body   | `tagIds`                 | integer[]     | Không    | unique; tag active                                                      |
+| Body   | `tagNames`               | string[]      | Không    | unique; backend tái sử dụng/tạo tag hợp lệ                              |
+| Body   | `translationLanguageIds` | integer[]     | Không    | unique; không trùng source language                                     |
+| Body   | `submitForReview`        | boolean       | Không    | mặc định `false`                                                        |
+| File   | `thumbnail`              | image         | Không    | max 1; JPEG/PNG/WEBP thật; magic bytes + MIME + extension; tối đa 10 MB |
+| File   | `media`                  | image/video[] | Không    | max 10 mỗi field, 10 MB/file                                            |
 
-Không được gửi `status`, `parentPostId`, `authorId`.
+Không được gửi `status`, `parentPostId`, `authorId`, `thumbnailUrl`.
 
-#### Request hoàn chỉnh
+#### Request mẫu
 
-##### Cách 1 — multipart/form-data
-
-```http
-POST /api/v1/blog-owner/posts
-Authorization: Bearer <ACCESS_TOKEN>
-Content-Type: multipart/form-data
-
-Form fields:
-title           = NestJS Guards và Interceptors
-content         = <p>Nội dung bài viết...</p>
-languageId      = 26
-categoryIds     = [73]
-tagIds          = [46,53]
-submitForReview = true
-thumbnail       = <cover.png>
-media           = <diagram.png>
+```json
+{
+  "title": "NestJS và BullMQ",
+  "content": "<p>Nội dung...</p>",
+  "languageId": 18,
+  "categoryIds": [133],
+  "tagNames": ["NestJS", "BullMQ"],
+  "translationLanguageIds": [19],
+  "submitForReview": true
+}
 ```
 
-##### Cách 2 — application/json không có file
+#### Response khi có translation
 
-```http
-POST /api/v1/blog-owner/posts
-Authorization: Bearer <ACCESS_TOKEN>
-Content-Type: application/json
-
+```json
 {
-  "title": "NestJS Guards và Interceptors",
-  "content": "<p>Nội dung bài viết...</p>",
-  "languageId": 26,
-  "categoryIds": [73],
-  "tagIds": [46, 53],
+  "success": true,
+  "statusCode": 201,
+  "data": {
+    "id": 1766,
+    "title": "NestJS và BullMQ",
+    "status": "DRAFT",
+    "languageId": 18,
+    "parentPostId": null,
+    "translationBatch": {
+      "batchId": "translation-batch-1766-...",
+      "status": "QUEUED"
+    }
+  },
+  "timestamp": "2026-09-18T08:00:00.000Z"
+}
+```
+
+#### Điểm cần chú ý
+
+- `title`/`content` chứa từ cấm bị từ chối trước khi lưu.
+- Thumbnail được kiểm tra file thật **trước khi tạo Post DRAFT**; thumbnail giả/không hợp lệ không để lại Post rác trong DB.
+- Khi có translation, request **không chờ LibreTranslate**.
+- Dù `submitForReview=true`, response ban đầu vẫn `DRAFT`; parent finalize mới chuyển cả group `PENDING_REVIEW`.
+- Khi không có translation, backend không dùng BullMQ và có thể quyết định status ngay sau khi file hoàn tất.
+- Media chỉ gắn root.
+
+### B08 — PATCH /api/v1/blog-owner/posts/:id
+
+**Cập nhật root và đồng bộ translations**
+
+| Xác thực / phân quyền                    | HTTP thành công |
+| ---------------------------------------- | --------------: |
+| Bearer JWT; `BLOG_OWNER`; root ownership |             200 |
+
+#### Request backend chấp nhận
+
+Các field editable là partial của create trừ `status`, `parentPostId`, `languageId`, cộng:
+
+- `translationLanguageIds?: integer[]`
+- `submitForReview?: boolean`
+- thumbnail/media multipart
+
+```json
+{
+  "title": "NestJS, Redis và BullMQ",
+  "categoryIds": [133],
+  "translationLanguageIds": [19, 20],
   "submitForReview": false
 }
 ```
 
-#### JSON backend trả về khi thành công
-
-```json
-{
-  "success": true,
-  "statusCode": 201,
-  "data": {
-    "id": 601,
-    "title": "NestJS Guards và Interceptors",
-    "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-    "content": "<p>Nội dung bài viết...</p>",
-    "status": "PENDING_REVIEW",
-    "viewCount": 0,
-    "publishedAt": null,
-    "parentPostId": null,
-    "authorId": 102,
-    "languageId": 26,
-    "reviewedAt": null,
-    "rejectionReason": null,
-    "createdAt": "2026-08-01T07:00:00.000Z",
-    "updatedAt": "2026-08-01T07:00:02.000Z",
-    "categories": [
-      {
-        "id": 73,
-        "name": "Backend",
-        "categoryGroupId": 33,
-        "languageId": 26
-      }
-    ],
-    "tags": [
-      {
-        "id": 46,
-        "name": "NestJS"
-      },
-      {
-        "id": 53,
-        "name": "Prisma"
-      }
-    ],
-    "media": [
-      {
-        "id": 900,
-        "postId": 601,
-        "mediaType": "IMAGE",
-        "mediaUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/diagram.png",
-        "publicId": "nestjs_blog/posts/601/diagram",
-        "createdAt": "2026-08-01T07:00:01.000Z",
-        "deletedAt": null
-      }
-    ],
-    "translations": [
-      {
-        "id": 601,
-        "title": "NestJS Guards và Interceptors",
-        "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-        "status": "PENDING_REVIEW",
-        "parentPostId": null,
-        "languageId": 26,
-        "language": {
-          "id": 26,
-          "code": "vi",
-          "name": "Tiếng Việt",
-          "flag": "🇻🇳"
-        }
-      }
-    ]
-  },
-  "timestamp": "2026-08-01T07:00:02.000Z"
-}
-```
-
 #### Điểm cần chú ý
 
-- Backend luôn tạo Post `DRAFT` trước, kể cả khi `submitForReview=true`.
-- Chỉ sau khi thumbnail và media hoàn tất, backend mới chuyển sang `PENDING_REVIEW`.
-- Nếu không gửi `submitForReview` hoặc gửi `false`, response có `status=DRAFT`.
-- Upload media theo lô có rollback nếu một file thất bại.
-- Thumbnail mới được cleanup nếu upload thành công nhưng lưu URL vào database thất bại.
+- Translation ID ở path trả `400`.
+- Existing translations luôn được giữ và dịch lại.
+- Target language mới được union với language đã tồn tại.
+- Nếu cần dịch, response có `translationBatch`.
+- Không có thay đổi thật trả `400`.
 
-### B06 — PATCH /api/v1/blog-owner/posts/:id
+### B09 — DELETE /api/v1/blog-owner/posts/:id
 
-**Chỉnh sửa bài viết của chính Blog Owner**
-
-| Xác thực / phân quyền                          | HTTP thành công | Content-Type request                          |
-| ---------------------------------------------- | --------------- | --------------------------------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài | 200             | `application/json` hoặc `multipart/form-data` |
-
-#### Frontend phải gửi
-
-Tất cả field đều không bắt buộc riêng lẻ, nhưng request phải có ít nhất một field hoặc file thực sự.
-
-| Vị trí | Field          | Kiểu          | Backend xử lý                                                  |
-| ------ | -------------- | ------------- | -------------------------------------------------------------- |
-| Body   | `title`        | string        | Không rỗng nếu gửi; tối đa 255; kiểm tra từ cấm.               |
-| Body   | `content`      | string        | Không rỗng nếu gửi; kiểm tra từ cấm.                           |
-| Body   | `thumbnailUrl` | URL string    | Cập nhật URL; file thumbnail ghi đè nếu cùng gửi.              |
-| Body   | `categoryIds`  | integer[]     | Thay toàn bộ category; ít nhất 1; phải cùng ngôn ngữ hiện tại. |
-| Body   | `tagIds`       | integer[]     | Thay cấu hình tag khi gửi cùng/hoặc `tagNames`.                |
-| Body   | `tagNames`     | string[]      | Tái sử dụng tag active hoặc tạo tag mới.                       |
-| File   | `thumbnail`    | image         | Tối đa 1 file, 10 MB.                                          |
-| File   | `media`        | image/video[] | Upload thêm media; mỗi file 10 MB.                             |
-
-Không được gửi `status`, `parentPostId`, `languageId`, `submitForReview`, `authorId`.
-
-#### Request hoàn chỉnh
+**Soft-delete toàn Post Group**
 
 ```http
-PATCH /api/v1/blog-owner/posts/601
+DELETE /api/v1/blog-owner/posts/1766
 Authorization: Bearer <ACCESS_TOKEN>
-Content-Type: application/json
-
-{
-  "title": "NestJS Guards, Interceptors và Pipes",
-  "content": "<p>Nội dung đã chỉnh sửa...</p>",
-  "categoryIds": [73],
-  "tagIds": [46, 53]
-}
 ```
 
-#### JSON backend trả về khi thành công
+#### Response
 
 ```json
 {
   "success": true,
   "statusCode": 200,
   "data": {
-    "id": 601,
-    "title": "NestJS Guards, Interceptors và Pipes",
-    "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-    "content": "<p>Nội dung đã chỉnh sửa...</p>",
-    "status": "DRAFT",
-    "viewCount": 20,
-    "publishedAt": null,
-    "parentPostId": null,
-    "authorId": 102,
-    "languageId": 26,
-    "reviewedAt": null,
-    "rejectionReason": null,
-    "createdAt": "2026-08-01T04:30:00.000Z",
-    "updatedAt": "2026-08-01T07:10:00.000Z",
-    "categories": [
-      {
-        "id": 73,
-        "name": "Backend",
-        "categoryGroupId": 33,
-        "languageId": 26
-      }
-    ],
-    "tags": [
-      {
-        "id": 46,
-        "name": "NestJS"
-      },
-      {
-        "id": 53,
-        "name": "Prisma"
-      }
-    ],
-    "media": [],
-    "translations": [
-      {
-        "id": 601,
-        "title": "NestJS Guards, Interceptors và Pipes",
-        "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-        "status": "DRAFT",
-        "parentPostId": null,
-        "languageId": 26,
-        "language": {
-          "id": 26,
-          "code": "vi",
-          "name": "Tiếng Việt",
-          "flag": "🇻🇳"
-        }
-      }
-    ]
+    "message": "Đã xóa bài viết ID 1766 và tất cả bản dịch."
   },
-  "timestamp": "2026-08-01T07:10:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
-#### Điểm cần chú ý
+- Chỉ root ID.
+- Root + translations được soft-delete cùng timestamp.
 
-- `PENDING_REVIEW` không được sửa.
-- `REJECT` sau khi sửa thành công trở về `DRAFT`.
-- `PUBLISH` sau khi sửa thành công chuyển sang `PENDING_REVIEW`.
-- `PATCH {}` hoặc multipart không có field/file trả `400`.
-- Khi nội dung database đã cập nhật thành công, review metadata được reset trước các thao tác media phía sau để trạng thái không còn `PUBLISH`/`REJECT` sai lệch.
+### B10 — POST /api/v1/blog-owner/posts/:id/submit
 
-### B07 — DELETE /api/v1/blog-owner/posts/:id
-
-**Soft-delete bài viết của chính Blog Owner**
-
-| Xác thực / phân quyền                          | HTTP thành công | Content-Type request |
-| ---------------------------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài | 200             | Không có body        |
-
-#### Frontend phải gửi
-
-| Vị trí | Field | Kiểu    | Bắt buộc | Backend xử lý / validation                                                         |
-| ------ | ----- | ------- | -------- | ---------------------------------------------------------------------------------- |
-| Path   | `id`  | integer | Có       | ID bài viết; phải tồn tại, chưa bị soft-delete và thuộc Blog Owner đang đăng nhập. |
-
-Không gửi body.
-
-#### Request hoàn chỉnh
+**Gửi toàn Post Group sang Moderator**
 
 ```http
-DELETE /api/v1/blog-owner/posts/601
+POST /api/v1/blog-owner/posts/1766/submit
 Authorization: Bearer <ACCESS_TOKEN>
 ```
 
-#### JSON backend trả về khi thành công
+- Không body.
+- Chỉ root ID.
+- Mọi version active trong group phải `DRAFT`.
+- Backend đọc lại root + translations và kiểm tra `title`/`content` chứa từ cấm trước khi chuyển trạng thái.
+- Sau thành công toàn group → `PENDING_REVIEW`.
+- Với create/update có translation và `submitForReview=true`, parent job cũng kiểm tra lại toàn group trước khi finalize `PENDING_REVIEW`.
+
+### B11 — POST /api/v1/blog-owner/posts/:id/translate-preview
+
+**Preview dịch title/content bằng LibreTranslate**
+
+#### Request
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "message": "Đã xóa bài viết có ID 601."
+  "targetLanguageId": 19
+}
+```
+
+#### Response nghiệp vụ mẫu
+
+```json
+{
+  "sourcePostId": 1766,
+  "sourceLanguage": {
+    "id": 18,
+    "code": "vi",
+    "name": "Tiếng Việt"
   },
-  "timestamp": "2026-08-01T07:15:00.000Z"
+  "targetLanguage": {
+    "id": 19,
+    "code": "en",
+    "name": "English"
+  },
+  "title": "NestJS and BullMQ",
+  "content": "<p>Translated content...</p>"
 }
 ```
 
 #### Điểm cần chú ý
 
-- Đây là soft-delete: backend gán `deletedAt`, không xóa vật lý ngay.
-- Service không giới hạn trạng thái khi xóa; owner có thể xóa bài của mình ở bất kỳ trạng thái nào nếu bài chưa bị xóa.
-- Gọi lại với bài đã soft-delete trả `404`.
+- Chỉ preview; không tạo/update Post.
+- Source post phải thuộc owner.
+- Target language phải active.
+- Shared `LibreTranslateService` dịch `title` + `content`.
+- Với background translation thật, output dịch chứa từ cấm bị đánh dấu lỗi không thể retry và **không được upsert vào Post translation**.
 
-### B08 — POST /api/v1/blog-owner/posts/:id/submit
+### B12 — POST /api/v1/blog-owner/posts/:postId/media
 
-**Gửi bài `DRAFT` sang Moderator để duyệt**
+**Upload một media cho root**
 
-| Xác thực / phân quyền                          | HTTP thành công | Content-Type request |
-| ---------------------------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài | 200             | Không có body        |
-
-#### Frontend phải gửi
-
-| Vị trí | Field | Kiểu    | Bắt buộc | Backend xử lý / validation                                      |
-| ------ | ----- | ------- | -------- | --------------------------------------------------------------- |
-| Path   | `id`  | integer | Có       | ID bài viết; bài phải thuộc owner và đang ở trạng thái `DRAFT`. |
-
-Không gửi body.
-
-#### Request hoàn chỉnh
+| Field  | Kiểu        | Bắt buộc |
+| ------ | ----------- | -------- |
+| `file` | image/video | Có       |
 
 ```http
-POST /api/v1/blog-owner/posts/601/submit
-Authorization: Bearer <ACCESS_TOKEN>
-```
-
-#### JSON backend trả về khi thành công
-
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "id": 601,
-    "title": "NestJS Guards và Interceptors",
-    "status": "PENDING_REVIEW",
-    "reviewedAt": null,
-    "rejectionReason": null,
-    "translations": [
-      {
-        "id": 601,
-        "title": "NestJS Guards và Interceptors",
-        "thumbnailUrl": null,
-        "status": "PENDING_REVIEW",
-        "parentPostId": null,
-        "languageId": 26,
-        "language": {
-          "id": 26,
-          "code": "vi",
-          "name": "Tiếng Việt",
-          "flag": "🇻🇳"
-        }
-      }
-    ]
-  },
-  "timestamp": "2026-08-01T07:20:00.000Z"
-}
-```
-
-> Response thực tế là đầy đủ `BlogownerPostEntity`; ví dụ trên chỉ rút gọn các field không thay đổi để nhấn mạnh trạng thái.
-
-#### Điểm cần chú ý
-
-- Chỉ `DRAFT` được submit.
-- `REJECT` trả lỗi yêu cầu chỉnh sửa trước.
-- `PENDING_REVIEW` trả lỗi đang chờ Moderator.
-- `PUBLISH` trả lỗi đã xuất bản; chỉ khi chỉnh sửa bài mới được gửi duyệt lại.
-
-### B09 — POST /api/v1/blog-owner/posts/:id/translate-preview
-
-<!-- libretranslate --host 127.0.0.1 --port 5000 --load-only vi,en -->
-
-**Dịch tự động title và content để xem trước; không ghi database**
-
-| Xác thực / phân quyền                                | HTTP thành công | Content-Type request |
-| ---------------------------------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài nguồn | 200             | `application/json`   |
-
-#### Frontend phải gửi
-
-| Vị trí | Field              | Kiểu    | Bắt buộc | Validation                                    |
-| ------ | ------------------ | ------- | -------- | --------------------------------------------- |
-| Path   | `id`               | integer | Có       | ID bài nguồn hoặc một bản dịch trong nhóm.    |
-| Body   | `targetLanguageId` | integer | Có       | Ngôn ngữ đích phải tồn tại và đang hoạt động. |
-
-#### Request hoàn chỉnh
-
-```http
-POST /api/v1/blog-owner/posts/601/translate-preview
-Authorization: Bearer <ACCESS_TOKEN>
-Content-Type: application/json
-
-{
-  "targetLanguageId": 27
-}
-```
-
-#### JSON backend trả về khi thành công
-
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "sourcePost": {
-      "id": 601,
-      "rootPostId": 601,
-      "title": "NestJS Guards và Interceptors",
-      "content": "<p>Nội dung tiếng Việt...</p>",
-      "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-      "language": {
-        "id": 26,
-        "code": "vi",
-        "name": "Tiếng Việt",
-        "flag": "🇻🇳"
-      }
-    },
-    "translation": {
-      "language": {
-        "id": 27,
-        "code": "en",
-        "name": "English",
-        "flag": "🇬🇧"
-      },
-      "title": "NestJS Guards and Interceptors",
-      "content": "<p>English content...</p>"
-    }
-  },
-  "timestamp": "2026-08-01T07:25:00.000Z"
-}
-```
-
-#### Điểm cần chú ý
-
-- API chỉ trả preview; không tạo Post, không update Post, không đổi status.
-- Backend kiểm tra quyền sở hữu, ngôn ngữ đích, bản dịch trùng và category mapping trước khi gọi LibreTranslate.
-- Nếu nhóm bài đã có phiên bản active của ngôn ngữ đích, trả `409 Conflict`.
-- Nếu một Category Group của bài nguồn chưa có category ở ngôn ngữ đích, trả `400`.
-- `title` và `content` được gửi trong cùng một batch với `format=html`.
-- LibreTranslate chạy trên máy cá nhân, Khi deploy có thể cài LibreTranslate trên VPS rồi đổi TRANSLATE_API_URL sang IP hoặc domain của server
-
-### B10 — POST /api/v1/blog-owner/posts/:id/translations
-
-**Lưu bản dịch mới hoặc restore bản dịch đã soft-delete**
-
-| Xác thực / phân quyền                                | HTTP thành công | Content-Type request |
-| ---------------------------------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài nguồn | 201             | `application/json`   |
-
-#### Frontend phải gửi
-
-| Vị trí | Field              | Kiểu       | Bắt buộc | Validation                                         |
-| ------ | ------------------ | ---------- | -------- | -------------------------------------------------- |
-| Path   | `id`               | integer    | Có       | ID bài nguồn hoặc bản dịch trong nhóm.             |
-| Body   | `targetLanguageId` | integer    | Có       | Ngôn ngữ đích active.                              |
-| Body   | `title`            | string     | Có       | Không rỗng; tối đa 255; kiểm tra từ cấm.           |
-| Body   | `content`          | string     | Có       | Không rỗng; kiểm tra từ cấm.                       |
-| Body   | `thumbnailUrl`     | URL string | Không    | Nếu không gửi, kế thừa thumbnail bài nguồn khi có. |
-
-Không gửi `categoryIds`, `tagIds`, `parentPostId`, `status`. Backend tự ánh xạ/copy.
-
-#### Request hoàn chỉnh
-
-```http
-POST /api/v1/blog-owner/posts/601/translations
-Authorization: Bearer <ACCESS_TOKEN>
-Content-Type: application/json
-
-{
-  "targetLanguageId": 27,
-  "title": "NestJS Guards and Interceptors",
-  "content": "<p>English content reviewed by the owner...</p>"
-}
-```
-
-#### JSON backend trả về khi thành công
-
-```json
-{
-  "success": true,
-  "statusCode": 201,
-  "data": {
-    "id": 602,
-    "title": "NestJS Guards and Interceptors",
-    "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-    "content": "<p>English content reviewed by the owner...</p>",
-    "status": "DRAFT",
-    "viewCount": 0,
-    "publishedAt": null,
-    "parentPostId": 601,
-    "authorId": 102,
-    "languageId": 27,
-    "reviewedAt": null,
-    "rejectionReason": null,
-    "categories": [
-      {
-        "id": 74,
-        "name": "Backend",
-        "categoryGroupId": 33,
-        "languageId": 27
-      }
-    ],
-    "tags": [
-      {
-        "id": 46,
-        "name": "NestJS"
-      }
-    ],
-    "media": [],
-    "translations": [
-      {
-        "id": 602,
-        "title": "NestJS Guards and Interceptors",
-        "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-        "status": "DRAFT",
-        "parentPostId": 601,
-        "languageId": 27,
-        "language": {
-          "id": 27,
-          "code": "en",
-          "name": "English",
-          "flag": "🇬🇧"
-        }
-      },
-      {
-        "id": 601,
-        "title": "NestJS Guards và Interceptors",
-        "thumbnailUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/thumbnail/cover.png",
-        "status": "PUBLISH",
-        "parentPostId": null,
-        "languageId": 26,
-        "language": {
-          "id": 26,
-          "code": "vi",
-          "name": "Tiếng Việt",
-          "flag": "🇻🇳"
-        }
-      }
-    ]
-  },
-  "timestamp": "2026-08-01T07:30:00.000Z"
-}
-```
-
-#### Điểm cần chú ý
-
-- Endpoint này không gọi dịch tự động; frontend có thể lấy nội dung từ B09, cho owner chỉnh sửa rồi gửi B10.
-- Bản dịch mới luôn `DRAFT` và phải submit riêng bằng B08.
-- Nếu bản dịch active đã tồn tại, trả `409`.
-- Nếu bản dịch từng bị soft-delete, backend restore đúng record cũ, cập nhật nội dung/category/tag, xóa `deletedAt`, reset review và `publishedAt`.
-- Chỉ sao chép tag chưa bị soft-delete.
-
-### B11 — POST /api/v1/blog-owner/posts/:postId/media
-
-**Upload một ảnh hoặc video cho bài viết**
-
-| Xác thực / phân quyền                          | HTTP thành công | Content-Type request  |
-| ---------------------------------------------- | --------------- | --------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài | 201             | `multipart/form-data` |
-
-#### Frontend phải gửi
-
-| Vị trí | Field    | Kiểu        | Bắt buộc | Validation                                                   |
-| ------ | -------- | ----------- | -------- | ------------------------------------------------------------ |
-| Path   | `postId` | integer     | Có       | `ParseIntPipe`.                                              |
-| File   | `file`   | image/video | Có       | Tối đa 10 MB; MIME phải bắt đầu bằng `image/` hoặc `video/`. |
-
-#### Request hoàn chỉnh
-
-```http
-POST /api/v1/blog-owner/posts/601/media
+POST /api/v1/blog-owner/posts/1766/media
 Authorization: Bearer <ACCESS_TOKEN>
 Content-Type: multipart/form-data
 
-file = <architecture-diagram.png>
+file=<diagram.png>
 ```
 
-#### JSON backend trả về khi thành công
+- Mỗi file tối đa 10 MB.
+- `postId` bắt buộc là root ID.
+- Status group được xử lý theo bảng media phía trên.
 
-```json
-{
-  "success": true,
-  "statusCode": 201,
-  "data": {
-    "id": 901,
-    "postId": 601,
-    "mediaType": "IMAGE",
-    "mediaUrl": "https://res.cloudinary.com/demo/image/upload/posts/601/architecture-diagram.png",
-    "publicId": "nestjs_blog/posts/601/architecture-diagram",
-    "createdAt": "2026-08-01T07:35:00.000Z",
-    "deletedAt": null
-  },
-  "timestamp": "2026-08-01T07:35:00.000Z"
-}
-```
+### B13 — DELETE /api/v1/blog-owner/posts/:postId/media/:mediaId
 
-#### Điểm cần chú ý
-
-- `PENDING_REVIEW` không được upload media.
-- Với bài `PUBLISH`, backend chuyển bài sang `PENDING_REVIEW` trước khi upload.
-- Với bài `REJECT`, chỉ sau khi upload thành công mới chuyển bài về `DRAFT`.
-- MIME quyết định `mediaType`; client không gửi `mediaType` hoặc URL.
-
-### B12 — DELETE /api/v1/blog-owner/posts/:postId/media/:mediaId
-
-**Soft-delete media thuộc bài viết**
-
-| Xác thực / phân quyền                          | HTTP thành công | Content-Type request |
-| ---------------------------------------------- | --------------- | -------------------- |
-| Bearer JWT; role `BLOG_OWNER`; phải sở hữu bài | 200             | Không có body        |
-
-#### Frontend phải gửi
-
-| Vị trí | Field     | Kiểu    | Bắt buộc | Validation                                |
-| ------ | --------- | ------- | -------- | ----------------------------------------- |
-| Path   | `postId`  | integer | Có       | `ParseIntPipe`.                           |
-| Path   | `mediaId` | integer | Có       | Media phải còn active và thuộc đúng post. |
-
-#### Request hoàn chỉnh
+**Xóa media của root**
 
 ```http
-DELETE /api/v1/blog-owner/posts/601/media/901
+DELETE /api/v1/blog-owner/posts/1766/media/900
 Authorization: Bearer <ACCESS_TOKEN>
 ```
 
-#### JSON backend trả về khi thành công
+- `postId` phải là root ID.
+- Media phải thuộc đúng root và chưa soft-delete.
+- Xóa qua MediaService; state transition áp dụng cho toàn group.
+
+### B14 — GET /api/v1/blog-owner/translation-batches/:batchId
+
+**Theo dõi trạng thái BullMQ translation batch**
+
+```http
+GET /api/v1/blog-owner/translation-batches/translation-batch-1766-abc
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+#### JSON backend trả về
 
 ```json
 {
   "success": true,
   "statusCode": 200,
   "data": {
-    "message": "Đã xóa media thành công"
+    "batchId": "translation-batch-1766-abc",
+    "rootPostId": 1766,
+    "status": "PROCESSING",
+    "progress": 63,
+    "translations": [
+      {
+        "languageId": 19,
+        "status": "PROCESSING",
+        "progress": 40
+      },
+      {
+        "languageId": 20,
+        "status": "COMPLETED",
+        "progress": 100
+      }
+    ]
   },
-  "timestamp": "2026-08-01T07:40:00.000Z"
+  "timestamp": "2026-09-18T08:00:00.000Z"
 }
 ```
 
 #### Điểm cần chú ý
 
-- Media phải thuộc chính bài trong path; nếu không, trả `404` với message media không tồn tại trong bài này.
-- `PENDING_REVIEW` không được xóa media.
-- `PUBLISH` chuyển `PENDING_REVIEW` trước khi xóa.
-- `REJECT` chỉ chuyển `DRAFT` sau khi xóa thành công.
-- Database soft-delete media trước; lỗi cleanup Cloudinary không rollback soft-delete.
+- `QUEUED`: progress có thể 0.
+- `PROCESSING`: progress tổng được tính từ child jobs và phần finalize.
+- Parent completed: batch `COMPLETED`, progress 100.
+- Một child fail: batch `FAILED`.
+- Batch không tồn tại hoặc không thuộc owner trả cùng dạng `404`.
+- API không trả raw `failedReason` nội bộ.
 
 ## Bảng lỗi thường gặp
 
-| HTTP | Trường hợp điển hình                                  | Ví dụ message                                                                                       |
-| ---- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 400  | DTO sai hoặc có field thừa                            | `property status should not exist`                                                                  |
-| 400  | Language không hợp lệ/inactive                        | `Ngôn ngữ không tồn tại, đã bị xóa hoặc đang bị vô hiệu hóa.`                                       |
-| 400  | Category không hợp lệ                                 | `Có danh mục không tồn tại, đã bị xóa, thuộc nhóm đã bị xóa hoặc không cùng ngôn ngữ với bài viết.` |
-| 400  | Quá 5 tag                                             | `Mỗi bài viết chỉ được gắn tối đa 5 thẻ (tags)...`                                                  |
-| 400  | Tag đã bị xóa                                         | `Có thẻ không tồn tại hoặc đã bị xóa.`                                                              |
-| 400  | PATCH rỗng                                            | `Không có dữ liệu nào để cập nhật.`                                                                 |
-| 400  | Sửa bài đang chờ duyệt                                | `Bài viết đang chờ Moderator duyệt nên không thể chỉnh sửa.`                                        |
-| 400  | Submit sai trạng thái                                 | Message phụ thuộc `PENDING_REVIEW`, `PUBLISH` hoặc `REJECT`.                                        |
-| 400  | File sai MIME                                         | `Chỉ hỗ trợ tải lên file ảnh hoặc video`                                                            |
-| 400  | LibreTranslate không hỗ trợ request/cặp ngôn ngữ      | `Không thể dịch bài viết: ...` hoặc message fallback.                                               |
-| 401  | Thiếu/sai access token                                | Lỗi xác thực JWT.                                                                                   |
-| 403  | Sai role hoặc không sở hữu bài                        | `Bạn không có quyền chỉnh sửa hoặc xóa bài viết của tác giả khác.`                                  |
-| 404  | Bài không tồn tại/đã xóa                              | `Không tìm thấy bài viết với định danh: ...`                                                        |
-| 404  | Media không thuộc bài/đã xóa                          | `Media không tồn tại trong bài viết này`                                                            |
-| 409  | Phiên bản ngôn ngữ đã tồn tại                         | `Bài viết đã có phiên bản cho ngôn ngữ được chọn.`                                                  |
-| 413  | File vượt giới hạn Multer                             | Payload/file quá lớn.                                                                               |
-| 502  | LibreTranslate offline, lỗi nội bộ hoặc response hỏng | Message dịch vụ dịch tự động tương ứng.                                                             |
-| 503  | Chưa cấu hình `TRANSLATE_API_URL`                     | `Dịch tự động chưa được cấu hình.`                                                                  |
-
-## Checklist tích hợp frontend
-
-- Dùng access token của `BLOG_OWNER` cho toàn bộ route.
-- Lấy `languages`, `categories`, `tags` từ B02 thay vì hard-code.
-- Chỉ hiển thị category có `languageId` bằng ngôn ngữ bài đang chọn.
-- Không gửi `status`, `authorId`, `parentPostId` khi tạo/sửa bài.
-- Với multipart, gửi boolean dưới dạng `true`/`false` và mảng dưới dạng JSON string.
-- Sau khi sửa bài `PUBLISH`, cập nhật UI sang `PENDING_REVIEW` ngay theo response.
-- Sau khi sửa bài `REJECT`, cập nhật UI sang `DRAFT` và yêu cầu user submit lại.
-- Preview dịch bằng B09, cho phép user chỉnh sửa, lưu bằng B10, rồi submit bản dịch bằng B08.
-- Luôn đọc message từ error envelope; không dựa vào message mặc định của NestJS.
+| Trường hợp                                                                                       | HTTP |
+| ------------------------------------------------------------------------------------------------ | ---: |
+| DTO/body/query không hợp lệ; title/content có từ cấm                                             |  400 |
+| Translation ID dùng cho update/submit/delete/media                                               |  400 |
+| Không có thay đổi thật khi update                                                                |  400 |
+| Group có version `PENDING_REVIEW` nhưng cố sửa/media                                             |  400 |
+| Language/category/tag không hợp lệ; thumbnail giả/sai JPEG-PNG-WEBP/sai MIME-extension/quá 10 MB |  400 |
+| Thiếu/sai JWT                                                                                    |  401 |
+| Sai role hoặc không sở hữu tài nguyên                                                            |  403 |
+| Không tìm thấy post/media/batch                                                                  |  404 |
+| Xung đột nghiệp vụ/dữ liệu                                                                       |  409 |
+| LibreTranslate upstream lỗi/response lỗi                                                         |  502 |
+| Dịch vụ/cấu hình dịch chưa sẵn sàng                                                              |  503 |

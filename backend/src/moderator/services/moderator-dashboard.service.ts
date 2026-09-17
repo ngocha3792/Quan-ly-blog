@@ -173,30 +173,6 @@ export class ModeratorDashboardService {
   };
 }
 
-  /**
-   * Thống kê tổng quan cho Moderator.
-   *
-   * Bao gồm:
-   * - bài viết đang chờ duyệt;
-   * - report đang chờ xử lý;
-   * - số nhóm category đang hoạt động;
-   * - số nội dung đã xử lý hôm nay;
-   * - trạng thái và nguyên nhân report;
-   * - lượng report trong 7 ngày gần nhất.
-   */
-  async getDashboard() {
-  const [overview, reportStats, reportTrend] = await Promise.all([
-    this.getOverview(),
-    this.getReportStats(),
-    this.getReportTrend(),
-  ]);
-
-  return {
-    overview,
-    ...reportStats,
-    ...reportTrend,
-  };
-}
 
   /**
    * Lấy tổng số bản ghi từ kết quả groupBy của Prisma.

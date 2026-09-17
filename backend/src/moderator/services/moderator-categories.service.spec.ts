@@ -51,6 +51,7 @@ describe('ModeratorCategoriesService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
 
     category: {
@@ -59,6 +60,7 @@ describe('ModeratorCategoriesService', () => {
       upsert: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
 
     language: {
@@ -654,7 +656,7 @@ describe('ModeratorCategoriesService', () => {
 });
 
   describe('remove', () => {
-    it('should reject removing a group used by posts', async () => {
+    it('should reject hard deleting a group used by posts', async () => {
       mockPrismaService.categoryGroup.findFirst.mockResolvedValueOnce({
         id: 10,
       });
@@ -663,50 +665,51 @@ describe('ModeratorCategoriesService', () => {
 
       await expect(service.remove(10)).rejects.toThrow(BadRequestException);
 
-      expect(mockPrismaService.category.updateMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.category.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.categoryGroup.delete).not.toHaveBeenCalled();
     });
 
-    it('should soft delete group and translations', async () => {
+    it('should hard delete all translations and then the unused group', async () => {
       mockPrismaService.categoryGroup.findFirst.mockResolvedValueOnce({
         id: 10,
       });
 
       mockPrismaService.postCategory.count.mockResolvedValueOnce(0);
 
-      mockPrismaService.category.updateMany.mockResolvedValueOnce({
-        count: 1,
+      mockPrismaService.category.deleteMany.mockResolvedValueOnce({
+        count: 2,
       });
 
-      mockPrismaService.categoryGroup.update.mockResolvedValueOnce({
+      mockPrismaService.categoryGroup.delete.mockResolvedValueOnce({
         ...baseGroup,
-        deletedAt: date,
         categories: [],
       });
 
       const result = await service.remove(10);
 
-      expect(mockPrismaService.category.updateMany).toHaveBeenCalledWith({
+      expect(mockPrismaService.postCategory.count).toHaveBeenCalledWith({
         where: {
-          categoryGroupId: 10,
-          deletedAt: null,
-        },
-
-        data: {
-          deletedAt: expect.any(Date),
+          category: {
+            categoryGroupId: 10,
+          },
         },
       });
 
-      expect(mockPrismaService.categoryGroup.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.category.deleteMany).toHaveBeenCalledWith({
+        where: {
+          categoryGroupId: 10,
+        },
+      });
+
+      expect(mockPrismaService.categoryGroup.delete).toHaveBeenCalledWith({
         where: {
           id: 10,
         },
-
-        data: {
-          deletedAt: expect.any(Date),
-        },
-
         include: expect.any(Object),
       });
+
+      expect(mockPrismaService.category.updateMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.categoryGroup.update).not.toHaveBeenCalled();
 
       expect(result.id).toBe(10);
     });

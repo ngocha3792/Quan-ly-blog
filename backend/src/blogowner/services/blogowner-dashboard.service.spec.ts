@@ -302,119 +302,16 @@ describe('BlogownerDashboardService', () => {
 
     expect(query.where).not.toHaveProperty('parentPostId');
   });
-  it('should return featured posts by views and likes', async () => {
-    /**
-     * post.count:
-     * 1. total
-     * 2. draft
-     * 3. pending
-     * 4. published
-     * 5. rejected
-     */
-    mockPrismaService.post.count
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1);
 
-    mockPrismaService.post.aggregate.mockResolvedValueOnce({
-      _sum: {
-        viewCount: 140,
-      },
-    });
-
-    mockPrismaService.postLike.count.mockResolvedValueOnce(11);
-
-    mockPrismaService.comment.count.mockResolvedValueOnce(7);
-
-    mockPrismaService.postDailyMetric.findMany.mockResolvedValueOnce([
+  it('should rank featured posts by likes with the expected tie breakers', async () => {
+    mockPrismaService.post.findMany.mockResolvedValueOnce([
       {
-        metricDate: new Date('2026-07-29T00:00:00.000Z'),
-        viewCount: 20,
-        likeCount: 3,
-      },
-    ]);
-
-    /**
-     * Lần 1: top theo views.
-     * Lần 2: top theo likes.
-     */
-    mockPrismaService.post.findMany
-      .mockResolvedValueOnce([
-        {
-          id: 10,
-          title: 'Top view',
-          thumbnailUrl: null,
-          status: PostStatus.PUBLISH,
-          viewCount: 100,
-
-          updatedAt: new Date('2026-07-29T00:00:00.000Z'),
-
-          language: {
-            id: 1,
-            code: 'vi',
-            name: 'Tiếng Việt',
-            flag: '🇻🇳',
-          },
-
-          _count: {
-            postLikes: 3,
-          },
-        },
-      ])
-
-      .mockResolvedValueOnce([
-        {
-          id: 20,
-          title: 'Top like',
-          thumbnailUrl: null,
-          status: PostStatus.PUBLISH,
-          viewCount: 40,
-
-          updatedAt: new Date('2026-07-29T00:00:00.000Z'),
-
-          language: {
-            id: 2,
-            code: 'en',
-            name: 'English',
-            flag: '🇺🇸',
-          },
-
-          _count: {
-            postLikes: 8,
-          },
-        },
-      ]);
-
-    const result = await service.getDashboard(99);
-
-    expect(result.featuredPosts.byViews).toEqual([
-      {
-        id: 10,
-        title: 'Top view',
+        id: 202,
+        title: 'Top likes',
         thumbnailUrl: null,
         status: PostStatus.PUBLISH,
-        views: 100,
-        likes: 3,
-
-        language: {
-          id: 1,
-          code: 'vi',
-          name: 'Tiếng Việt',
-          flag: '🇻🇳',
-        },
-      },
-    ]);
-
-    expect(result.featuredPosts.byLikes).toEqual([
-      {
-        id: 20,
-        title: 'Top like',
-        thumbnailUrl: null,
-        status: PostStatus.PUBLISH,
-        views: 40,
-        likes: 8,
+        viewCount: 250,
+        updatedAt: new Date('2026-07-29T00:00:00.000Z'),
 
         language: {
           id: 2,
@@ -422,222 +319,100 @@ describe('BlogownerDashboardService', () => {
           name: 'English',
           flag: '🇺🇸',
         },
+
+        _count: {
+          postLikes: 90,
+        },
       },
     ]);
-  });
 
-  it('should query at most 5 featured posts', async () => {
-    mockPrismaService.post.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0);
-
-    mockPrismaService.post.aggregate.mockResolvedValueOnce({
-      _sum: {
-        viewCount: null,
-      },
-    });
-
-    mockPrismaService.postLike.count.mockResolvedValueOnce(0);
-
-    mockPrismaService.comment.count.mockResolvedValueOnce(0);
-
-    mockPrismaService.postDailyMetric.findMany.mockResolvedValueOnce([]);
-
-    mockPrismaService.post.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
-
-    await service.getDashboard(99);
-
-    expect(mockPrismaService.post.findMany).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        take: 5,
-
-        orderBy: [
-          {
-            viewCount: 'desc',
-          },
-          {
-            postLikes: {
-              _count: 'desc',
-            },
-          },
-          {
-            updatedAt: 'desc',
-          },
-          {
-            id: 'desc',
-          },
-        ],
-      }),
-    );
-
-    expect(mockPrismaService.post.findMany).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        take: 5,
-
-        orderBy: [
-          {
-            postLikes: {
-              _count: 'desc',
-            },
-          },
-          {
-            viewCount: 'desc',
-          },
-          {
-            updatedAt: 'desc',
-          },
-          {
-            id: 'desc',
-          },
-        ],
-      }),
-    );
-  });
-    it('should preserve the legacy dashboard response shape', async () => {
-    jest.spyOn(service, 'getSummary').mockResolvedValueOnce({
-      postCounts: {
-        total: 4,
-        draft: 1,
-        pendingReview: 1,
-        published: 1,
-        rejected: 1,
-      },
-      totals: {
-        views: 450,
-        likes: 80,
-        comments: 15,
-      },
-    });
-
-    jest.spyOn(service, 'getActivity').mockResolvedValueOnce({
-      days: 7,
-      last7Days: [
-        {
-          date: '2026-07-29',
-          views: 20,
-          likes: -2,
-        },
-      ],
-    });
-
-    jest.spyOn(service, 'getFeatured')
-      .mockResolvedValueOnce({
-        sort: 'views',
-        posts: [
-          {
-            id: 101,
-            title: 'Top views',
-            thumbnailUrl: null,
-            status: PostStatus.PUBLISH,
-            views: 900,
-            likes: 70,
-            language: {
-              id: 2,
-              code: 'en',
-              name: 'English',
-              flag: '🇺🇸',
-            },
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        sort: 'likes',
-        posts: [
-          {
-            id: 102,
-            title: 'Top likes',
-            thumbnailUrl: null,
-            status: PostStatus.PUBLISH,
-            views: 200,
-            likes: 100,
-            language: {
-              id: 3,
-              code: 'ja',
-              name: '日本語',
-              flag: '🇯🇵',
-            },
-          },
-        ],
-      });
-
-    const result = await service.getDashboard(99);
-
-    expect(result).toEqual({
-      postCounts: {
-        total: 4,
-        draft: 1,
-        pendingReview: 1,
-        published: 1,
-        rejected: 1,
-      },
-      totals: {
-        views: 450,
-        likes: 80,
-        comments: 15,
-      },
-      last7Days: [
-        {
-          date: '2026-07-29',
-          views: 20,
-          likes: -2,
-        },
-      ],
-      featuredPosts: {
-        byViews: [
-          {
-            id: 101,
-            title: 'Top views',
-            thumbnailUrl: null,
-            status: PostStatus.PUBLISH,
-            views: 900,
-            likes: 70,
-            language: {
-              id: 2,
-              code: 'en',
-              name: 'English',
-              flag: '🇺🇸',
-            },
-          },
-        ],
-        byLikes: [
-          {
-            id: 102,
-            title: 'Top likes',
-            thumbnailUrl: null,
-            status: PostStatus.PUBLISH,
-            views: 200,
-            likes: 100,
-            language: {
-              id: 3,
-              code: 'ja',
-              name: '日本語',
-              flag: '🇯🇵',
-            },
-          },
-        ],
-      },
-    });
-
-    expect(service.getSummary).toHaveBeenCalledWith(99);
-    expect(service.getActivity).toHaveBeenCalledWith(99, 7);
-    expect(service.getFeatured).toHaveBeenNthCalledWith(
-      1,
-      99,
-      'views',
-      5,
-    );
-    expect(service.getFeatured).toHaveBeenNthCalledWith(
-      2,
+    const result = await service.getFeatured(
       99,
       'likes',
-      5,
+      4,
+    );
+
+    expect(result).toEqual({
+      sort: 'likes',
+      posts: [
+        {
+          id: 202,
+          title: 'Top likes',
+          thumbnailUrl: null,
+          status: PostStatus.PUBLISH,
+          views: 250,
+          likes: 90,
+          language: {
+            id: 2,
+            code: 'en',
+            name: 'English',
+            flag: '🇺🇸',
+          },
+        },
+      ],
+    });
+
+    expect(mockPrismaService.post.findMany).toHaveBeenCalledWith({
+      where: {
+        authorId: 99,
+        status: PostStatus.PUBLISH,
+        deletedAt: null,
+      },
+
+      select: expect.any(Object),
+
+      orderBy: [
+        {
+          postLikes: {
+            _count: 'desc',
+          },
+        },
+        {
+          viewCount: 'desc',
+        },
+        {
+          updatedAt: 'desc',
+        },
+        {
+          id: 'desc',
+        },
+      ],
+
+      take: 4,
+    });
+  });
+
+  it('should use the default featured limit of 5', async () => {
+    mockPrismaService.post.findMany.mockResolvedValueOnce([]);
+
+    const result = await service.getFeatured(99);
+
+    expect(result).toEqual({
+      sort: 'views',
+      posts: [],
+    });
+
+    expect(mockPrismaService.post.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 5,
+
+        orderBy: [
+          {
+            viewCount: 'desc',
+          },
+          {
+            postLikes: {
+              _count: 'desc',
+            },
+          },
+          {
+            updatedAt: 'desc',
+          },
+          {
+            id: 'desc',
+          },
+        ],
+      }),
     );
   });
 });

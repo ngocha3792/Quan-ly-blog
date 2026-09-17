@@ -1,545 +1,591 @@
 # PHÂN CHIA CÔNG VIỆC — SƠN
 
-> Phạm vi đã ghi nhận trong phiên bản hiện tại gồm module `src/blogowner`, các validation liên quan trong `libs/core` và ba nhóm chức năng chính của `src/moderator`: **Dashboard Moderator**, **Kiểm duyệt bài viết** và **Xử lý báo cáo**. Phần Moderator đã có source và tài liệu API; kết quả kiểm thử runtime sẽ tiếp tục được cập nhật theo từng luồng.
+> Phạm vi phụ trách: **backend `src/blogowner` và `src/moderator`** của dự án **Quản lý Blog**, bao gồm API Blog Owner, Content Moderator, workflow Post Group đa ngôn ngữ, BullMQ/Redis, LibreTranslate, Category Group và xử lý Reports.
 
 ## 1. Thông tin tài liệu
 
-| Thuộc tính                       | Nội dung                                                                                                 |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Thành viên                       | Sơn                                                                                                      |
-| Vai trò đề xuất                  | Backend Developer — Blog Owner & Content Moderator APIs                                                  |
-| Phạm vi đã ghi nhận              | Blog Owner API; Dashboard Moderator; kiểm duyệt bài viết; xử lý report bài viết/bình luận                |
-| Phạm vi Moderator hiện tại       | 9 endpoint thuộc ba nhóm: Dashboard, kiểm duyệt bài viết và xử lý báo cáo                                |
-| Ngoài phạm vi Moderator hiện tại | CRUD Category Group, Moderator options, notification, audit history và khôi phục target sau resolve      |
-| Công nghệ                        | NestJS 11, TypeScript, Prisma 7, PostgreSQL, Cloudinary, LibreTranslate                                  |
-| Ngày rà soát                     | 01/08/2026                                                                                               |
-| Căn cứ đánh giá                  | Source Blog Owner, source Moderator, unit test trong source, build, Postman và các tài liệu API hiện tại |
+| Thuộc tính       | Nội dung                                                                               |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| Thành viên       | Sơn                                                                                    |
+| Vai trò đề xuất  | Backend Developer — Blog Owner & Content Moderator APIs                                |
+| Phạm vi chính    | `src/blogowner`, `src/moderator` và các tích hợp backend trực tiếp phục vụ hai module  |
+| Số API phụ trách | **32 endpoint**: 14 Blog Owner + 18 Content Moderator                                  |
+| Công nghệ        | NestJS 11, TypeScript, Prisma 7, PostgreSQL, Cloudinary, LibreTranslate, BullMQ, Redis |
+| Ngày rà soát     | 15/09/2026                                                                             |
+| Căn cứ đánh giá  | Unit/module test và build backend                                                      |
 
 ---
 
 ## 2. Tổng quan phần việc
 
-Phần việc của Sơn hiện được chia thành hai mảng backend chính:
+Sơn phụ trách hai mảng backend nối trực tiếp thành workflow xuất bản nội dung:
 
-1. **Blog Owner API:** 12 endpoint cho tác giả quản lý vòng đời bài viết, media, gửi duyệt và nội dung đa ngôn ngữ.
-2. **Content Moderator API:** 9 endpoint thuộc ba nhóm chức năng: Dashboard Moderator, kiểm duyệt bài viết và xử lý báo cáo.
+1. **Blog Owner API — 14 endpoint:** dashboard, options, Post Group CRUD, gửi duyệt, media, preview dịch và background translation.
+2. **Content Moderator API — 18 endpoint:** dashboard, kiểm duyệt Post Group, Category Group đa ngôn ngữ và xử lý Reports.
 
-Ngoài controller/service trong `src/blogowner` và `src/moderator`, phần việc còn liên quan đến validation dùng chung trong `libs/core`, Prisma transaction, phân quyền theo JWT/role, soft-delete và tính nhất quán của workflow kiểm duyệt.
+Phần triển khai tập trung vào tính nhất quán giữa các phiên bản ngôn ngữ, trạng thái kiểm duyệt, xử lý bất đồng bộ và an toàn dữ liệu khi có nhiều thao tác liên quan cùng một logical article.
 
 ### 2.1. Vai trò của phần việc trong kiến trúc
 
 ```mermaid
 flowchart LR
-    CLIENT[Angular / Web Client]
-
-    subgraph BLOGOWNER[Blog Owner API do Sơn phụ trách]
+    subgraph BLOGOWNER[src/blogowner]
         BDASH[Dashboard]
         OPTIONS[Post Options]
-        POSTS[Post Lifecycle]
+        POSTS[Post Group Lifecycle]
         MEDIA[Media Management]
-        TRANSLATION[Translation Workflow]
+        QUEUE[Translation Queue]
     end
 
-    subgraph MODERATOR[Content Moderator API do Sơn phụ trách]
-        MDASH[Dashboard Moderator]
-        REVIEW[Kiểm duyệt bài viết]
-        REPORTS[Xử lý báo cáo]
+    subgraph MODERATOR[src/moderator]
+        MDASH[Dashboard]
+        REVIEW[Post Group Moderation]
+        CATEGORY[Category Group]
+        REPORTS[Report Moderation]
     end
 
-    subgraph CORE[libs/core dùng chung]
+    subgraph CORE[Backend dùng chung]
         AUTH[JWT Guard · Roles Guard]
-        POSTCORE[PostsService]
-        MEDIACORE[MediaService]
-        STORAGE[CloudinaryService]
         PRISMA[PrismaService]
+        POSTSCORE[Posts / Media / Category]
+        CLOUD[Cloudinary]
+        TRANSLATE[LibreTranslateService]
     end
 
+    REDIS[(Redis)]
+    BULL[BullMQ]
     DB[(PostgreSQL)]
-    CLOUD[Cloudinary]
     LT[LibreTranslate]
-
-    CLIENT --> BLOGOWNER
-    CLIENT --> MODERATOR
+    STORAGE[Cloudinary]
 
     BLOGOWNER --> AUTH
     MODERATOR --> AUTH
 
-    POSTS --> POSTCORE
-    MEDIA --> MEDIACORE
-    MEDIA --> STORAGE
-    TRANSLATION --> LT
+    POSTS --> PRISMA
+    MEDIA --> POSTSCORE
+    MEDIA --> CLOUD
 
-    BLOGOWNER --> PRISMA
-    MODERATOR --> PRISMA
+    QUEUE --> BULL
+    BULL --> REDIS
+    BULL --> TRANSLATE
+    TRANSLATE --> LT
 
-    POSTCORE --> DB
-    MEDIACORE --> DB
+    CATEGORY --> TRANSLATE
+    REVIEW --> PRISMA
+    REPORTS --> PRISMA
+
     PRISMA --> DB
-    STORAGE --> CLOUD
+    POSTSCORE --> DB
+    CLOUD --> STORAGE
 ```
 
 ---
 
 ## 3. Công việc đã thực hiện trong `src/blogowner`
 
-## 3.1. Xây dựng module và bảo vệ phân quyền
+Triển khai **14 endpoint Blog Owner** cho toàn bộ vòng đời bài viết của chủ blog.
 
-Đã triển khai `BlogownerApiModule` với các controller/service chuyên biệt:
+## 3.1. Xây dựng module và phân quyền
 
-| Thành phần                             | Trách nhiệm                                             |
-| -------------------------------------- | ------------------------------------------------------- |
-| `BlogownerDashboardController/Service` | Thống kê bài viết và tương tác của owner                |
-| `BlogownerOptionsController/Service`   | Cung cấp language/category/tag cho form                 |
-| `BlogownerPostsController/Service`     | Quản lý bài, gửi duyệt và bản dịch                      |
-| `BlogownerMediaController/Service`     | Thêm/xóa media của bài                                  |
-| `BlogownerPostHelperService`           | Ownership, state transition, upload/rollback dùng chung |
-| `TranslationService`                   | Adapter tích hợp LibreTranslate                         |
+`BlogownerApiModule` tổ chức các thành phần chính:
 
-Toàn bộ controller Blog Owner áp dụng:
+| Thành phần                             | Trách nhiệm                                                    |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `BlogownerDashboardController/Service` | Summary, activity và featured posts                            |
+| `BlogownerOptionsController/Service`   | Language/category/tag active                                   |
+| `BlogownerPostsController/Service`     | List/detail/create/update/delete/submit/translation preview    |
+| `BlogownerMediaController/Service`     | Standalone upload/delete media theo Post Group                 |
+| `BlogownerTranslationController`       | Translation batch progress                                     |
+| `BlogownerPostHelperService`           | Ownership, group resolution, state transition, upload/rollback |
+| `BlogownerTranslationQueueModule`      | BullMQ queue, worker và status service                         |
 
-- `JwtAuthGuard` để bắt buộc access token.
-- `RolesGuard` và `@Roles(UserRole.BLOG_OWNER)` để giới hạn đúng role.
-- `@CurrentUser()` để lấy owner ID từ JWT, không tin `authorId` do client gửi.
-- `ParseIntPipe` cho các path ID.
-- `ClassSerializerInterceptor` cho response bài viết.
+Áp dụng:
 
-## 3.2. Dashboard Blog Owner
+- `JwtAuthGuard`.
+- `RolesGuard` + `@Roles(UserRole.BLOG_OWNER)`.
+- `@CurrentUser()` để lấy owner ID từ JWT.
+- `ParseIntPipe` cho path ID.
+- Entity serializer để ẩn field nội bộ.
 
-Đã xây dựng dashboard gồm:
+## 3.2. Thiết kế Post Group đa ngôn ngữ
 
-- Tổng số bài chưa bị soft-delete.
-- Số bài theo từng trạng thái `DRAFT`, `PENDING_REVIEW`, `PUBLISH`, `REJECT`.
-- Tổng lượt xem, lượt thích và bình luận trên các bài của owner.
-- Biểu đồ view/like trong 7 ngày gần nhất theo lịch Việt Nam.
-- Luôn trả đủ 7 ngày, kể cả ngày không có dữ liệu.
-- Top 5 bài đã xuất bản theo lượt xem.
-- Top 5 bài đã xuất bản theo lượt thích.
-- Gom các truy vấn dashboard vào Prisma transaction.
+Đã chuyển mô hình xử lý bài từ từng Post độc lập sang logical Post Group:
 
-## 3.3. Options cho form tạo và chỉnh sửa bài
+```text
+ROOT
+├─ Translation EN
+├─ Translation JA
+└─ ...
+```
 
-Đã triển khai endpoint lấy dữ liệu lựa chọn có kiểm soát:
+Các quy tắc đã triển khai:
 
-- Chỉ trả language chưa xóa và `isActive=true`.
-- Trả `isDefault`, `isActive` để frontend chọn ngôn ngữ mặc định và đồng bộ model.
-- Đưa language mặc định lên đầu, sau đó sắp theo code.
-- Chỉ trả category chưa xóa, thuộc language đang hoạt động và Category Group chưa xóa.
-- Trả quan hệ `language` và `categoryGroup` để frontend lọc/nhóm category.
-- Chỉ trả tag chưa bị soft-delete.
+- Root có `parentPostId=null`.
+- Translation trỏ về root.
+- List phân trang theo group.
+- Filter chọn group khớp nhưng trả toàn bộ version active của group.
+- Tổng view/like được aggregate theo group.
+- Detail trả context các version ngôn ngữ.
+- Update/delete/submit chỉ thực hiện bằng root ID.
+- Không cho sửa riêng translation.
+- Translation được upsert theo `(parentPostId, languageId)` để tránh duplicate.
 
-## 3.4. Quản lý bài viết theo ownership
+## 3.3. Dashboard Blog Owner
 
-Đã triển khai các luồng:
+Triển khai ba endpoint độc lập:
 
-- Lấy danh sách bài của chính owner với search, filter và pagination.
-- Cố định `authorId` theo JWT.
-- Xem chi tiết bài ở mọi trạng thái.
-- Trả lý do từ chối và thời gian review cho Blog Owner.
-- Trả toàn bộ phiên bản ngôn ngữ trong cùng nhóm bài.
-- Tạo bài với JSON hoặc multipart.
-- Cập nhật nội dung, category, tag, thumbnail và media.
-- Soft-delete bài.
-- Chặn truy cập/sửa/xóa bài của owner khác.
+- `/dashboard/summary`: số logical article theo trạng thái, tổng view/like/comment.
+- `/dashboard/activity`: interaction theo ngày, hỗ trợ 1–30 ngày.
+- `/dashboard/featured`: top exact Post `PUBLISH` theo views/likes.
 
-Helper `findOwnedPost()` phân biệt rõ:
+Các quyết định nghiệp vụ:
 
-- bài không tồn tại/đã xóa: `404`;
-- bài tồn tại nhưng không thuộc owner: `403`.
+- `postCounts` đếm root.
+- Tổng interaction tính trên root + translations.
+- Daily likes là net change nên có thể âm.
+- Activity luôn trả đủ ngày.
+- Featured không group translation; mỗi exact Post tự cạnh tranh.
 
-## 3.5. Xây dựng workflow trạng thái kiểm duyệt
+## 3.4. Options cho bài viết
 
-Đã chuẩn hóa state transition phía Blog Owner:
+Đã triển khai dữ liệu lựa chọn được lọc phía backend:
 
-| Thao tác               | Trước            | Sau                                           |
-| ---------------------- | ---------------- | --------------------------------------------- |
-| Tạo nháp               | —                | `DRAFT`                                       |
-| Tạo và gửi duyệt ngay  | —                | Tạo `DRAFT`, upload xong mới `PENDING_REVIEW` |
-| Sửa bài nháp           | `DRAFT`          | `DRAFT`                                       |
-| Sửa bài bị từ chối     | `REJECT`         | `DRAFT`                                       |
-| Sửa bài đã xuất bản    | `PUBLISH`        | `PENDING_REVIEW`                              |
-| Sửa bài đang chờ duyệt | `PENDING_REVIEW` | Bị chặn                                       |
-| Submit                 | `DRAFT`          | `PENDING_REVIEW`                              |
+- language chưa xóa và `isActive=true`;
+- default language xếp trước;
+- category chưa xóa;
+- category thuộc language active và Category Group active;
+- tag chưa soft-delete.
 
-Các bảo vệ đã bổ sung:
+## 3.5. Create/Update Post Group
 
-- Blog Owner không thể gửi `status` hoặc `parentPostId` khi tạo bài.
-- Blog Owner không thể sửa `status`, `parentPostId` hoặc `languageId` trực tiếp.
-- Chặn `PATCH {}` để không làm `REJECT -> DRAFT` hoặc `PUBLISH -> PENDING_REVIEW` khi không có thay đổi thật.
-- Bài `REJECT` phải được chỉnh sửa trước khi submit lại.
-- Bài `PUBLISH` chỉ quay lại kiểm duyệt khi có chỉnh sửa thật.
-- Review metadata (`reviewedById`, `reviewedAt`, `rejectionReason`) được reset đúng thời điểm.
+Create:
 
-## 3.6. Quản lý thumbnail và media an toàn
+- kiểm tra từ cấm ở `title`/`content` trước khi lưu;
+- validate thumbnail file thật trước khi tạo row Post;
+- luôn tạo root dưới `DRAFT`;
+- xử lý thumbnail/media;
+- nếu không có translation thì quyết định `DRAFT`/`PENDING_REVIEW` ngay;
+- nếu có translation thì enqueue BullMQ và giữ root/group `DRAFT` trong lúc worker chạy.
+
+Update:
+
+- chỉ root được update;
+- khóa cả group nếu có version `PENDING_REVIEW`;
+- kiểm tra lại từ cấm tại service để không thể bypass DTO khi gọi nội bộ;
+- chống update rỗng;
+- giữ toàn bộ translation hiện có;
+- thêm language mới khi được chọn;
+- dịch lại translations từ root;
+- reset review metadata đúng thời điểm;
+- thumbnail mới phải qua kiểm tra file thật;
+- có cleanup thumbnail/media khi lỗi.
+
+## 3.6. BullMQ và Redis cho background translation
+
+Đã xây dựng workflow:
+
+| Thành phần         | Nội dung                                      |
+| ------------------ | --------------------------------------------- |
+| Queue              | `blogowner-translation`                       |
+| Flow               | `blogowner-translation-flow`                  |
+| Child              | `translate-post`                              |
+| Parent             | `finalize-translation-batch`                  |
+| Storage            | Redis                                         |
+| Worker concurrency | xử lý giới hạn đồng thời theo cấu hình module |
+| Retry              | attempts + exponential backoff                |
+| Business failure   | `UnrecoverableError` với lỗi không thể retry  |
+| Stale guard        | `sourceUpdatedAt`                             |
+
+Luồng:
+
+```text
+ROOT DRAFT
+  ↓
+translate target 1 ─┐
+translate target 2 ─┼─> finalize
+translate target N ─┘
+  ↓
+DRAFT hoặc PENDING_REVIEW
+```
+
+Worker:
+
+- đọc lại root từ DB;
+- kiểm tra stale job;
+- gọi LibreTranslate;
+- kiểm tra `title`/`content` sau dịch; output chứa từ cấm bị `UnrecoverableError` và không ghi DB;
+- map Category Group theo target language;
+- upsert translation;
+- update progress;
+- nếu batch cần submit, parent kiểm tra lại toàn bộ group trước khi finalize `PENDING_REVIEW`;
+- parent chỉ finalize sau khi các child thành công.
+
+## 3.7. Translation batch progress
+
+Triển khai API:
+
+```http
+GET /api/v1/blog-owner/translation-batches/:batchId
+```
+
+Trả:
+
+- `QUEUED`;
+- `PROCESSING`;
+- `COMPLETED`;
+- `FAILED`;
+- progress toàn batch;
+- progress từng target language.
+
+Có ownership check và không trả raw internal failure ra response.
+
+## 3.8. LibreTranslate
+
+Đã chuẩn hóa Blog Owner dùng shared `LibreTranslateService`:
+
+- preview title/content;
+- worker dịch title/content;
+- `format=html`;
+- xử lý lỗi upstream/cấu hình;
+- không lưu preview vào database.
+
+Trong clean code cuối đã loại bỏ `TranslationService` legacy riêng của Blog Owner.
+
+## 3.9. Category mapping khi dịch bài
+
+Không dịch lại category name.
+
+Backend:
+
+1. lấy `categoryGroupId` của category nguồn;
+2. tìm category cùng group ở target language;
+3. dùng category đích cho translation;
+4. từ chối job nếu mapping nghiệp vụ không hợp lệ.
+
+Cách này bảo đảm cùng semantic category giữa các ngôn ngữ.
+
+## 3.10. Media và Cloudinary
 
 Đã triển khai:
 
-- Upload thumbnail ảnh vào thư mục riêng theo post ID.
-- Upload media ảnh/video và tự nhận diện `MediaType` theo MIME.
-- Giới hạn file 10 MB ở controller.
-- Soft-delete media trong database.
-- Cleanup file Cloudinary theo đúng resource type ảnh/video.
-- Kiểm tra media phải thuộc đúng bài trước khi xóa.
+- thumbnail upload;
+- thumbnail **chỉ nhận JPEG / PNG / WEBP thật**, tối đa 10 MB;
+- nhận diện thumbnail bằng magic bytes từ buffer;
+- bắt buộc MIME và extension khớp định dạng file thực tế;
+- chặn HTML/SVG/JS/PDF/ZIP hoặc file giả `.png/.jpg/.webp`;
+- không cho Blog Owner truyền trực tiếp `thumbnailUrl`;
+- media ảnh/video;
+- nhận diện `MediaType`;
+- soft-delete media;
+- cleanup Cloudinary;
+- rollback media đã upload nếu batch upload lỗi;
+- cleanup thumbnail mới khi DB update lỗi.
 
-Các failure path đã được xử lý:
+Sau clean code, standalone media được quản lý theo group:
 
-- Upload nhiều media: nếu file sau thất bại, rollback toàn bộ media đã upload trước đó theo thứ tự ngược.
-- Nếu một lần rollback thất bại, tiếp tục cleanup các media còn lại và giữ nguyên lỗi upload ban đầu.
-- Khi cập nhật thumbnail mới, chỉ xóa thumbnail cũ sau khi database update thành công.
-- Nếu upload thumbnail mới thành công nhưng database không lưu được URL, xóa thumbnail mới và giữ lỗi database ban đầu.
-- Với bài `PUBLISH`, rời trạng thái public trước khi thay đổi media.
-- Với bài `REJECT`, chỉ chuyển về `DRAFT` sau khi thay đổi media thành công.
-- Xóa media: database soft-delete trước, Cloudinary cleanup sau; lỗi Cloudinary không rollback database.
+- chỉ root ID được thao tác;
+- media gắn root;
+- delete phải đúng root;
+- `PUBLISH` → cả group `PENDING_REVIEW` trước thao tác;
+- `REJECT` → chỉ về `DRAFT` sau thao tác thành công;
+- group có `PENDING_REVIEW` → khóa media.
 
-## 3.7. Xây dựng quy trình bài viết đa ngôn ngữ
+## 3.11. Defense-in-depth cho từ cấm
 
-Đã triển khai hai bước tách biệt:
+Ngoài `IsProfanityFree` ở DTO, backend kiểm tra từ cấm ở nhiều lớp:
 
-1. **Translate preview**: dịch tự động title/content, chỉ trả preview, không ghi database.
-2. **Save translation**: nhận nội dung đã được owner kiểm tra/chỉnh sửa và lưu thành Post `DRAFT`.
+- Create: service kiểm tra lại title/content trước khi lưu.
+- Update: service kiểm tra lại các field title/content được gửi lên.
+- Submit: đọc root + translations đang lưu trong DB và chặn nếu bất kỳ version nào chứa từ cấm.
+- Translation worker: kiểm tra output từ LibreTranslate trước khi upsert.
+- Finalize batch: nếu `submitForReview=true`, kiểm tra toàn group lần cuối trước khi chuyển sang `PENDING_REVIEW`.
+- Nội dung HTML được bỏ tag, normalize Unicode/chữ thường và kiểm theo ranh giới từ để tránh false positive kiểu `dm` trong `admin` hoặc `ngu` trong `nguyen`.
 
-Quy tắc nhóm bản dịch:
+## 3.12. Submit và delete toàn group
 
-- Mọi bản dịch trỏ về bài gốc bằng `parentPostId`.
-- Có thể bắt đầu từ bài gốc hoặc một bản dịch; backend luôn tìm root post.
-- Mỗi nhóm chỉ có một phiên bản active cho mỗi language.
-- Nếu bản dịch active đã tồn tại, trả `409`.
-- Nếu bản dịch đã soft-delete, restore record cũ thay vì tạo record mới.
-- Khi restore: cập nhật title/content/thumbnail/category/tag, xóa `deletedAt`, reset `publishedAt` và review metadata.
-- Category được ánh xạ theo `CategoryGroup` và language đích.
-- Chỉ sao chép tag chưa bị soft-delete.
-- Bản dịch mới luôn `DRAFT` và phải submit riêng.
-
-## 3.8. Tích hợp LibreTranslate
-
-Đã thay luồng dịch tự động bằng LibreTranslate self-host:
-
-- Cấu hình URL qua `TRANSLATE_API_URL`.
-- Dịch `title` và `content` trong một request batch.
-- Gửi `format=html` để bảo toàn cấu trúc nội dung HTML.
-- Trim và lowercase language code.
-- Chuẩn hóa alias Chinese:
-  - `zh-CN`, `zh-Hans` → `zh`;
-  - `zh-TW`, `zh-Hant` → `zt`.
-- Chặn source và target giống nhau sau chuẩn hóa.
-- Phân loại lỗi rõ ràng:
-  - chưa cấu hình: `503`;
-  - không kết nối được: `502`;
-  - request/cặp ngôn ngữ không được hỗ trợ: `400`;
-  - lỗi dịch vụ ngoài: `502`;
-  - JSON/response không hợp lệ: `502`.
-- Không ghi database nếu preview dịch thất bại.
-
-## 3.9. Đảm bảo tính toàn vẹn tại `libs/core/src/modules/posts`
-
-Đã bổ sung/củng cố validation dùng chung cho Post:
-
-- Validate language tồn tại, chưa xóa và đang active khi tạo bài.
-- Validate language mới nếu update có đổi language ở luồng core.
-- Category phải:
-  - tồn tại;
-  - chưa bị xóa;
-  - đúng language của bài;
-  - thuộc language đang active;
-  - thuộc Category Group chưa bị xóa.
-- Validate toàn bộ `tagIds`, không cho dùng tag đã soft-delete.
-- Khi dùng `tagNames`, phát hiện tag cùng tên đã soft-delete để tránh lỗi unique và tránh hồi sinh ngầm.
-- Chỉ tạo tên tag hoàn toàn mới.
-- Query lại tag active sau khi tạo để lấy ID chính xác.
-- Giới hạn tổng tag tối đa 5.
-
----
-
-## 4. Danh sách API Blog Owner đã triển khai
-
-| Mã  | Method | Endpoint                                          | Chức năng                      |
-| --- | ------ | ------------------------------------------------- | ------------------------------ |
-| B01 | GET    | `/api/v1/blog-owner/dashboard`                    | Dashboard của owner            |
-| B02 | GET    | `/api/v1/blog-owner/options`                      | Language/category/tag cho form |
-| B03 | GET    | `/api/v1/blog-owner/posts`                        | Danh sách bài của owner        |
-| B04 | GET    | `/api/v1/blog-owner/posts/:id`                    | Chi tiết bài và nhóm dịch      |
-| B05 | POST   | `/api/v1/blog-owner/posts`                        | Tạo bài                        |
-| B06 | PATCH  | `/api/v1/blog-owner/posts/:id`                    | Chỉnh sửa bài                  |
-| B07 | DELETE | `/api/v1/blog-owner/posts/:id`                    | Soft-delete bài                |
-| B08 | POST   | `/api/v1/blog-owner/posts/:id/submit`             | Gửi Moderator duyệt            |
-| B09 | POST   | `/api/v1/blog-owner/posts/:id/translate-preview`  | Preview dịch tự động           |
-| B10 | POST   | `/api/v1/blog-owner/posts/:id/translations`       | Tạo/restore bản dịch           |
-| B11 | POST   | `/api/v1/blog-owner/posts/:postId/media`          | Upload media                   |
-| B12 | DELETE | `/api/v1/blog-owner/posts/:postId/media/:mediaId` | Xóa media                      |
-
-Chi tiết request/response được mô tả trong `BLOGOWNER_API_DOCUMENTATION.md`.
-
----
-
-## 5. Kiểm thử và chất lượng
-
-Đã xây dựng hoặc bổ sung unit test cho:
-
-| File test                                           | Phạm vi                                                                 |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
-| `blogowner-api.module.spec.ts`                      | Module khởi tạo đúng dependency                                         |
-| `blogowner-dashboard.service.spec.ts`               | Thống kê, top post và dữ liệu 7 ngày                                    |
-| `blogowner-options.service.spec.ts`                 | Language/category/tag active và thứ tự default language                 |
-| `blogowner-post-helper.service.spec.ts`             | Ownership, state helper, rollback upload nhiều media                    |
-| `blogowner-posts.service.spec.ts`                   | Create/update/submit/translation/thumbnail rollback và state transition |
-| `blogowner-media.service.spec.ts`                   | Upload/xóa media theo từng trạng thái                                   |
-| `translation.service.spec.ts`                       | LibreTranslate success, normalize code và toàn bộ failure path          |
-| `libs/core/src/modules/posts/posts.service.spec.ts` | Validation language/category/tag dùng chung                             |
-
-Các nhóm kiểm tra đã được xác nhận pass:
-
-```powershell
-npm test -- src/blogowner --runInBand
-npm test -- libs/core/src/modules/posts/posts.service.spec.ts --runInBand
-npm run build
-```
-
-Ngoài unit test, luồng dịch preview bằng LibreTranslate self-host và các luồng chính Blog Owner đã được kiểm tra qua Postman.
-
----
-
-## 6. Các quyết định kỹ thuật nổi bật
-
-### 6.1. Tạo DRAFT trước khi gửi duyệt
-
-Ngay cả khi owner chọn gửi duyệt trong request create, backend vẫn tạo `DRAFT`, hoàn tất file rồi mới chuyển `PENDING_REVIEW`. Quyết định này ngăn Moderator nhìn thấy bài chưa upload xong.
-
-### 6.2. Tách preview dịch và lưu bản dịch
-
-Không tự động ghi kết quả máy dịch vào database. Owner phải xem/chỉnh sửa preview trước khi lưu, giúp giảm nội dung dịch sai được đưa thẳng vào workflow kiểm duyệt.
-
-### 6.3. State transition phụ thuộc thay đổi thật
-
-Request update rỗng không được coi là chỉnh sửa. Điều này bảo vệ tính chính xác của trạng thái `REJECT` và `PUBLISH`.
-
-### 6.4. Ưu tiên nhất quán database và trạng thái public
-
-- Bài `PUBLISH` rời trạng thái public trước khi media bị thay đổi.
-- Thumbnail/media có cleanup hoặc rollback khi thao tác sau thất bại.
-- Lỗi cleanup không ghi đè lỗi nghiệp vụ/database ban đầu.
-
-### 6.5. Dùng Category Group làm cầu nối đa ngôn ngữ
-
-Bản dịch không sao chép category ID của bài nguồn. Backend tìm category tương ứng trong cùng Category Group và đúng language đích, bảo đảm semantic category nhất quán giữa các phiên bản.
-
----
-
-## 7. Kết quả bàn giao Blog Owner
-
-| Hạng mục                  | Trạng thái                       |
-| ------------------------- | -------------------------------- |
-| Controller và phân quyền  | Hoàn thành                       |
-| Dashboard                 | Hoàn thành                       |
-| Post options              | Hoàn thành                       |
-| CRUD bài viết             | Hoàn thành                       |
-| Workflow gửi duyệt        | Hoàn thành                       |
-| Media/thumbnail           | Hoàn thành                       |
-| Bản dịch đa ngôn ngữ      | Hoàn thành                       |
-| LibreTranslate            | Hoàn thành                       |
-| Validation core liên quan | Hoàn thành                       |
-| Unit test và build        | Pass                             |
-| API documentation         | `BLOGOWNER_API_DOCUMENTATION.md` |
-
-**Kết luận:** phần backend **Blog Owner đã hoàn thành** theo phạm vi hiện tại.
-
----
-
-## 8. Công việc được phân trong `src/moderator`
-
-Phạm vi Moderator hiện tại của Sơn gồm đúng ba nhóm chức năng dưới đây. Các nhóm này sử dụng controller prefix `/api/v1/moderator` và yêu cầu access token có role `CONTENT_MODERATOR`.
-
-### 8.1. Xây dựng module và bảo vệ phân quyền Moderator
-
-Trách nhiệm chung:
-
-- Tổ chức controller, service, DTO và entity response riêng trong `src/moderator`.
-- Áp dụng `JwtAuthGuard`, `RolesGuard` và `@Roles(UserRole.CONTENT_MODERATOR)`.
-- Lấy Moderator hiện tại từ JWT để ghi `reviewedById`.
-- Dùng `ParseIntPipe` cho path ID và validation DTO cho query/body.
-- Không cho token `NORMAL`, `BLOG_OWNER` hoặc role khác truy cập endpoint Moderator.
-- Chuẩn hóa pagination với `page`, `limit`, `items` và `meta`.
-- Sử dụng soft-delete thay vì xóa vật lý đối với nội dung vi phạm.
-
-### 8.2. Dashboard Moderator
-
-Phụ trách endpoint:
-
-```http
-GET /api/v1/moderator/dashboard
-```
-
-Nội dung thực hiện:
-
-- Thống kê số bài `PENDING_REVIEW`.
-- Thống kê report bài viết và report bình luận đang `PENDING`.
-- Tính tổng report đang chờ.
-- Thống kê số Category Group đang hoạt động để phục vụ màn hình tổng quan.
-- Tính số bài và report đã xử lý trong ngày.
-- Thống kê report theo trạng thái.
-- Thống kê report theo nguyên nhân.
-- Trả biểu đồ report trong 7 ngày gần nhất theo lịch Việt Nam.
-- Luôn trả đủ 7 ngày, kể cả ngày không phát sinh report.
-- Bảo đảm các tổng hợp:
-  - `pendingReports = pendingPostReports + pendingCommentReports`;
-  - `processedToday = processedPostsToday + processedReportsToday`;
-  - `totalReports = postReports + commentReports` theo từng ngày.
-
-### 8.3. Kiểm duyệt bài viết
-
-Phụ trách bốn endpoint:
-
-| Mã  | Method | Endpoint                                  | Chức năng                              |
-| --- | ------ | ----------------------------------------- | -------------------------------------- |
-| M02 | GET    | `/api/v1/moderator/posts`                 | Lấy danh sách bài được phép kiểm duyệt |
-| M03 | GET    | `/api/v1/moderator/posts/:postId`         | Xem chi tiết bài                       |
-| M04 | POST   | `/api/v1/moderator/posts/:postId/approve` | Duyệt bài                              |
-| M05 | POST   | `/api/v1/moderator/posts/:postId/reject`  | Từ chối bài                            |
-
-Trách nhiệm nghiệp vụ:
-
-- Mặc định danh sách chỉ lấy bài `PENDING_REVIEW`.
-- Cho phép Moderator lọc các trạng thái `PENDING_REVIEW`, `PUBLISH` và `REJECT`.
-- Không cho Moderator xem bài `DRAFT`; API chi tiết trả `404` để che bài chưa gửi duyệt.
-- Hỗ trợ search, filter theo language, category, author, tag và pagination.
-- Với bài chờ duyệt, sắp xếp bài chờ lâu nhất trước.
-- Trả đủ author, language, category, tag và media để Moderator đánh giá nội dung.
-- Xem chi tiết không làm tăng `viewCount`.
-
-Luồng duyệt:
+Submit:
 
 ```text
-PENDING_REVIEW -> PUBLISH
+DRAFT root + translations
+        ↓
+PENDING_REVIEW toàn group
 ```
 
-Khi approve:
+Delete:
 
-- ghi `reviewedById` bằng Moderator hiện tại;
-- ghi `reviewedAt`;
-- xóa `rejectionReason`;
-- đặt `publishedAt` khi xuất bản lần đầu;
-- giữ `publishedAt` cũ nếu bài từng được xuất bản rồi gửi duyệt lại.
+- chỉ root ID;
+- soft-delete root + translations;
+- dùng cùng timestamp.
 
-Luồng từ chối:
+---
+
+## 4. Công việc đã thực hiện trong `src/moderator`
+
+Triển khai **18 endpoint Content Moderator** gồm bốn nhóm chức năng.
+
+## 4.1. Module và phân quyền
+
+Các controller/service chính:
+
+| Thành phần                              | Trách nhiệm                           |
+| --------------------------------------- | ------------------------------------- |
+| `ModeratorDashboardController/Service`  | Overview, report stats, report trend  |
+| `ModeratorPostsController/Service`      | List/detail/approve/reject Post Group |
+| `ModeratorCategoriesController/Service` | Category Group đa ngôn ngữ            |
+| `ModeratorReportsController/Service`    | List/detail/resolve/reject Reports    |
+
+Toàn bộ route áp dụng:
+
+- `JwtAuthGuard`;
+- `RolesGuard`;
+- `@Roles(UserRole.CONTENT_MODERATOR)`;
+- path ID qua `ParseIntPipe`;
+- DTO validation;
+- `@CurrentUser()` để ghi reviewer trong thao tác kiểm duyệt.
+
+## 4.2. Dashboard Moderator
+
+Triển khai:
+
+- `GET /moderator/dashboard/overview`;
+- `GET /moderator/dashboard/report-stats`;
+- `GET /moderator/dashboard/report-trend`.
+
+Nội dung:
+
+- số root post `PENDING_REVIEW`;
+- pending report theo POST/COMMENT;
+- tổng pending report;
+- số Category Group active;
+- post/report đã xử lý trong ngày;
+- report theo status/reason;
+- trend report 7 ngày theo lịch Việt Nam.
+
+Endpoint dashboard aggregate cũ đã được loại bỏ trong clean code cuối.
+
+## 4.3. Kiểm duyệt Post Group
+
+Danh sách:
+
+- mặc định phục vụ bài `PENDING_REVIEW`;
+- cho lọc `PENDING_REVIEW`, `PUBLISH`, `REJECT`;
+- không cho `DRAFT`;
+- list theo root;
+- hỗ trợ search/language/category/author/tag/pagination.
+
+Detail:
+
+- đọc full content của version;
+- trả author/language/category/tag/media;
+- trả reviewer;
+- trả translations summary của group;
+- không tăng view count.
+
+Approve:
 
 ```text
-PENDING_REVIEW -> REJECT
+PENDING_REVIEW toàn group
+        ↓
+PUBLISH toàn group
 ```
 
-Khi reject:
-
-- bắt buộc `rejectionReason`;
-- trim nội dung và giới hạn tối đa 2000 ký tự;
-- ghi Moderator và thời gian xử lý;
-- giữ lý do từ chối để Blog Owner xem và chỉnh sửa bài.
-
-Bảo vệ đồng thời:
-
-- Chỉ cập nhật khi record vẫn còn `PENDING_REVIEW`.
-- Khi hai Moderator cùng xử lý một bài, Moderator xử lý sau nhận `409 Conflict`.
-- Không cho approve/reject lại bài đã được xử lý.
-
-### 8.4. Xử lý báo cáo bài viết và bình luận
-
-Phụ trách bốn endpoint:
-
-| Mã  | Method | Endpoint                                      | Chức năng            |
-| --- | ------ | --------------------------------------------- | -------------------- |
-| M06 | GET    | `/api/v1/moderator/reports`                   | Lấy danh sách report |
-| M07 | GET    | `/api/v1/moderator/reports/:reportId`         | Xem chi tiết report  |
-| M08 | POST   | `/api/v1/moderator/reports/:reportId/resolve` | Xác nhận report đúng |
-| M09 | POST   | `/api/v1/moderator/reports/:reportId/reject`  | Bác bỏ report        |
-
-Trách nhiệm nghiệp vụ:
-
-- Mặc định danh sách chỉ lấy report `PENDING`.
-- Lọc theo `targetType`, `status`, `reason`, `reporterId`, `postId`, `commentId`.
-- Trả ngữ cảnh của bài viết hoặc bình luận bị báo cáo.
-- Với report bình luận, trả cả bài chứa bình luận và bình luận cha khi có.
-- Trả `reviewedBy`, `reviewedAt` và `resolutionNote` cho report đã xử lý.
-
-Khi resolve report:
+Reject:
 
 ```text
-PENDING -> RESOLVED
+PENDING_REVIEW toàn group
+        ↓
+REJECT toàn group
 ```
 
-- Bắt buộc `resolutionNote`, trim và giới hạn tối đa 1000 ký tự.
-- Soft-delete bài viết nếu `targetType=POST`.
-- Soft-delete bình luận nếu `targetType=COMMENT`.
-- Chuyển các report `PENDING` khác cùng target sang `RESOLVED`.
-- Ghi cùng Moderator, thời gian và ghi chú xử lý.
-- Thực hiện trong transaction; nếu không soft-delete được target thì rollback toàn bộ.
+Hai luồng ghi review metadata và dùng transaction/conditional update để giảm race condition giữa nhiều Moderator.
 
-Khi reject report:
+## 4.4. Category Group đa ngôn ngữ
+
+Đã triển khai bảy endpoint:
+
+- list group;
+- detail group;
+- translate preview;
+- create;
+- update/upsert;
+- delete một translation;
+- delete cả group.
+
+Quy tắc xóa cuối:
+
+- xóa một translation riêng lẻ vẫn là **soft-delete**;
+- không cho xóa translation active cuối cùng;
+- không cho xóa translation đang được `PostCategory` sử dụng;
+- xóa cả Category Group là **hard-delete**;
+- trước khi hard-delete, backend đếm mọi `PostCategory` tham chiếu các Category thuộc group;
+- nếu còn usage thì transaction dừng và group được giữ nguyên;
+- nếu không còn usage thì xóa cứng tất cả Category con trước, rồi xóa `CategoryGroup`;
+- sau hard-delete có thể tạo lại cùng group `code` và category name/language.
+
+Validation:
+
+- `code` trim/lowercase;
+- max 50;
+- chỉ `[a-z0-9]`, `-`, `_` theo regex DTO;
+- phải có ít nhất một translation khi create;
+- không trùng `languageId`;
+- category name max 100 và profanity check.
+
+Update chỉ upsert translations có trong payload; translation không gửi lên được giữ nguyên.
+
+## 4.5. Dịch category bằng LibreTranslate
+
+`translate-preview`:
+
+- không ghi DB;
+- kiểm tra source/target language;
+- nhận một source name;
+- dịch sang nhiều target languages;
+- trả source metadata và danh sách preview.
+
+Category Group sau đó trở thành nguồn mapping khi Blog Owner dịch post.
+
+## 4.6. Xử lý Reports
+
+List:
+
+- filter target type, status, reason, reporter, post, comment;
+- pagination;
+- workflow mặc định tập trung report `PENDING`.
+
+Detail:
+
+- trả reporter/reviewer public summary;
+- target POST có post context;
+- target COMMENT có comment, user, bài cha và context parent/replies cần thiết.
+
+Resolve:
+
+- claim report bằng conditional update;
+- transaction;
+- POST target được xử lý theo Post Group;
+- COMMENT target được soft-delete;
+- xử lý report liên quan theo service;
+- report → `RESOLVED`;
+- lưu reviewer/time/note.
+
+Reject:
+
+- report → `REJECTED`;
+- target giữ nguyên;
+- lưu reviewer/time/note.
+
+---
+
+## 5. Danh sách API đã triển khai
+
+### 5.1. Blog Owner — 14 endpoint
+
+| Mã  | Method | Endpoint                                          | Chức năng             |
+| --- | ------ | ------------------------------------------------- | --------------------- |
+| B01 | GET    | `/api/v1/blog-owner/dashboard/summary`            | Dashboard summary     |
+| B02 | GET    | `/api/v1/blog-owner/dashboard/activity`           | Activity theo ngày    |
+| B03 | GET    | `/api/v1/blog-owner/dashboard/featured`           | Bài nổi bật           |
+| B04 | GET    | `/api/v1/blog-owner/options`                      | Language/category/tag |
+| B05 | GET    | `/api/v1/blog-owner/posts`                        | Danh sách Post Group  |
+| B06 | GET    | `/api/v1/blog-owner/posts/:id`                    | Detail post/group     |
+| B07 | POST   | `/api/v1/blog-owner/posts`                        | Tạo bài/group         |
+| B08 | PATCH  | `/api/v1/blog-owner/posts/:id`                    | Update root/group     |
+| B09 | DELETE | `/api/v1/blog-owner/posts/:id`                    | Delete toàn group     |
+| B10 | POST   | `/api/v1/blog-owner/posts/:id/submit`             | Submit toàn group     |
+| B11 | POST   | `/api/v1/blog-owner/posts/:id/translate-preview`  | Preview dịch          |
+| B12 | POST   | `/api/v1/blog-owner/posts/:postId/media`          | Upload media root     |
+| B13 | DELETE | `/api/v1/blog-owner/posts/:postId/media/:mediaId` | Delete media root     |
+| B14 | GET    | `/api/v1/blog-owner/translation-batches/:batchId` | Translation progress  |
+
+### 5.2. Content Moderator — 18 endpoint
+
+| Mã  | Method | Endpoint                                                              | Chức năng                    |
+| --- | ------ | --------------------------------------------------------------------- | ---------------------------- |
+| M01 | GET    | `/api/v1/moderator/dashboard/overview`                                | Dashboard overview           |
+| M02 | GET    | `/api/v1/moderator/dashboard/report-stats`                            | Report stats                 |
+| M03 | GET    | `/api/v1/moderator/dashboard/report-trend`                            | Report trend                 |
+| M04 | GET    | `/api/v1/moderator/posts`                                             | List moderation posts        |
+| M05 | GET    | `/api/v1/moderator/posts/:postId`                                     | Post/group detail            |
+| M06 | POST   | `/api/v1/moderator/posts/:postId/approve`                             | Approve group                |
+| M07 | POST   | `/api/v1/moderator/posts/:postId/reject`                              | Reject group                 |
+| M08 | GET    | `/api/v1/moderator/category-groups`                                   | List Category Group          |
+| M09 | GET    | `/api/v1/moderator/category-groups/:groupId`                          | Group detail                 |
+| M10 | POST   | `/api/v1/moderator/category-groups/translate-preview`                 | Preview category translation |
+| M11 | POST   | `/api/v1/moderator/category-groups`                                   | Create group                 |
+| M12 | PATCH  | `/api/v1/moderator/category-groups/:groupId`                          | Update group                 |
+| M13 | DELETE | `/api/v1/moderator/category-groups/:groupId/translations/:languageId` | Delete translation           |
+| M14 | DELETE | `/api/v1/moderator/category-groups/:groupId`                          | Delete group                 |
+| M15 | GET    | `/api/v1/moderator/reports`                                           | List reports                 |
+| M16 | GET    | `/api/v1/moderator/reports/:reportId`                                 | Report detail                |
+| M17 | POST   | `/api/v1/moderator/reports/:reportId/resolve`                         | Resolve report               |
+| M18 | POST   | `/api/v1/moderator/reports/:reportId/reject`                          | Reject report                |
+
+Chi tiết contract nằm trong:
+
+- `BLOGOWNER_API_DOCUMENTATION.md`
+- `MODERATOR_API_DOCUMENTATION.md`
+
+---
+
+## 6. Kiểm thử và chất lượng
+
+Sau clean code cuối, regression test cho đúng hai module phụ trách:
 
 ```text
-PENDING -> REJECTED
+Test Suites: 24 passed, 24 total
+Tests:       184 passed, 184 total
+Snapshots:   0 total
 ```
 
-- Ghi Moderator, thời gian và `resolutionNote`.
-- Không soft-delete bài viết hoặc bình luận.
-- Không tự động thay đổi các report khác cùng target.
+Build:
 
-Bảo vệ đồng thời:
-
-- Chỉ report `PENDING` mới được xử lý.
-- Report đã `RESOLVED` hoặc `REJECTED` không được xử lý lần hai.
-- Target đã bị xóa/ẩn hoặc Moderator khác đã claim record trả `409 Conflict`.
-
-### 8.5. Danh sách API Moderator được phân công
-
-| Mã  | Nhóm chức năng      | Method | Endpoint                                      |
-| --- | ------------------- | ------ | --------------------------------------------- |
-| M01 | Dashboard Moderator | GET    | `/api/v1/moderator/dashboard`                 |
-| M02 | Kiểm duyệt bài viết | GET    | `/api/v1/moderator/posts`                     |
-| M03 | Kiểm duyệt bài viết | GET    | `/api/v1/moderator/posts/:postId`             |
-| M04 | Kiểm duyệt bài viết | POST   | `/api/v1/moderator/posts/:postId/approve`     |
-| M05 | Kiểm duyệt bài viết | POST   | `/api/v1/moderator/posts/:postId/reject`      |
-| M06 | Xử lý báo cáo       | GET    | `/api/v1/moderator/reports`                   |
-| M07 | Xử lý báo cáo       | GET    | `/api/v1/moderator/reports/:reportId`         |
-| M08 | Xử lý báo cáo       | POST   | `/api/v1/moderator/reports/:reportId/resolve` |
-| M09 | Xử lý báo cáo       | POST   | `/api/v1/moderator/reports/:reportId/reject`  |
-
-Chi tiết request, response, validation và luồng test được mô tả trong `MODERATOR_API_DOCUMENTATION.md`.
-
-### 8.6. Unit test và kiểm thử Moderator
-
-Trong source hiện có các nhóm test cho ba chức năng được phân công:
-
-| File test                                | Phạm vi                                          | Số test case trong source |
-| ---------------------------------------- | ------------------------------------------------ | ------------------------: |
-| `moderator-dashboard.controller.spec.ts` | Controller Dashboard                             |                         2 |
-| `moderator-dashboard.service.spec.ts`    | Logic Dashboard                                  |                         4 |
-| `moderator-posts.controller.spec.ts`     | Controller kiểm duyệt bài                        |                         5 |
-| `moderator-posts.service.spec.ts`        | Danh sách, chi tiết, approve/reject, concurrency |                        10 |
-| `moderator-reports.controller.spec.ts`   | Controller report                                |                         5 |
-| `moderator-reports.service.spec.ts`      | Danh sách, chi tiết, resolve/reject, transaction |                        10 |
-| **Tổng**                                 |                                                  |                    **36** |
-
-Lệnh kiểm tra:
-
-```powershell
-npm test -- src/moderator/controllers/moderator-dashboard.controller.spec.ts --runInBand
-npm test -- src/moderator/services/moderator-dashboard.service.spec.ts --runInBand
-npm test -- src/moderator/controllers/moderator-posts.controller.spec.ts --runInBand
-npm test -- src/moderator/services/moderator-posts.service.spec.ts --runInBand
-npm test -- src/moderator/controllers/moderator-reports.controller.spec.ts --runInBand
-npm test -- src/moderator/services/moderator-reports.service.spec.ts --runInBand
-npm run build
+```text
+npm run build     -> PASS
+git diff --check  -> PASS
 ```
 
-Trạng thái được ghi nhận tại thời điểm cập nhật:
+### 6.1. Nhóm test Blog Owner
 
-- Source của ba nhóm chức năng đã có.
-- Tài liệu `MODERATOR_API_DOCUMENTATION.md` đã được tạo.
-- Unit test đã có trong source nhưng cần chạy lại trên môi trường dự án để xác nhận kết quả cuối cùng.
-- Kiểm thử API thực tế bằng Postman đang được thực hiện theo từng luồng; không ghi nhận toàn bộ Moderator là hoàn thành trước khi các luồng được xác nhận pass.
+- `blogowner-api.module.spec.ts`
+- `blogowner-dashboard.controller.spec.ts`
+- `blogowner-dashboard.service.spec.ts`
+- `blogowner-media.service.spec.ts`
+- `blogowner-posts.service.spec.ts`
+- `blogowner-translation.controller.spec.ts`
+- `blogowner-translation-queue.service.spec.ts`
+- `blogowner-translation.processor.spec.ts`
+- `blogowner-translation-status.service.spec.ts`
 
-### 8.7. Phần không thuộc phân công Moderator hiện tại
+Phạm vi test:
 
-Các hạng mục sau không nằm trong phạm vi 9 endpoint của tài liệu Moderator hiện tại:
+- Post Group;
+- create/update/submit và profanity defense-in-depth;
+- thumbnail magic-byte/MIME/extension validation;
+- Media group-safe;
+- dashboard;
+- queue/flow;
+- translation processor;
+- progress;
+- stale job;
+- retry/failure;
+- module dependency.
 
-- CRUD Category Group đa ngôn ngữ.
-- Endpoint Moderator options/languages riêng.
-- Gửi notification cho Blog Owner sau approve/reject.
-- Bảng audit lưu lịch sử kiểm duyệt nhiều lần.
-- Khôi phục bài viết hoặc bình luận sau khi resolve report.
+### 6.2. Nhóm test Moderator
+
+- dashboard controller/service;
+- posts controller/service/entity;
+- categories controller/service/entity/DTO;
+- reports controller/service/entity;
+- `moderator-api.module.spec.ts`.
+
+Phạm vi:
+
+- dashboard aggregation;
+- Post Group moderation;
+- approve/reject;
+- Category Group hard-delete / translation soft-delete / usage protection;
+- translation preview;
+- Reports;
+- conditional update/transaction;
+- response entities.

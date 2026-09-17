@@ -1,6 +1,7 @@
 /// <reference types="multer" />
 
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { extname } from 'node:path';
 import { PostStatus, Prisma } from '@prisma/client';
 
 import {
@@ -10,6 +11,63 @@ import {
   PostNotFoundException,
   PrismaService,
 } from '@app/core';
+
+
+const MAX_THUMBNAIL_SIZE = 10 * 1024 * 1024;
+
+const THUMBNAIL_TYPES = {
+  jpeg: {
+    mimeTypes: ['image/jpeg'],
+    extensions: ['.jpg', '.jpeg'],
+  },
+  png: {
+    mimeTypes: ['image/png'],
+    extensions: ['.png'],
+  },
+  webp: {
+    mimeTypes: ['image/webp'],
+    extensions: ['.webp'],
+  },
+} as const;
+
+type ThumbnailType = keyof typeof THUMBNAIL_TYPES;
+
+/**
+ * Nhận diện định dạng ảnh từ magic bytes thật trong buffer.
+ * Không tin MIME/extension do client gửi lên.
+ */
+function detectThumbnailType(buffer: Buffer): ThumbnailType | null {
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
+    return 'jpeg';
+  }
+
+  const pngSignature = [
+    0x89, 0x50, 0x4e, 0x47,
+    0x0d, 0x0a, 0x1a, 0x0a,
+  ];
+
+  if (
+    buffer.length >= pngSignature.length &&
+    pngSignature.every((byte, index) => buffer[index] === byte)
+  ) {
+    return 'png';
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return 'webp';
+  }
+
+  return null;
+}
 
 export const RESET_REVIEW_DATA = {
   reviewedById: null,
@@ -244,14 +302,60 @@ export class BlogownerPostHelperService {
   }
 
   /**
-   * Upload thumbnail cho bài viết lên Cloudinary.
+   * Validate ảnh bìa trước khi tạo/update Post.
+   *
+   * Security rule:
+   * - chỉ JPEG / PNG / WEBP;
+   * - tối đa 10 MB;
+   * - kiểm tra magic bytes thật trong buffer;
+   * - MIME và extension phải khớp với định dạng đã nhận diện.
+   *
+   * Nhờ đó file HTML/SVG/JS/PDF đổi tên thành .png hoặc giả MIME
+   * vẫn bị từ chối trước khi gửi lên Cloudinary.
    */
-  async uploadThumbnail(postId: number, file: Express.Multer.File) {
-    if (!file.mimetype.startsWith('image/')) {
+  validateThumbnailFile(file: Express.Multer.File): void {
+    if (!file?.buffer || file.buffer.length === 0) {
+      throw new BadRequestException('File ảnh bìa không hợp lệ hoặc bị rỗng.');
+    }
+
+    if (
+      file.size > MAX_THUMBNAIL_SIZE ||
+      file.buffer.length > MAX_THUMBNAIL_SIZE
+    ) {
+      throw new BadRequestException('Ảnh bìa không được vượt quá 10 MB.');
+    }
+
+    const detectedType = detectThumbnailType(file.buffer);
+
+    if (!detectedType) {
       throw new BadRequestException(
-        'Chỉ hỗ trợ tải lên file ảnh cho thumbnail',
+        'Ảnh bìa chỉ hỗ trợ file JPEG, PNG hoặc WEBP hợp lệ.',
       );
     }
+
+    const allowedType = THUMBNAIL_TYPES[detectedType];
+    const extension = extname(file.originalname ?? '').toLowerCase();
+
+    if (!allowedType.mimeTypes.some((mimeType) => mimeType === file.mimetype)) {
+      throw new BadRequestException(
+        'MIME type của ảnh bìa không khớp với nội dung file thực tế.',
+      );
+    }
+
+    if (
+      !allowedType.extensions.some(
+        (allowedExtension) => allowedExtension === extension,
+      )
+    ) {
+      throw new BadRequestException(
+        'Phần mở rộng ảnh bìa không khớp với định dạng file thực tế.',
+      );
+    }
+  }
+
+  /** Upload thumbnail đã được validate lên Cloudinary. */
+  async uploadThumbnail(postId: number, file: Express.Multer.File) {
+    this.validateThumbnailFile(file);
 
     try {
       return await this.cloudinary.uploadFile(

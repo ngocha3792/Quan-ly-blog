@@ -9,6 +9,8 @@ import {
 import { PostStatus, Prisma } from '@prisma/client';
 
 import {
+  hasForbiddenWords,
+  LibreTranslateService,
   NotPostOwnerException,
   PaginatedResult,
   PaginationParams,
@@ -20,7 +22,6 @@ import {
   AutoTranslateBlogownerPostDto,
   CreateBlogownerPostDto,
   GetBlogownerPostsDto,
-  TranslateBlogownerPostDto,
   UpdateBlogownerPostDto,
 } from '../dto';
 import { BlogownerPostEntity, BlogownerPostGroup } from '../entities';
@@ -28,7 +29,6 @@ import {
   BlogownerPostHelperService,
   RESET_REVIEW_DATA,
 } from './blogowner-post-helper.service';
-import { TranslationService } from './translation.service';
 import { BLOGOWNER_TRANSLATION_QUEUE_SERVICE } from '../queues/blogowner-translation.constants';
 
 import type { BlogownerTranslationQueuePort } from '../queues/blogowner-translation.types';
@@ -110,7 +110,7 @@ export class BlogownerPostsService {
   private readonly prisma: PrismaService,
   private readonly postsService: PostsService,
   private readonly helper: BlogownerPostHelperService,
-  private readonly translationService: TranslationService,
+  private readonly libreTranslateService: LibreTranslateService,
 
   @Inject(BLOGOWNER_TRANSLATION_QUEUE_SERVICE)
   private readonly translationQueueService: BlogownerTranslationQueuePort,
@@ -602,6 +602,27 @@ async create(
   } = dto;
 
   /**
+   * Defense-in-depth ngoài DTO validation.
+   * Service không được lưu title/content chứa từ cấm kể cả khi được gọi nội bộ.
+   */
+  if (
+    hasForbiddenWords(createPostData.title) ||
+    hasForbiddenWords(createPostData.content)
+  ) {
+    throw new BadRequestException(
+      'Tiêu đề hoặc nội dung bài viết chứa từ ngữ không phù hợp với tiêu chuẩn cộng đồng.',
+    );
+  }
+
+  /**
+   * Validate thumbnail trước khi tạo row Post.
+   * File giả/không hợp lệ phải fail mà không để lại DRAFT rác trong DB.
+   */
+  if (thumbnailFile) {
+    this.helper.validateThumbnailFile(thumbnailFile);
+  }
+
+  /**
    * Không được chọn chính ngôn ngữ của bài gốc
    * làm ngôn ngữ bản dịch.
    *
@@ -870,6 +891,19 @@ async update(
     translationLanguageIds = [],
     ...updatePostData
   } = dto;
+
+  /**
+   * Update DTO đã có IsProfanityFree, nhưng service vẫn kiểm tra lại
+   * để không cho đường gọi nội bộ bypass validation của controller.
+   */
+  if (
+    hasForbiddenWords(updatePostData.title) ||
+    hasForbiddenWords(updatePostData.content)
+  ) {
+    throw new BadRequestException(
+      'Tiêu đề hoặc nội dung bài viết chứa từ ngữ không phù hợp với tiêu chuẩn cộng đồng.',
+    );
+  }
 
   if (
     translationLanguageIds.includes(root.languageId)
@@ -1289,6 +1323,25 @@ async update(
     }
 
     /**
+     * Defense-in-depth:
+     *
+     * Create/Update DTO đã chặn từ cấm, nhưng submit vẫn phải
+     * kiểm tra lại dữ liệu đang nằm trong DB để bảo vệ dữ liệu cũ,
+     * dữ liệu được ghi từ job hoặc các đường gọi service nội bộ.
+     */
+    const invalidPost = [root, ...translations].find(
+      (groupPost) =>
+        hasForbiddenWords(groupPost.title) ||
+        hasForbiddenWords(groupPost.content),
+    );
+
+    if (invalidPost) {
+      throw new BadRequestException(
+        `Bài viết ID ${invalidPost.id} chứa từ ngữ không phù hợp và không thể gửi duyệt.`,
+      );
+    }
+
+    /**
      * Chuyển toàn bộ group:
      *
      * DRAFT
@@ -1306,349 +1359,6 @@ async update(
      */
     return this.findOne(ownerId, root.id);
   }
-  /**
-   * Đồng bộ lại một BẢN DỊCH từ bài gốc.
-   *
-   * POST /api/v1/blog-owner/posts/:id/sync-from-root
-   *
-   * Quy tắc:
-   * - :id bắt buộc là ID của một bản dịch (parentPostId != null);
-   * - chỉ cập nhật đúng bản dịch được chọn;
-   * - không thay đổi bài gốc hoặc các bản dịch khác;
-   * - title/content được dịch lại từ bài gốc;
-   * - category được ánh xạ lại theo CategoryGroup sang ngôn ngữ bản dịch;
-   * - tag active và thumbnail được đồng bộ lại từ bài gốc;
-   * - media riêng, view, like, comment, bookmark... được giữ nguyên;
-   * - DRAFT  -> DRAFT;
-   * - REJECT -> DRAFT;
-   * - PUBLISH -> PENDING_REVIEW;
-   * - PENDING_REVIEW -> không cho đồng bộ.
-   */
-  async syncFromRoot(
-    ownerId: number,
-    translationPostId: number,
-  ): Promise<BlogownerPostEntity> {
-    /**
-     * Dùng helper để đồng thời kiểm tra:
-     * - post còn active;
-     * - post thuộc đúng Blog Owner.
-     */
-    const translationPost = await this.helper.findOwnedPost(
-      ownerId,
-      translationPostId,
-    );
-
-    if (translationPost.parentPostId === null) {
-      throw new BadRequestException(
-        'Chỉ bản dịch mới có thể đồng bộ từ bài gốc.',
-      );
-    }
-
-    /**
-     * PENDING_REVIEW tuyệt đối không được thay đổi nội dung trong lúc
-     * Moderator đang duyệt.
-     */
-    this.helper.assertEditable(translationPost.status);
-
-    /**
-     * Ngôn ngữ đích của bản dịch phải vẫn đang hoạt động.
-     */
-    const targetLanguage = await this.prisma.language.findFirst({
-      where: {
-        id: translationPost.languageId,
-        deletedAt: null,
-        isActive: true,
-      },
-      select: LANGUAGE_SELECT,
-    });
-
-    if (!targetLanguage) {
-      throw new BadRequestException(
-        'Ngôn ngữ của bản dịch không tồn tại hoặc đang bị vô hiệu hóa.',
-      );
-    }
-
-    /**
-     * Luôn đồng bộ từ ROOT thật sự, không dùng một translation khác làm nguồn.
-     */
-    const rootPost = await this.prisma.post.findFirst({
-      where: {
-        id: translationPost.parentPostId,
-        authorId: ownerId,
-        parentPostId: null,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        thumbnailUrl: true,
-        language: {
-          select: LANGUAGE_SELECT,
-        },
-        postCategories: {
-          select: {
-            category: {
-              select: {
-                categoryGroupId: true,
-              },
-            },
-          },
-        },
-        postTags: {
-          where: {
-            tag: {
-              deletedAt: null,
-            },
-          },
-          select: {
-            tagId: true,
-          },
-        },
-      },
-    });
-
-    if (!rootPost) {
-      throw new BadRequestException(
-        'Không tìm thấy bài gốc còn hoạt động của bản dịch này.',
-      );
-    }
-
-    /**
-     * Lấy CategoryGroup của root rồi map sang category cùng group,
-     * đúng ngôn ngữ của translation.
-     */
-    const categoryGroupIds = Array.from(
-      new Set(
-        rootPost.postCategories.map(
-          (postCategory) => postCategory.category.categoryGroupId,
-        ),
-      ),
-    );
-
-    if (categoryGroupIds.length === 0) {
-      throw new BadRequestException(
-        'Bài gốc chưa có danh mục nên không thể đồng bộ bản dịch.',
-      );
-    }
-
-    const translatedCategories = await this.prisma.category.findMany({
-      where: {
-        categoryGroupId: {
-          in: categoryGroupIds,
-        },
-        languageId: translationPost.languageId,
-        deletedAt: null,
-        categoryGroup: {
-          deletedAt: null,
-        },
-      },
-      select: {
-        id: true,
-        categoryGroupId: true,
-      },
-    });
-
-    const translatedCategoryGroupIds = new Set(
-      translatedCategories.map((category) => category.categoryGroupId),
-    );
-
-    if (translatedCategoryGroupIds.size !== categoryGroupIds.length) {
-      throw new BadRequestException(
-        'Một hoặc nhiều danh mục của bài gốc chưa có phiên bản trong ngôn ngữ của bản dịch.',
-      );
-    }
-
-    /**
-     * Validation hoàn tất mới gọi LibreTranslate để tránh gọi dịch vụ ngoài
-     * khi chắc chắn request sẽ thất bại vì category/language.
-     */
-    const translated = await this.translationService.translatePost({
-      title: rootPost.title,
-      content: rootPost.content,
-      sourceLanguageCode: rootPost.language.code,
-      targetLanguageCode: targetLanguage.code,
-    });
-
-    const sourceTagIds = rootPost.postTags.map((postTag) => postTag.tagId);
-    const nextStatus = this.helper.getNextStatusOnEdit(translationPost.status);
-
-    /**
-     * Một Prisma update duy nhất để title/content/category/tag/status cùng
-     * thành công hoặc cùng thất bại.
-     *
-     * Không ghi viewCount và không đụng PostLike => view/like được giữ nguyên.
-     * Không đụng media => media riêng của translation được giữ nguyên.
-     */
-    await this.prisma.post.update({
-      where: {
-        id: translationPostId,
-      },
-      data: {
-        title: translated.title,
-        content: translated.content,
-        thumbnailUrl: rootPost.thumbnailUrl,
-        status: nextStatus,
-        ...RESET_REVIEW_DATA,
-        postCategories: {
-          deleteMany: {},
-          create: translatedCategories.map((category) => ({
-            categoryId: category.id,
-          })),
-        },
-        postTags: {
-          deleteMany: {},
-          create: sourceTagIds.map((tagId) => ({
-            tagId,
-          })),
-        },
-      },
-    });
-
-    return this.findOne(ownerId, translationPostId);
-  }
-
-  /**
-   * Đồng bộ TẤT CẢ bản dịch từ một bài gốc.
-   *
-   * POST /api/v1/blog-owner/posts/:id/sync-all-translations
-   *
-   * Quy tắc:
-   * - :id bắt buộc là ID bài gốc (parentPostId = null);
-   * - lần lượt đồng bộ từng bản dịch active của bài gốc;
-   * - PENDING_REVIEW tuyệt đối không dịch và được đưa vào skipped;
-   * - DRAFT          -> DRAFT;
-   * - REJECT         -> DRAFT;
-   * - PUBLISH        -> PENDING_REVIEW;
-   * - một bản dịch lỗi không rollback những bản đã đồng bộ thành công;
-   * - view/like/comment/bookmark/media riêng của từng bản dịch được giữ nguyên
-   *   vì syncFromRoot() chỉ cập nhật dữ liệu nội dung của chính Post đó.
-   */
-  async syncAllTranslations(
-    ownerId: number,
-    rootPostId: number,
-  ): Promise<{
-    rootPostId: number;
-    totalTranslations: number;
-    synced: Array<{
-      id: number;
-      languageCode: string;
-      status: PostStatus;
-    }>;
-    skipped: Array<{
-      id: number;
-      languageCode: string;
-      status: PostStatus;
-      reason: string;
-    }>;
-    failed: Array<{
-      id: number;
-      languageCode: string;
-      status: PostStatus;
-      reason: string;
-    }>;
-  }> {
-    /**
-     * helper.findOwnedPost() xác nhận bài còn active và thuộc đúng Owner.
-     * Không gọi assertEditable() trên root vì root có thể vừa được sửa từ
-     * PUBLISH -> PENDING_REVIEW; Owner vẫn được phép dùng nội dung root mới
-     * làm nguồn để đồng bộ các bản dịch.
-     */
-    const rootPost = await this.helper.findOwnedPost(ownerId, rootPostId);
-
-    if (rootPost.parentPostId !== null) {
-      throw new BadRequestException(
-        'Chỉ bài gốc mới có thể đồng bộ tất cả bản dịch.',
-      );
-    }
-
-    const translations = await this.prisma.post.findMany({
-      where: {
-        authorId: ownerId,
-        parentPostId: rootPostId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        status: true,
-        language: {
-          select: {
-            code: true,
-          },
-        },
-      },
-      orderBy: {
-        id: 'asc',
-      },
-    });
-
-    const synced: Array<{
-      id: number;
-      languageCode: string;
-      status: PostStatus;
-    }> = [];
-
-    const skipped: Array<{
-      id: number;
-      languageCode: string;
-      status: PostStatus;
-      reason: string;
-    }> = [];
-
-    const failed: Array<{
-      id: number;
-      languageCode: string;
-      status: PostStatus;
-      reason: string;
-    }> = [];
-
-    /**
-     * Xử lý tuần tự để tránh dồn nhiều request nặng vào LibreTranslate
-     * cùng lúc trên môi trường local.
-     */
-    for (const translation of translations) {
-      const languageCode = translation.language.code;
-
-      if (translation.status === PostStatus.PENDING_REVIEW) {
-        skipped.push({
-          id: translation.id,
-          languageCode,
-          status: translation.status,
-          reason: 'Bản dịch đang chờ Moderator duyệt nên không được đồng bộ.',
-        });
-        continue;
-      }
-
-      try {
-        const syncedPost = await this.syncFromRoot(ownerId, translation.id);
-
-        synced.push({
-          id: translation.id,
-          languageCode,
-          status: syncedPost.status,
-        });
-      } catch (error: unknown) {
-        failed.push({
-          id: translation.id,
-          languageCode,
-          status: translation.status,
-          reason:
-            error instanceof Error
-              ? error.message
-              : 'Không thể đồng bộ bản dịch này.',
-        });
-      }
-    }
-
-    return {
-      rootPostId,
-      totalTranslations: translations.length,
-      synced,
-      skipped,
-      failed,
-    };
-  }
-
   /**
    * Dịch tự động title + content
    *
@@ -1811,14 +1521,18 @@ async update(
      * Chỉ gọi dịch vụ dịch tự động sau khi
      * toàn bộ validation đã hoàn tất.
      */
-    const translated = await this.translationService.translatePost({
-      title: sourcePost.title,
-      content: sourcePost.content,
+    const [translatedTitle, translatedContent] =
+      await this.libreTranslateService.translateTexts({
+        texts: [
+          sourcePost.title,
+          sourcePost.content,
+        ],
 
-      sourceLanguageCode: sourcePost.language.code,
+        sourceLanguageCode: sourcePost.language.code,
+        targetLanguageCode: targetLanguage.code,
 
-      targetLanguageCode: targetLanguage.code,
-    });
+        format: 'html',
+      });
 
     /**
      * Chỉ trả preview.
@@ -1840,232 +1554,9 @@ async update(
       translation: {
         language: targetLanguage,
 
-        title: translated.title,
-        content: translated.content,
+        title: translatedTitle,
+        content: translatedContent,
       },
     };
-  }
-
-  /**
-   * Tạo bản dịch từ bài viết nguồn.
-   *
-   * Quy tắc:
-   * - bài nguồn phải thuộc Blog Owner;
-   * - mỗi ngôn ngữ chỉ có một bản trong cùng nhóm dịch;
-   * - category được tìm theo CategoryGroup;
-   * - tag được sao chép từ bài nguồn;
-   * - bài dịch mới luôn là DRAFT.
-   */
-
-  async translate(
-    ownerId: number,
-    sourcePostId: number,
-    dto: TranslateBlogownerPostDto,
-  ): Promise<BlogownerPostEntity> {
-    /*
-     * Cần truy cập trực tiếp Prisma relations:
-     * - postCategories → category.categoryGroupId
-     * - postTags → tagId
-     *
-     * Nên query riêng thay vì dùng BlogownerPostEntity.
-     */
-    const sourcePost = await this.prisma.post.findFirst({
-      where: {
-        id: sourcePostId,
-        deletedAt: null,
-      },
-      include: {
-        postCategories: {
-          include: {
-            category: true,
-          },
-        },
-
-        /**
-         * Chỉ sao chép những tag chưa bị soft-delete.
-         */
-        postTags: {
-          where: {
-            tag: {
-              deletedAt: null,
-            },
-          },
-
-          select: {
-            tagId: true,
-          },
-        },
-      },
-    });
-
-    if (!sourcePost) {
-      throw new BadRequestException(
-        `Không tìm thấy bài viết nguồn có ID ${sourcePostId}.`,
-      );
-    }
-
-    if (sourcePost.authorId !== ownerId) {
-      throw new NotPostOwnerException();
-    }
-
-    const targetLanguage = await this.prisma.language.findFirst({
-      where: {
-        id: dto.targetLanguageId,
-        deletedAt: null,
-        isActive: true,
-      },
-    });
-
-    if (!targetLanguage) {
-      throw new BadRequestException(
-        `Ngôn ngữ đích có ID ${dto.targetLanguageId} không tồn tại hoặc đang bị vô hiệu hóa.`,
-      );
-    }
-
-    /*
-     * Tất cả bản dịch đều trỏ về bài gốc.
-     *
-     * Nếu sourcePost đã là bản dịch:
-     * dùng parentPostId của nó.
-     *
-     * Nếu sourcePost là bài gốc:
-     * dùng chính sourcePost.id.
-     */
-    const rootPostId = sourcePost.parentPostId ?? sourcePost.id;
-
-    /*
-     * Kiểm tra trong cả nhóm bài gốc và các bản dịch
-     * đã có ngôn ngữ đích chưa.
-     */
-    const existingTranslation = await this.prisma.post.findFirst({
-      where: {
-        languageId: dto.targetLanguageId,
-
-        OR: [
-          {
-            id: rootPostId,
-          },
-          {
-            parentPostId: rootPostId,
-          },
-        ],
-      },
-    });
-
-    if (existingTranslation && existingTranslation.deletedAt === null) {
-      throw new ConflictException(
-        'Bài viết đã có phiên bản cho ngôn ngữ được chọn.',
-      );
-    }
-
-    const categoryGroupIds = Array.from(
-      new Set(
-        sourcePost.postCategories.map(
-          (postCategory) => postCategory.category.categoryGroupId,
-        ),
-      ),
-    );
-
-    if (categoryGroupIds.length === 0) {
-      throw new BadRequestException('Bài viết nguồn chưa có danh mục.');
-    }
-
-    /*
-     * Không dịch tên category tại đây.
-     *
-     * Backend tìm category đã tồn tại trong cùng CategoryGroup
-     * và đúng ngôn ngữ đích.
-     */
-    const translatedCategories = await this.prisma.category.findMany({
-      where: {
-        categoryGroupId: {
-          in: categoryGroupIds,
-        },
-        languageId: dto.targetLanguageId,
-        deletedAt: null,
-        categoryGroup: {
-          deletedAt: null,
-        },
-      },
-      select: {
-        id: true,
-        categoryGroupId: true,
-      },
-    });
-
-    if (translatedCategories.length !== categoryGroupIds.length) {
-      throw new BadRequestException(
-        'Một hoặc nhiều danh mục chưa có bản dịch trong ngôn ngữ được chọn.',
-      );
-    }
-
-    const sourceTagIds = sourcePost.postTags.map((postTag) => postTag.tagId);
-    /**
-     * Nếu phiên bản ngôn ngữ này từng bị soft-delete,
-     * sử dụng lại record cũ thay vì tạo record mới.
-     *
-     * Điều này cũng tránh vi phạm unique:
-     * (parentPostId, languageId).
-     */
-    if (existingTranslation) {
-      await this.prisma.post.update({
-        where: {
-          id: existingTranslation.id,
-        },
-
-        data: {
-          title: dto.title,
-          content: dto.content,
-
-          thumbnailUrl: dto.thumbnailUrl ?? sourcePost.thumbnailUrl ?? null,
-
-          status: PostStatus.DRAFT,
-
-          parentPostId: rootPostId,
-          languageId: dto.targetLanguageId,
-
-          deletedAt: null,
-
-          publishedAt: null,
-          ...RESET_REVIEW_DATA,
-
-          postCategories: {
-            deleteMany: {},
-
-            create: translatedCategories.map((category) => ({
-              categoryId: category.id,
-            })),
-          },
-
-          postTags: {
-            deleteMany: {},
-
-            create: sourceTagIds.map((tagId) => ({
-              tagId,
-            })),
-          },
-        },
-      });
-
-      return this.findOne(ownerId, existingTranslation.id);
-    }
-
-    const translatedPost = await this.postsService.create(ownerId, {
-      title: dto.title,
-      content: dto.content,
-
-      thumbnailUrl: dto.thumbnailUrl ?? sourcePost.thumbnailUrl ?? undefined,
-
-      languageId: dto.targetLanguageId,
-
-      categoryIds: translatedCategories.map((category) => category.id),
-
-      tagIds: sourceTagIds,
-
-      parentPostId: rootPostId,
-      status: PostStatus.DRAFT,
-    });
-
-    return this.findOne(ownerId, translatedPost.id);
   }
 }

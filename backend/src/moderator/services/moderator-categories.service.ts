@@ -496,60 +496,56 @@ async removeTranslation(
 }
 
   /**
-   * Xóa mềm CategoryGroup và toàn bộ bản dịch.
+   * Xóa CỨNG CategoryGroup và toàn bộ bản dịch của group.
    *
-   * Không cho xóa nếu có bài viết đang sử dụng
-   * bất kỳ category nào thuộc group.
+   * Chỉ được xóa khi KHÔNG còn PostCategory nào tham chiếu
+   * tới bất kỳ Category nào thuộc group.
+   *
+   * Xóa cứng giúp giải phóng unique key của:
+   * - CategoryGroup.code;
+   * - Category(name, languageId);
+   * - Category(categoryGroupId, languageId).
+   *
+   * Vì vậy Moderator có thể tạo lại group/code/name sau khi xóa.
    */
   async remove(groupId: number): Promise<ModeratorCategoryGroupEntity> {
     await this.validator.ensureActiveGroupExists(groupId);
 
-    const usageCount = await this.prisma.postCategory.count({
-      where: {
-        category: {
-          categoryGroupId: groupId,
-        },
-      },
-    });
-
-    if (usageCount > 0) {
-      throw new BadRequestException(
-        `Không thể xóa nhóm danh mục vì đang có ${usageCount} liên kết bài viết sử dụng nhóm này.`,
-      );
-    }
-
-    const deletedAt = new Date();
-
     const deletedGroup = await this.prisma.$transaction(async (tx) => {
-      /**
-       * Xóa mềm toàn bộ bản dịch trước.
-       */
-      await tx.category.updateMany({
+      const usageCount = await tx.postCategory.count({
         where: {
-          categoryGroupId: groupId,
-          deletedAt: null,
-        },
-
-        data: {
-          deletedAt,
+          category: {
+            categoryGroupId: groupId,
+          },
         },
       });
 
+      if (usageCount > 0) {
+        throw new BadRequestException(
+          `Không thể xóa nhóm danh mục vì đang có ${usageCount} liên kết bài viết sử dụng nhóm này.`,
+        );
+      }
+
       /**
-       * Sau đó xóa mềm group.
+       * Category -> CategoryGroup đang dùng onDelete: Restrict,
+       * nên phải xóa các Category con trước.
        */
-      return tx.categoryGroup.update({
+      await tx.category.deleteMany({
+        where: {
+          categoryGroupId: groupId,
+        },
+      });
+
+      /** Sau đó mới xóa hẳn CategoryGroup. */
+      return tx.categoryGroup.delete({
         where: {
           id: groupId,
-        },
-
-        data: {
-          deletedAt,
         },
 
         include: MODERATOR_CATEGORY_GROUP_INCLUDE,
       });
     });
+
     return new ModeratorCategoryGroupEntity(deletedGroup);
   }
 }

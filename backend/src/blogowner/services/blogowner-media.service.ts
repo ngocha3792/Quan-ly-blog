@@ -1,6 +1,10 @@
 /// <reference types="multer" />
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PostStatus } from '@prisma/client';
 
 import { MediaService, PrismaService } from '@app/core';
@@ -16,95 +20,205 @@ export class BlogownerMediaService {
   ) {}
 
   /**
-   * Upload media cho bài viết của Blog Owner.
+   * Upload media cho POST GROUP của Blog Owner.
    *
-   * Với bài PUBLISH:
-   * - chuyển bài về PENDING_REVIEW trước khi thay đổi media;
-   * - tránh trường hợp media đã thay đổi nhưng bài vẫn PUBLISH
-   *   nếu việc reset trạng thái thất bại.
+   * Quy tắc:
+   * - API chỉ nhận ID của ROOT post;
+   * - không cho thao tác media riêng trên translation;
+   * - nếu bất kỳ version nào đang PENDING_REVIEW thì khóa cả group;
+   * - media luôn được gắn vào ROOT;
+   * - nếu group đang PUBLISH thì đưa cả group về PENDING_REVIEW
+   *   trước khi thay đổi media;
+   * - nếu group đang REJECT thì chỉ đưa cả group về DRAFT
+   *   sau khi upload thành công;
+   * - DRAFT giữ nguyên DRAFT.
    *
-   * Với bài REJECT:
-   * - chỉ chuyển về DRAFT sau khi upload thành công;
-   * - tránh thoát REJECT nếu upload thất bại.
+   * Cách làm này giữ trạng thái của root + translations đồng bộ
+   * và tránh trường hợp chỉ một translation đổi trạng thái.
    */
-  async upload(ownerId: number, postId: number, file: Express.Multer.File) {
-    const post = await this.helper.findOwnedPost(ownerId, postId);
-
-    this.helper.assertEditable(post.status);
-
-    const isPublished = post.status === PostStatus.PUBLISH;
+  async upload(
+    ownerId: number,
+    postId: number,
+    file: Express.Multer.File,
+  ) {
+    const { root, posts } =
+      await this.helper.findOwnedPostGroup(
+        ownerId,
+        postId,
+      );
 
     /**
-     * Bài đang public phải rời trạng thái PUBLISH
-     * trước khi media thực tế bị thay đổi.
+     * Media của một bài đa ngôn ngữ được quản lý từ ROOT.
+     * Không cho gọi standalone media API bằng translationId.
      */
-    if (isPublished) {
-      await this.helper.resetReviewOnEdit(postId, post.status);
+    if (postId !== root.id) {
+      throw new BadRequestException(
+        'Chỉ được thay đổi media của bài gốc. Các bản dịch thuộc cùng một nhóm bài viết.',
+      );
     }
 
-    const media = await this.mediaService.uploadMedia(postId, file);
+    /**
+     * Nếu bất kỳ version nào đang chờ Moderator duyệt
+     * thì khóa toàn bộ group.
+     */
+    for (const groupPost of posts) {
+      this.helper.assertEditable(
+        groupPost.status,
+      );
+    }
+
+    const hasPublishedPost =
+      posts.some(
+        (groupPost) =>
+          groupPost.status ===
+          PostStatus.PUBLISH,
+      );
+
+    const hasRejectedPost =
+      posts.some(
+        (groupPost) =>
+          groupPost.status ===
+          PostStatus.REJECT,
+      );
 
     /**
-     * REJECT chỉ được chuyển về DRAFT
-     * sau khi edit media thật sự thành công.
+     * Nếu group đang public, phải rời trạng thái PUBLISH
+     * trước khi media thực tế bị thay đổi.
      *
-     * DRAFT gọi helper cũng an toàn vì helper
-     * không thay đổi gì với DRAFT.
+     * Nếu upload fail thì group vẫn PENDING_REVIEW.
+     * Đây là lựa chọn an toàn hơn việc để nội dung public
+     * trong khi thao tác media có thể đã thay đổi một phần.
      */
-    if (!isPublished) {
-      await this.helper.resetReviewOnEdit(postId, post.status);
+    if (hasPublishedPost) {
+      await this.helper.updateOwnedPostGroupStatus(
+        ownerId,
+        root.id,
+        PostStatus.PENDING_REVIEW,
+      );
+    }
+
+    /**
+     * Standalone media luôn thuộc ROOT post.
+     */
+    const media =
+      await this.mediaService.uploadMedia(
+        root.id,
+        file,
+      );
+
+    /**
+     * REJECT chỉ thoát REJECT sau khi upload thành công.
+     *
+     * Dữ liệu bình thường luôn có cùng status trong group.
+     * Check `hasRejectedPost` giúp bảo vệ cả dữ liệu cũ bị lệch status.
+     */
+    if (
+      !hasPublishedPost &&
+      hasRejectedPost
+    ) {
+      await this.helper.updateOwnedPostGroupStatus(
+        ownerId,
+        root.id,
+        PostStatus.DRAFT,
+      );
     }
 
     return media;
   }
 
   /**
-   * Xóa media khỏi bài viết của Blog Owner.
+   * Xóa media khỏi POST GROUP của Blog Owner.
    *
-   * Quy tắc trạng thái giống upload:
-   * - PUBLISH: chuyển PENDING_REVIEW trước khi xóa;
-   * - REJECT: chỉ chuyển DRAFT sau khi xóa thành công;
-   * - DRAFT: giữ nguyên.
+   * Quy tắc giống upload:
+   * - chỉ ROOT id;
+   * - media phải thuộc ROOT;
+   * - khóa nếu bất kỳ version nào PENDING_REVIEW;
+   * - PUBLISH -> cả group PENDING_REVIEW trước khi xóa;
+   * - REJECT -> cả group DRAFT sau khi xóa thành công;
+   * - DRAFT giữ nguyên.
    */
-  async remove(ownerId: number, postId: number, mediaId: number) {
-    const post = await this.helper.findOwnedPost(ownerId, postId);
-
-    this.helper.assertEditable(post.status);
-
-    const media = await this.prisma.media.findFirst({
-      where: {
-        id: mediaId,
+  async remove(
+    ownerId: number,
+    postId: number,
+    mediaId: number,
+  ) {
+    const { root, posts } =
+      await this.helper.findOwnedPostGroup(
+        ownerId,
         postId,
-        deletedAt: null,
-      },
+      );
 
-      select: {
-        id: true,
-      },
-    });
+    if (postId !== root.id) {
+      throw new BadRequestException(
+        'Chỉ được thay đổi media của bài gốc. Các bản dịch thuộc cùng một nhóm bài viết.',
+      );
+    }
+
+    for (const groupPost of posts) {
+      this.helper.assertEditable(
+        groupPost.status,
+      );
+    }
+
+    /**
+     * Media standalone được quản lý ở ROOT.
+     * Không cho xóa media của translation hoặc post khác.
+     */
+    const media =
+      await this.prisma.media.findFirst({
+        where: {
+          id: mediaId,
+          postId: root.id,
+          deletedAt: null,
+        },
+
+        select: {
+          id: true,
+        },
+      });
 
     if (!media) {
-      throw new NotFoundException('Media không tồn tại trong bài viết này');
+      throw new NotFoundException(
+        'Media không tồn tại trong bài viết này',
+      );
     }
 
-    const isPublished = post.status === PostStatus.PUBLISH;
+    const hasPublishedPost =
+      posts.some(
+        (groupPost) =>
+          groupPost.status ===
+          PostStatus.PUBLISH,
+      );
 
-    /**
-     * Với bài đã public, rút bài khỏi trạng thái
-     * PUBLISH trước khi media bị xóa.
-     */
-    if (isPublished) {
-      await this.helper.resetReviewOnEdit(postId, post.status);
+    const hasRejectedPost =
+      posts.some(
+        (groupPost) =>
+          groupPost.status ===
+          PostStatus.REJECT,
+      );
+
+    if (hasPublishedPost) {
+      await this.helper.updateOwnedPostGroupStatus(
+        ownerId,
+        root.id,
+        PostStatus.PENDING_REVIEW,
+      );
     }
 
-    const result = await this.mediaService.deleteMedia(mediaId);
+    const result =
+      await this.mediaService.deleteMedia(
+        mediaId,
+      );
 
-    /**
-     * REJECT chỉ thoát REJECT khi thao tác xóa
-     * media thực sự thành công.
-     */
-    if (!isPublished) {
-      await this.helper.resetReviewOnEdit(postId, post.status);
+    if (
+      !hasPublishedPost &&
+      hasRejectedPost
+    ) {
+      await this.helper.updateOwnedPostGroupStatus(
+        ownerId,
+        root.id,
+        PostStatus.DRAFT,
+      );
     }
 
     return result;

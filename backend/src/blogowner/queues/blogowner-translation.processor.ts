@@ -11,6 +11,7 @@ import {
 import { PostStatus } from '@prisma/client';
 
 import {
+  hasForbiddenWords,
   LibreTranslateService,
   PrismaService,
 } from '@app/core';
@@ -261,6 +262,21 @@ export class BlogownerTranslationProcessor extends WorkerHost {
     const [translatedTitle, translatedContent] =
       translated;
 
+    /**
+     * Không ghi một translation chứa từ cấm vào DB.
+     *
+     * Đây là defense-in-depth cho output của LibreTranslate,
+     * vì DTO chỉ kiểm tra nội dung do Blog Owner nhập trực tiếp.
+     */
+    if (
+      hasForbiddenWords(translatedTitle) ||
+      hasForbiddenWords(translatedContent)
+    ) {
+      throw new UnrecoverableError(
+        'Bản dịch tự động chứa từ ngữ không phù hợp với tiêu chuẩn cộng đồng.',
+      );
+    }
+
     await job.updateProgress(75);
 
     const sourceTagIds = root.postTags.map(
@@ -404,6 +420,48 @@ export class BlogownerTranslationProcessor extends WorkerHost {
       throw new UnrecoverableError(
         'Không thể finalize vì bài gốc đã được cập nhật bởi một batch mới hơn.',
       );
+    }
+
+    /**
+     * Khi batch chuẩn bị nộp duyệt, kiểm tra lại toàn bộ group.
+     * Điều này chặn cả dữ liệu legacy hoặc dữ liệu được ghi từ đường nội bộ
+     * trước khi status chuyển sang PENDING_REVIEW.
+     */
+    if (submitForReview) {
+      const groupPosts = await this.prisma.post.findMany({
+        where: {
+          authorId: ownerId,
+          deletedAt: null,
+
+          OR: [
+            {
+              id: rootPostId,
+              parentPostId: null,
+            },
+            {
+              parentPostId: rootPostId,
+            },
+          ],
+        },
+
+        select: {
+          id: true,
+          title: true,
+          content: true,
+        },
+      });
+
+      const invalidPost = groupPosts.find(
+        (groupPost) =>
+          hasForbiddenWords(groupPost.title) ||
+          hasForbiddenWords(groupPost.content),
+      );
+
+      if (invalidPost) {
+        throw new UnrecoverableError(
+          `Bài viết ID ${invalidPost.id} chứa từ ngữ không phù hợp và không thể gửi duyệt.`,
+        );
+      }
     }
 
     await job.updateProgress(60);

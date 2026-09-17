@@ -13,6 +13,7 @@ describe('BlogownerTranslationProcessor', () => {
   const mockPrismaService = {
     post: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       upsert: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -32,6 +33,8 @@ describe('BlogownerTranslationProcessor', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+
+    mockPrismaService.post.findMany.mockResolvedValue([]);
 
     processor = new BlogownerTranslationProcessor(
       mockPrismaService as any,
@@ -355,6 +358,55 @@ describe('BlogownerTranslationProcessor', () => {
     });
   });
 
+  it('should fail permanently when LibreTranslate output contains forbidden words', async () => {
+    const sourceUpdatedAt = new Date('2026-09-10T02:00:00.000Z');
+
+    mockPrismaService.post.findFirst.mockResolvedValue({
+      id: 100,
+      authorId: 3,
+      parentPostId: null,
+      title: 'Bài hợp lệ',
+      content: '<p>Nội dung hợp lệ</p>',
+      thumbnailUrl: null,
+      languageId: 4,
+      updatedAt: sourceUpdatedAt,
+      language: {
+        id: 4,
+        code: 'vi',
+      },
+      postCategories: [],
+      postTags: [],
+    });
+
+    mockPrismaService.language.findFirst.mockResolvedValue({
+      id: 5,
+      code: 'en',
+    });
+
+    mockLibreTranslateService.translateTexts.mockResolvedValue([
+      'Translated title',
+      '<p>dm</p>',
+    ]);
+
+    const job = {
+      name: BLOGOWNER_TRANSLATION_JOB.TRANSLATE_POST,
+      data: {
+        rootPostId: 100,
+        ownerId: 3,
+        sourceLanguageId: 4,
+        targetLanguageId: 5,
+        sourceUpdatedAt: sourceUpdatedAt.toISOString(),
+      },
+      updateProgress: jest.fn(),
+    };
+
+    await expect(processor.process(job as any)).rejects.toBeInstanceOf(
+      UnrecoverableError,
+    );
+
+    expect(mockPrismaService.post.upsert).not.toHaveBeenCalled();
+  });
+
   /**
    * =====================================================
    * STALE JOB
@@ -642,6 +694,45 @@ describe('BlogownerTranslationProcessor', () => {
       rootPostId: 100,
       status: PostStatus.PENDING_REVIEW,
     });
+  });
+
+  it('should reject finalizing to pending review when any stored group version contains forbidden words', async () => {
+    const sourceUpdatedAt = new Date('2026-09-10T02:00:00.000Z');
+
+    mockPrismaService.post.findFirst.mockResolvedValue({
+      id: 100,
+      updatedAt: sourceUpdatedAt,
+    });
+
+    mockPrismaService.post.findMany.mockResolvedValue([
+      {
+        id: 100,
+        title: 'Bài hợp lệ',
+        content: '<p>Nội dung hợp lệ</p>',
+      },
+      {
+        id: 101,
+        title: 'Translation',
+        content: '<p>vl</p>',
+      },
+    ]);
+
+    const job = {
+      name: BLOGOWNER_TRANSLATION_JOB.FINALIZE_BATCH,
+      data: {
+        rootPostId: 100,
+        ownerId: 3,
+        sourceUpdatedAt: sourceUpdatedAt.toISOString(),
+        submitForReview: true,
+      },
+      updateProgress: jest.fn(),
+    };
+
+    await expect(processor.process(job as any)).rejects.toBeInstanceOf(
+      UnrecoverableError,
+    );
+
+    expect(mockPrismaService.post.updateMany).not.toHaveBeenCalled();
   });
 
   /**
