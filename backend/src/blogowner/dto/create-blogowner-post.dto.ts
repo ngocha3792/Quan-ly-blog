@@ -56,6 +56,7 @@ function normalizeIntegerArray(value: unknown): unknown {
 export class CreateBlogownerPostDto extends OmitType(CreatePostDto, [
   'status',
   'parentPostId',
+  'thumbnailUrl',
 ] as const) {
   @IsOptional()
   @Transform(({ value }) => normalizeIntegerArray(value), {

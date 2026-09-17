@@ -117,7 +117,7 @@ removeTranslation(
 }
 
   /**
-   * Xóa mềm group và các bản dịch.
+   * Xóa cứng group và toàn bộ bản dịch khi group chưa được bài viết sử dụng.
    *
    * DELETE /api/v1/moderator/category-groups/:groupId
    */

@@ -14,15 +14,6 @@ export class ModeratorDashboardController {
   ) {}
 
   /**
-   * Thống kê tổng quan dành cho Moderator.
-   *
-   * GET /api/v1/moderator/dashboard
-   */
-  @Get()
-  getDashboard() {
-    return this.moderatorDashboardService.getDashboard();
-  }
-  /**
    * Tổng quan nhanh cho các card trên dashboard.
    *
    * GET /api/v1/moderator/dashboard/overview

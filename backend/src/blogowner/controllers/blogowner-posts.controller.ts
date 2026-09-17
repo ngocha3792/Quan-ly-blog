@@ -197,7 +197,7 @@ export class BlogownerPostsController {
   }
 
   /**
-   * Dịch tự động title + content bằng Google.
+   * Dịch tự động title + content bằng LibreTranslate.
    *
    * Chỉ trả preview, chưa lưu translation.
    *

@@ -1,4 +1,4 @@
-// //Mục đích: Dùng trong file DTO để chặn người dùng nhập từ ngữ thô tục vào comment hoặc tiêu đề.
+// Mục đích: dùng trong DTO và service để chặn nội dung chứa từ cấm.
 import {
   registerDecorator,
   ValidationOptions,
@@ -10,22 +10,12 @@ import { FORBIDDEN_WORDS } from './forbidden-words';
 
 /**
  * Chuẩn hóa nội dung trước khi kiểm tra:
- * - Chuẩn hóa Unicode.
- * - Chuyển thành chữ thường.
- * - Gộp nhiều khoảng trắng thành một khoảng trắng.
+ * - loại bỏ HTML tags để kiểm tra phần text thực tế;
+ * - chuẩn hóa Unicode;
+ * - chuyển thành chữ thường;
+ * - gộp nhiều khoảng trắng thành một khoảng trắng.
  */
 function normalizeText(text: string): string {
-  /**
-   * Nếu input là HTML:
-   *
-   * <p>ngu</p>
-   *
-   * chuyển thành:
-   *
-   * ngu
-   *
-   * trước khi check.
-   */
   const plainText = sanitizeHtml(text, {
     allowedTags: [],
     allowedAttributes: {},
@@ -38,9 +28,7 @@ function normalizeText(text: string): string {
     .trim();
 }
 
-/**
- * Escape các ký tự đặc biệt trước khi đưa một từ vào RegExp.
- */
+/** Escape các ký tự đặc biệt trước khi đưa một từ vào RegExp. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -49,7 +37,7 @@ function escapeRegExp(value: string): string {
  * Kiểm tra một từ cấm có xuất hiện như một từ độc lập hay không.
  *
  * Không dùng includes() vì:
- * - "dm" không được làm từ "admin" bị chặn.
+ * - "dm" không được làm từ "admin" bị chặn;
  * - "ngu" không được làm từ "nguyen" bị chặn.
  */
 function containsForbiddenWord(text: string, forbiddenWord: string): boolean {
@@ -62,6 +50,24 @@ function containsForbiddenWord(text: string, forbiddenWord: string): boolean {
   );
 
   return pattern.test(text);
+}
+
+/**
+ * Hàm dùng chung ngoài DTO.
+ *
+ * Dùng ở submit/finalize/worker để không phụ thuộc hoàn toàn vào
+ * validation decorator lúc request đầu tiên đi vào controller.
+ */
+export function hasForbiddenWords(value: unknown): boolean {
+  if (typeof value !== 'string' || value.length === 0) {
+    return false;
+  }
+
+  const normalizedText = normalizeText(value);
+
+  return FORBIDDEN_WORDS.some((word) =>
+    containsForbiddenWord(normalizedText, word),
+  );
 }
 
 @ValidatorConstraint({
@@ -78,11 +84,7 @@ export class IsProfanityFreeConstraint implements ValidatorConstraintInterface {
       return false;
     }
 
-    const normalizedText = normalizeText(value);
-
-    return !FORBIDDEN_WORDS.some((word) =>
-      containsForbiddenWord(normalizedText, word),
-    );
+    return !hasForbiddenWords(value);
   }
 
   defaultMessage(): string {
@@ -103,39 +105,3 @@ export function IsProfanityFree(
     });
   };
 }
-
-// import {
-//   registerDecorator,
-//   ValidationOptions,
-//   ValidatorConstraint,
-//   ValidatorConstraintInterface,
-// } from 'class-validator';
-
-// const BAD_WORDS = ['dm', 'vl', 'ngu']; // Danh sách từ cấm (có thể mở rộng)
-
-// @ValidatorConstraint({ async: false })
-// export class IsProfanityFreeConstraint implements ValidatorConstraintInterface {
-//   validate(text: string) {
-//     if (!text) return true;
-//     const lowerText = text.toLowerCase();
-//     // Trả về false nếu phát hiện từ cấm
-//     const hasBadWord = BAD_WORDS.some((word) => lowerText.includes(word));
-//     return !hasBadWord;
-//   }
-
-//   defaultMessage() {
-//     return 'Nội dung chứa từ ngữ không phù hợp với tiêu chuẩn cộng đồng.';
-//   }
-// }
-
-// export function IsProfanityFree(validationOptions?: ValidationOptions) {
-//   return function (object: Object, propertyName: string) {
-//     registerDecorator({
-//       target: object.constructor,
-//       propertyName: propertyName,
-//       options: validationOptions,
-//       constraints: [],
-//       validator: IsProfanityFreeConstraint,
-//     });
-//   };
-// }

@@ -45,6 +45,7 @@ class EditableBlogownerPostDto extends OmitType(CreatePostDto, [
   'status',
   'parentPostId',
   'languageId',
+  'thumbnailUrl',
 ] as const) {}
 
 /**

@@ -323,45 +323,6 @@ export class BlogownerDashboardService {
     };
   }
 
-  /**
-   * ============================================================
-   * LEGACY DASHBOARD
-   * ============================================================
-   *
-   * Giữ response cũ để không làm FE cũ hỏng.
-   *
-   * Khi FE mới đã chuyển hoàn toàn sang:
-   * - summary
-   * - activity
-   * - featured
-   *
-   * endpoint này có thể deprecate sau.
-   */
-  async getDashboard(ownerId: number) {
-    const [
-      summary,
-      activity,
-      featuredByViews,
-      featuredByLikes,
-    ] = await Promise.all([
-      this.getSummary(ownerId),
-      this.getActivity(ownerId, 7),
-      this.getFeatured(ownerId, 'views', 5),
-      this.getFeatured(ownerId, 'likes', 5),
-    ]);
-
-    return {
-      ...summary,
-
-      last7Days: activity.last7Days,
-
-      featuredPosts: {
-        byViews: featuredByViews.posts,
-        byLikes: featuredByLikes.posts,
-      },
-    };
-  }
-
   private mapFeaturedPost(post: FeaturedPostRecord) {
     return {
       id: post.id,

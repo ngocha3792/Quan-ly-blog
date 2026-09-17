@@ -78,16 +78,4 @@ export class BlogownerDashboardController {
     );
   }
 
-  /**
-   * Legacy endpoint.
-   *
-   * Giữ lại tạm thời để FE cũ không bị vỡ
-   * trong quá trình migrate sang các API tách nhỏ.
-   *
-   * GET /api/v1/blog-owner/dashboard
-   */
-  @Get()
-  getDashboard(@CurrentUser() user: AuthenticatedUser) {
-    return this.blogownerDashboardService.getDashboard(user.id);
-  }
 }

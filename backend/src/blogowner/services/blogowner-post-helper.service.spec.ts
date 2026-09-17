@@ -36,6 +36,21 @@ describe('BlogownerPostHelperService', () => {
       buffer: Buffer.from(originalname),
     }) as Express.Multer.File;
 
+  const createThumbnailFile = (
+    originalname: string,
+    mimetype: string,
+    buffer: Buffer,
+    size = buffer.length,
+  ): Express.Multer.File =>
+    ({
+      fieldname: 'thumbnail',
+      originalname,
+      encoding: '7bit',
+      mimetype,
+      size,
+      buffer,
+    }) as Express.Multer.File;
+
   beforeEach(async () => {
     jest.resetAllMocks();
 
@@ -67,6 +82,126 @@ describe('BlogownerPostHelperService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+
+
+  describe('uploadThumbnail', () => {
+    const jpegBuffer = Buffer.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46,
+    ]);
+
+    const pngBuffer = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47,
+      0x0d, 0x0a, 0x1a, 0x0a,
+      0x00,
+    ]);
+
+    const webpBuffer = Buffer.from([
+      0x52, 0x49, 0x46, 0x46,
+      0x04, 0x00, 0x00, 0x00,
+      0x57, 0x45, 0x42, 0x50,
+      0x56, 0x50, 0x38, 0x20,
+    ]);
+
+    it.each([
+      ['cover.jpg', 'image/jpeg', jpegBuffer],
+      ['cover.jpeg', 'image/jpeg', jpegBuffer],
+      ['cover.png', 'image/png', pngBuffer],
+      ['cover.webp', 'image/webp', webpBuffer],
+    ])(
+      'should accept a real supported thumbnail: %s',
+      async (originalname, mimetype, buffer) => {
+        const file = createThumbnailFile(
+          originalname,
+          mimetype,
+          buffer,
+        );
+
+        mockCloudinaryService.uploadFile.mockResolvedValue({
+          secure_url: 'https://example.com/cover',
+          public_id: 'cover',
+        });
+
+        await service.uploadThumbnail(10, file);
+
+        expect(mockCloudinaryService.uploadFile).toHaveBeenCalledWith(
+          file,
+          'nestjs_blog/posts/10/thumbnail',
+        );
+      },
+    );
+
+    it('should reject HTML disguised as image/png', async () => {
+      const file = createThumbnailFile(
+        'fake.png',
+        'image/png',
+        Buffer.from('<html><script>alert(1)</script></html>'),
+      );
+
+      await expect(service.uploadThumbnail(10, file)).rejects.toThrow(
+        'Ảnh bìa chỉ hỗ trợ file JPEG, PNG hoặc WEBP hợp lệ.',
+      );
+
+      expect(mockCloudinaryService.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('should reject SVG thumbnails', async () => {
+      const file = createThumbnailFile(
+        'vector.svg',
+        'image/svg+xml',
+        Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+      );
+
+      await expect(service.uploadThumbnail(10, file)).rejects.toThrow(
+        'Ảnh bìa chỉ hỗ trợ file JPEG, PNG hoặc WEBP hợp lệ.',
+      );
+
+      expect(mockCloudinaryService.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('should reject MIME that does not match real file bytes', async () => {
+      const file = createThumbnailFile(
+        'cover.png',
+        'image/png',
+        jpegBuffer,
+      );
+
+      await expect(service.uploadThumbnail(10, file)).rejects.toThrow(
+        'MIME type của ảnh bìa không khớp với nội dung file thực tế.',
+      );
+
+      expect(mockCloudinaryService.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('should reject extension that does not match real file bytes', async () => {
+      const file = createThumbnailFile(
+        'cover.html',
+        'image/jpeg',
+        jpegBuffer,
+      );
+
+      await expect(service.uploadThumbnail(10, file)).rejects.toThrow(
+        'Phần mở rộng ảnh bìa không khớp với định dạng file thực tế.',
+      );
+
+      expect(mockCloudinaryService.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('should reject thumbnail larger than 10 MB', async () => {
+      const file = createThumbnailFile(
+        'cover.jpg',
+        'image/jpeg',
+        jpegBuffer,
+        10 * 1024 * 1024 + 1,
+      );
+
+      await expect(service.uploadThumbnail(10, file)).rejects.toThrow(
+        'Ảnh bìa không được vượt quá 10 MB.',
+      );
+
+      expect(mockCloudinaryService.uploadFile).not.toHaveBeenCalled();
+    });
   });
 
   describe('uploadMediaFiles', () => {

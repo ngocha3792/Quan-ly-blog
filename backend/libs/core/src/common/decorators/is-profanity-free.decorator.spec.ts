@@ -1,4 +1,7 @@
-import { IsProfanityFreeConstraint } from './is-profanity-free.decorator';
+import {
+  hasForbiddenWords,
+  IsProfanityFreeConstraint,
+} from './is-profanity-free.decorator';
 
 describe('IsProfanityFreeConstraint', () => {
   let validator: IsProfanityFreeConstraint;
@@ -21,6 +24,12 @@ describe('IsProfanityFreeConstraint', () => {
     );
   });
 
+  it('should reject a forbidden word inside HTML content', () => {
+    expect(validator.validate('<p>Nội dung <strong>dm</strong></p>')).toBe(
+      false,
+    );
+  });
+
   it('should ignore uppercase and lowercase differences', () => {
     expect(validator.validate('Nội dung này có từ DM không phù hợp.')).toBe(
       false,
@@ -33,6 +42,11 @@ describe('IsProfanityFreeConstraint', () => {
 
   it('should not reject nguyen because it contains ngu', () => {
     expect(validator.validate('nguyen')).toBe(true);
+  });
+
+  it('should expose the same check for service/worker defense-in-depth', () => {
+    expect(hasForbiddenWords('<div>VL</div>')).toBe(true);
+    expect(hasForbiddenWords('<div>Nội dung hợp lệ</div>')).toBe(false);
   });
 
   it('should accept empty optional values', () => {
