@@ -315,6 +315,25 @@ retention này ảnh hưởng — retention chỉ áp dụng cho bản sao local
 - **Dán private key qua Notepad vào GitHub secret** có thể làm hỏng định
   dạng (`error in libcrypto` khi OpenSSH đọc key) — dùng PowerShell
   `Set-Clipboard` thay vì mở file bằng editor.
+- **File migration `.sql` bị lưu kèm UTF-8 BOM** (thường do editor/tool
+  Windows nào đó, vd PowerShell `Out-File`/`Set-Content` mặc định thêm
+  BOM) — Postgres coi 3 byte `EF BB BF` đầu file là ký tự lạ, báo lỗi cú
+  pháp ngay tại vị trí 0 (`syntax error at or near "﻿"`). Gặp thật
+  2026-09-18 với `20260918021000_hard_delete_legacy_category_groups`:
+  `prisma migrate deploy` fail giữa chừng trên production (P3018) — vì
+  migration fail NGAY từ ký tự đầu tiên (chưa chạy được câu SQL nào) nên
+  an toàn để đánh dấu rolled-back:
+  ```bash
+  docker compose -p blog-api-<TARGET_COLOR> -f compose.slot.yml \
+    --env-file .env.production run --rm migrate \
+    npx prisma migrate resolve --rolled-back \
+    20260918021000_hard_delete_legacy_category_groups
+  ```
+  rồi deploy lại sau khi đã sửa file (xoá BOM). Đã thêm `*.sql text
+  eol=lf` vào `.gitattributes` để chuẩn hoá line ending — không tự xoá
+  được BOM (git attribute không có option cho việc này), nên vẫn cần tự
+  kiểm tra file migration mới bằng `file <path>` trước khi commit, thấy
+  "with BOM" thì phải xoá tay.
 - **Hai push gần nhau khiến job deploy chạy sai thứ tự, âm thầm đè code
   mới bằng code cũ.** `concurrency: group: production` trên job `deploy`
   chỉ đảm bảo không có hai job chạy ĐỒNG THỜI — không đảm bảo chạy ĐÚNG
