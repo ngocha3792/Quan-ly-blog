@@ -349,12 +349,23 @@ export class PostsPublicService {
       },
       select: {
         id: true,
+        parentPostId: true,
       },
     });
 
     if (!post) {
       throw new PostNotFoundException(postId.toString());
     }
+
+    /**
+     * viewCount trả về cho client PHẢI là tổng gộp cả nhóm ngôn ngữ
+     * (root + mọi bản dịch) — giống hệt findOne() ở trên — chứ không
+     * phải viewCount của riêng EXACT VERSION vừa ghi nhận. Nếu không,
+     * số hiển thị sẽ tụt ngay sau khi ghi view (bản dịch ít view hơn
+     * root, hoặc ngược lại), lặp lại đúng bug "mất hết view" mà
+     * findOne() đã né.
+     */
+    const rootPostId = post.parentPostId ?? post.id;
 
     const viewerUserId =
       this.resolveOptionalViewerUserId(authorizationHeader);
@@ -369,18 +380,9 @@ export class PostsPublicService {
      * VIEWER_KEY_SECRET thiếu thì không lưu raw userId/visitorId.
      */
     if (!viewerKey) {
-      const currentPost = await this.prisma.post.findUnique({
-        where: {
-          id: postId,
-        },
-        select: {
-          viewCount: true,
-        },
-      });
-
       return {
         counted: false,
-        viewCount: currentPost?.viewCount ?? 0,
+        viewCount: await this.getGroupViewCount(rootPostId),
       };
     }
 
@@ -389,18 +391,9 @@ export class PostsPublicService {
       viewerKey,
     );
 
-    const currentPost = await this.prisma.post.findUnique({
-      where: {
-        id: postId,
-      },
-      select: {
-        viewCount: true,
-      },
-    });
-
     return {
       counted,
-      viewCount: currentPost?.viewCount ?? 0,
+      viewCount: await this.getGroupViewCount(rootPostId),
     };
   }
 

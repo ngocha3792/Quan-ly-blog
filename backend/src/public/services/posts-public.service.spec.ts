@@ -277,6 +277,52 @@ const mockPrismaService = {
 describe('recordView', () => {
   const visitorId = '550e8400-e29b-41d4-a716-446655440000';
 
+  it('should return the group total (root + all translations) as viewCount, not just the exact version just recorded', async () => {
+    /**
+     * Bug đã gặp thật: recordView() trả viewCount thô của đúng bản ghi
+     * vừa tăng (2), trong khi findOne() ngay phía trên đã hiển thị tổng
+     * cả nhóm (137). FE tin thẳng response này nên số hiển thị tụt
+     * xuống ngay sau khi ghi nhận view. recordView() phải trả cùng một
+     * con số tổng nhóm như findOne(), không phải viewCount riêng lẻ.
+     */
+    mockPrismaService.post.findFirst.mockResolvedValueOnce({
+      id: 12,
+      parentPostId: 10,
+    });
+
+    mockPrismaService.postViewLog.findFirst.mockResolvedValueOnce(null);
+    mockPrismaService.postViewLog.create.mockResolvedValueOnce({ id: 1 });
+    mockPrismaService.post.update.mockResolvedValueOnce({
+      id: 12,
+      viewCount: 2,
+    });
+    mockPrismaService.postDailyMetric.upsert.mockResolvedValueOnce({
+      id: 1,
+    });
+
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 137 },
+    });
+
+    const result = await service.recordView(12, visitorId, null);
+
+    expect(result).toEqual({
+      counted: true,
+      viewCount: 137,
+    });
+
+    expect(mockPrismaService.post.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { id: 10, parentPostId: null },
+            { parentPostId: 10 },
+          ],
+        }),
+      }),
+    );
+  });
+
   it('should record a guest view for the exact post version and daily metric', async () => {
     mockPrismaService.post.findFirst.mockResolvedValueOnce({
       id: 101,
@@ -297,8 +343,8 @@ describe('recordView', () => {
       id: 1,
     });
 
-    mockPrismaService.post.findUnique.mockResolvedValueOnce({
-      viewCount: 11,
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 11 },
     });
 
     const result = await service.recordView(
@@ -389,8 +435,8 @@ describe('recordView', () => {
     mockPrismaService.postDailyMetric.upsert.mockResolvedValueOnce({
       id: 1,
     });
-    mockPrismaService.post.findUnique.mockResolvedValueOnce({
-      viewCount: 20,
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 20 },
     });
 
     const result = await service.recordView(
@@ -441,8 +487,8 @@ describe('recordView', () => {
     mockPrismaService.postDailyMetric.upsert.mockResolvedValueOnce({
       id: 1,
     });
-    mockPrismaService.post.findUnique.mockResolvedValueOnce({
-      viewCount: 5,
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 5 },
     });
 
     await service.recordView(
@@ -475,8 +521,8 @@ describe('recordView', () => {
       id: 99,
     });
 
-    mockPrismaService.post.findUnique.mockResolvedValueOnce({
-      viewCount: 10,
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 10 },
     });
 
     const beforeRequest = Date.now();
@@ -527,8 +573,8 @@ describe('recordView', () => {
       id: 101,
     });
 
-    mockPrismaService.post.findUnique.mockResolvedValueOnce({
-      viewCount: 7,
+    mockPrismaService.post.aggregate.mockResolvedValueOnce({
+      _sum: { viewCount: 7 },
     });
 
     const result = await service.recordView(
