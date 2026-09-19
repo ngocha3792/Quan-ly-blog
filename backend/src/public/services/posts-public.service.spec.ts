@@ -74,13 +74,20 @@ const mockPrismaService = {
     });
 
     /**
-     * post.viewCount trả về được tính bằng getGroupViewCount() (SUM view
-     * của root + translations), gọi vô điều kiện ở cuối findOne(). Mặc
-     * định 0 — test nào cần số cụ thể sẽ override bằng mockResolvedValueOnce.
+     * post.viewCount ở recordView() vẫn dùng getGroupViewCount() (SUM
+     * qua post.aggregate). Mặc định 0 — test nào cần số cụ thể sẽ
+     * override bằng mockResolvedValueOnce.
      */
     mockPrismaService.post.aggregate.mockResolvedValue({
       _sum: { viewCount: 0 },
     });
+
+    /**
+     * findOne()/findAll()/getTopPosts() dùng applyGroupAggregates()
+     * (SUM view + like qua post.findMany) — mặc định rỗng, test nào
+     * cần số cụ thể sẽ override bằng mockResolvedValueOnce.
+     */
+    mockPrismaService.post.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -204,9 +211,9 @@ const mockPrismaService = {
       });
 
       mockPrismaService.post.findMany.mockResolvedValueOnce([
-        { id: 10, parentPostId: null, viewCount: 120 },
-        { id: 12, parentPostId: 10, viewCount: 2 },
-        { id: 15, parentPostId: 10, viewCount: 15 },
+        { id: 10, parentPostId: null, viewCount: 120, _count: { postLikes: 8 } },
+        { id: 12, parentPostId: 10, viewCount: 2, _count: { postLikes: 0 } },
+        { id: 15, parentPostId: 10, viewCount: 15, _count: { postLikes: 0 } },
       ]);
 
       const result = await service.findAll(
@@ -216,6 +223,7 @@ const mockPrismaService = {
       );
 
       expect(result.items[0].viewCount).toBe(137);
+      expect(result.items[0].likeCount).toBe(8);
 
       expect(mockPrismaService.post.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -267,13 +275,13 @@ const mockPrismaService = {
     });
 
     /**
-     * viewCount trả về là tổng cả nhóm (getGroupViewCount), không phải
+     * viewCount trả về là tổng cả nhóm (applyGroupAggregates), không phải
      * viewCount thô 10 của riêng bản ghi này — xem test
      * "should return the group total..." bên dưới cho chi tiết vì sao.
      */
-    mockPrismaService.post.aggregate.mockResolvedValueOnce({
-      _sum: { viewCount: 42 },
-    });
+    mockPrismaService.post.findMany.mockResolvedValueOnce([
+      { id: 1, parentPostId: null, viewCount: 42, _count: { postLikes: 0 } },
+    ]);
 
     const result = await service.findOne(1, null);
 
@@ -305,24 +313,51 @@ const mockPrismaService = {
       viewCount: 2,
     });
 
-    mockPrismaService.post.aggregate.mockResolvedValueOnce({
-      _sum: { viewCount: 137 },
-    });
+    mockPrismaService.post.findMany.mockResolvedValueOnce([
+      { id: 10, parentPostId: null, viewCount: 120, _count: { postLikes: 30 } },
+      { id: 12, parentPostId: 10, viewCount: 2, _count: { postLikes: 0 } },
+      { id: 15, parentPostId: 10, viewCount: 15, _count: { postLikes: 0 } },
+    ]);
 
     const result = await service.findOne(12, null);
 
     expect(result.viewCount).toBe(137);
 
-    expect(mockPrismaService.post.aggregate).toHaveBeenCalledWith(
+    expect(mockPrismaService.post.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           OR: [
-            { id: 10, parentPostId: null },
-            { parentPostId: 10 },
+            { id: { in: [10] }, parentPostId: null },
+            { parentPostId: { in: [10] } },
           ],
         }),
       }),
     );
+  });
+
+  it('should return the group total (root + all translations) as likeCount — like is now stored on the ROOT only', async () => {
+    /**
+     * Like/bookmark giờ luôn được lưu vào ROOT (PostInteractionService),
+     * nên xem một bản dịch phải hiển thị cùng likeCount với bài gốc,
+     * không phải 0 chỉ vì bản dịch chưa từng được like trực tiếp.
+     */
+    mockPostsService.findOne.mockResolvedValueOnce({
+      id: 12,
+      parentPostId: 10,
+      title: 'Bản dịch tiếng Nhật',
+      status: PostStatus.PUBLISH,
+      languageId: 3,
+      viewCount: 2,
+    });
+
+    mockPrismaService.post.findMany.mockResolvedValueOnce([
+      { id: 10, parentPostId: null, viewCount: 120, _count: { postLikes: 30 } },
+      { id: 12, parentPostId: 10, viewCount: 2, _count: { postLikes: 0 } },
+    ]);
+
+    const result = await service.findOne(12, null);
+
+    expect(result.likeCount).toBe(30);
   });
 });
 
@@ -770,14 +805,15 @@ describe('recordView', () => {
         }
 
         return [
-          { id: 10, parentPostId: null, viewCount: 120 },
-          { id: 12, parentPostId: 10, viewCount: 2 },
+          { id: 10, parentPostId: null, viewCount: 120, _count: { postLikes: 9 } },
+          { id: 12, parentPostId: 10, viewCount: 2, _count: { postLikes: 0 } },
         ];
       });
 
       const result = await service.getTopPosts(10, null);
 
       expect(result[0].viewCount).toBe(122);
+      expect(result[0].likeCount).toBe(9);
     });
   });
 

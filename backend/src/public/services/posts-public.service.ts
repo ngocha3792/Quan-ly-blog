@@ -168,23 +168,26 @@ export class PostsPublicService {
       .filter((post): post is (typeof posts)[number] => post !== undefined)
       .map((post) => new PublicPostEntity(post));
 
-    await this.applyGroupViewCounts(entities);
+    await this.applyGroupAggregates(entities);
 
     return entities;
   }
 
   /**
-   * Ghi đè viewCount của từng entity bằng tổng cả nhóm ngôn ngữ
-   * (root + mọi bản dịch) thay vì viewCount thô của riêng bản ghi đó —
-   * cùng nguyên tắc với findOne()/getGroupViewCount(), nhưng gộp thành
-   * MỘT query cho cả danh sách thay vì N query riêng lẻ.
+   * Ghi đè viewCount VÀ likeCount của từng entity bằng tổng cả nhóm
+   * ngôn ngữ (root + mọi bản dịch) thay vì số thô của riêng bản ghi đó —
+   * một MỘT query cho cả danh sách thay vì N query riêng lẻ.
    *
-   * Bug thật đã gặp: trang chủ (GET /posts) và top posts (GET /posts/top)
+   * Bug view đã gặp: trang chủ (GET /posts) và top posts (GET /posts/top)
    * từng bỏ sót bước này nên hiển thị viewCount thô của đúng bản ghi,
    * trong khi trang chi tiết bài (GET /posts/:id) đã hiển thị tổng nhóm —
    * khiến cùng một bài hiện hai con số view khác nhau tùy trang.
+   *
+   * likeCount cũng phải gộp nhóm vì like giờ luôn được lưu vào ROOT
+   * (PostInteractionService.likePost) — nếu không gộp, xem bản dịch sẽ
+   * thấy likeCount = 0 dù bài đã được nhiều người thích ở bản gốc.
    */
-  private async applyGroupViewCounts(
+  private async applyGroupAggregates(
     entities: PublicPostEntity[],
   ): Promise<void> {
     if (entities.length === 0) {
@@ -214,22 +217,41 @@ export class PostsPublicService {
         id: true,
         parentPostId: true,
         viewCount: true,
+
+        _count: {
+          select: {
+            postLikes: true,
+          },
+        },
       },
     });
 
-    const sumByRootId = new Map<number, number>();
+    const viewSumByRootId = new Map<number, number>();
+    const likeSumByRootId = new Map<number, number>();
 
     for (const row of rows) {
       const rootId = row.parentPostId ?? row.id;
-      sumByRootId.set(
+
+      viewSumByRootId.set(
         rootId,
-        (sumByRootId.get(rootId) ?? 0) + row.viewCount,
+        (viewSumByRootId.get(rootId) ?? 0) + row.viewCount,
+      );
+
+      likeSumByRootId.set(
+        rootId,
+        (likeSumByRootId.get(rootId) ?? 0) + row._count.postLikes,
       );
     }
 
     for (const entity of entities) {
       const rootId = entity.parentPostId ?? entity.id;
-      entity.viewCount = sumByRootId.get(rootId) ?? entity.viewCount;
+
+      entity.viewCount = viewSumByRootId.get(rootId) ?? entity.viewCount;
+
+      entity._count = {
+        postLikes:
+          likeSumByRootId.get(rootId) ?? entity._count?.postLikes ?? 0,
+      };
     }
   }
 
@@ -295,7 +317,7 @@ export class PostsPublicService {
     );
 
     const items = result.items.map((post) => new PublicPostEntity(post));
-    await this.applyGroupViewCounts(items);
+    await this.applyGroupAggregates(items);
 
     return {
       ...result,
@@ -355,7 +377,7 @@ export class PostsPublicService {
     }
 
     /**
-     * View hiển thị cho người đọc là tổng của CẢ LOGICAL ARTICLE
+     * View và like hiển thị cho người đọc là tổng của CẢ LOGICAL ARTICLE
      * (root + mọi bản dịch), không phải riêng bản đang đọc.
      *
      * recordView()/recordViewWithDeduplication() bên dưới tăng đúng
@@ -364,10 +386,12 @@ export class PostsPublicService {
      * nhất quán dù họ đang xem bản ngôn ngữ nào, nếu không chuyển ngôn
      * ngữ sẽ trông như "mất hết view" (bản dịch ít người đọc trực tiếp
      * hơn ROOT, nhất là data cũ từ hồi view từng chỉ cộng dồn vào ROOT).
+     *
+     * like không còn được lưu riêng theo từng bản dịch (xem
+     * PostInteractionService.likePost) nên cũng phải gộp nhóm để hiển
+     * thị nhất quán.
      */
-    const rootPostId = post.parentPostId ?? post.id;
-
-    post.viewCount = await this.getGroupViewCount(rootPostId);
+    await this.applyGroupAggregates([post]);
 
     return post;
   }
