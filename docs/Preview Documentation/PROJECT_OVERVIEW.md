@@ -1,24 +1,28 @@
 # TỔNG QUAN DỰ ÁN QUẢN LÝ BLOG
 
-> Backend NestJS + Prisma + PostgreSQL, hỗ trợ xuất bản nội dung đa ngôn ngữ, tương tác cộng đồng, kiểm duyệt và quản trị theo vai trò.
+> Backend NestJS + Prisma + PostgreSQL, hỗ trợ xuất bản nội dung đa ngôn ngữ (dịch tự động chạy nền qua BullMQ + LibreTranslate), tương tác cộng đồng, kiểm duyệt, quản trị theo vai trò, và **triển khai thật 24/7** tại `blogy.id.vn` bằng mô hình blue-green qua GitHub Actions + GHCR.
 
 ## 1. Thông tin tài liệu
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Tên dự án | Quản lý Blog |
-| Kiến trúc | Modular Monolith |
+| Tên dự án | Quản lý Blog (Blogy) |
+| Kiến trúc | Modular Monolith, chạy 2 process song song (blue-green) sau Nginx |
 | Backend | NestJS 11, TypeScript |
 | ORM | Prisma 7 |
 | Cơ sở dữ liệu | PostgreSQL |
+| Xử lý nền | Redis + BullMQ (hàng đợi dịch tự động) |
+| Dịch tự động | LibreTranslate (tự triển khai, không dùng dịch vụ trả phí ngoài) |
 | Base URL mặc định | `/api/v1` |
 | Cổng mặc định | `8080` |
-| Ngày rà soát source | 30/07/2026 |
-| Phạm vi source | Backend, Prisma schema, migrations, seed, static UI template và tài liệu API |
-| Tổng số API phát hiện trong source | 83 endpoint |
-| Số model Prisma | 20 model |
+| Ngày rà soát source | 19/09/2026 |
+| Phạm vi source | Backend, Prisma schema, migrations, seed, hạ tầng Docker/CI-CD và tài liệu API |
+| Tổng số API phát hiện trong source | 92 endpoint (+2 endpoint health check, không tính JWT) |
+| Số model Prisma | 20 model (19 model đang thực sự được dùng — xem mục 8) |
 | Số enum nghiệp vụ | 8 enum |
-| Số file unit test/spec | 58 file |
+| Số file unit test/spec | 68 file (518 test case) |
+| Số migration | 12 |
+| Tên miền production | `blogy.id.vn` |
 
 Tài liệu này cung cấp bức tranh tổng thể về mục tiêu, kiến trúc, vai trò, module, luồng nghiệp vụ, mô hình dữ liệu, tích hợp ngoài, bảo mật, cách chạy và các điểm cần hoàn thiện của hệ thống.
 
@@ -26,51 +30,55 @@ Tài liệu này cung cấp bức tranh tổng thể về mục tiêu, kiến tr
 
 ## 2. Mục tiêu dự án
 
-Dự án xây dựng một nền tảng blog có quy trình xuất bản và kiểm duyệt nội dung hoàn chỉnh. Hệ thống phục vụ năm nhóm chức năng chính:
+Dự án xây dựng một nền tảng blog có quy trình xuất bản và kiểm duyệt nội dung hoàn chỉnh, hỗ trợ đa ngôn ngữ và **đang chạy như một sản phẩm thật**, không dừng ở mức demo. Hệ thống phục vụ năm nhóm chức năng chính:
 
 1. **Khách truy cập** đọc bài viết, tìm kiếm nội dung, xem tác giả, danh mục, tag và bình luận.
 2. **Người dùng** quản lý tài khoản, tương tác với bài viết, bình luận, theo dõi tác giả và gửi báo cáo vi phạm.
-3. **Blog Owner** tạo, chỉnh sửa, dịch, quản lý media và gửi bài viết sang quy trình kiểm duyệt.
+3. **Blog Owner** tạo, chỉnh sửa, quản lý media và gửi bài viết sang quy trình kiểm duyệt; chọn ngôn ngữ đích để hệ thống tự dịch nền.
 4. **Content Moderator** duyệt bài, xử lý báo cáo và quản lý nhóm danh mục đa ngôn ngữ.
 5. **Super Admin** quản lý người dùng, vai trò, trạng thái tài khoản, ngôn ngữ và yêu cầu nâng cấp Blog Owner.
 
 Hệ thống được thiết kế để giải quyết các nhu cầu sau:
 
-- Quản lý nội dung theo nhiều ngôn ngữ.
-- Phân quyền rõ ràng theo vai trò.
+- Quản lý nội dung theo nhiều ngôn ngữ, dịch tự động không chặn người dùng khi soạn bài.
+- Phân quyền theo vai trò (có kế thừa quyền theo cấp bậc, xem mục 4).
 - Tách trạng thái soạn thảo, chờ duyệt, xuất bản và từ chối.
 - Hỗ trợ like, bookmark, follow, comment và report.
 - Quản lý upload ảnh/video qua Cloudinary.
 - Quản lý phiên đăng nhập bằng access token và refresh token.
 - Khôi phục mật khẩu qua email.
 - Tự động dọn dữ liệu đã xóa mềm sau một khoảng thời gian.
+- Triển khai không gián đoạn (blue-green) và tự động hóa toàn bộ pipeline build/test/deploy.
 
 ---
 
 ## 3. Phạm vi chức năng theo nhóm API
 
-Source hiện có **83 endpoint**, chia thành năm nhóm:
+Source hiện có **92 endpoint** nghiệp vụ (chưa tính 2 endpoint health check `GET /health/live`, `GET /health/ready` — không JWT, phục vụ load balancer), chia thành năm nhóm:
 
 | Nhóm API | Prefix chính | Số endpoint | Đối tượng sử dụng |
 |---|---:|---:|---|
-| Public | `/register`, `/login`, `/posts`, `/authors`, `/categories`, `/tags` | 13 | Khách và mọi người dùng |
+| Public | `/register`, `/login`, `/posts`, `/authors`, `/categories`, `/tags`, `/languages` | 16 | Khách và mọi người dùng |
 | User | `/auth`, `/user` | 28 | Người dùng đã xác thực |
-| Blog Owner | `/blog-owner` | 12 | Vai trò `BLOG_OWNER` |
-| Moderator | `/moderator` | 14 | Vai trò `CONTENT_MODERATOR` |
-| Admin | `/admin` | 16 | Chủ yếu `SUPER_ADMIN`; một số route cho Moderator |
-| **Tổng** |  | **83** |  |
+| Blog Owner | `/blog-owner` | 14 | Từ `BLOG_OWNER` trở lên |
+| Moderator | `/moderator` | 18 | Từ `CONTENT_MODERATOR` trở lên |
+| Admin | `/admin` | 16 | Chủ yếu `SUPER_ADMIN`; 2 route chia sẻ `CONTENT_MODERATOR` |
+| **Tổng** |  | **92** |  |
 
-Ba tài liệu API chi tiết hiện có:
+Tài liệu API chi tiết hiện nằm trong `docs/Preview Documentation/`:
 
-- `PUBLIC_API_DOCUMENTATION.md`: 13 API Public.
-- `USER_API_DOCUMENTATION.md`: 28 API User.
-- `ADMIN_API_DOCUMENTATION.md`: 16 API Admin.
+- `BUSINESS_WORKFLOWS.md`: mô tả từng luồng nghiệp vụ (WF-01 → WF-17) kèm endpoint liên quan cho cả 5 nhóm.
+- `ROLE_AND_PERMISSION_MATRIX.md`: liệt kê toàn bộ 92 endpoint theo quyền thực tế, kèm cơ chế `RolesGuard`.
+- `ARCHITECTURE.md`: kiến trúc kỹ thuật và triển khai.
+- `DATABASE_DOCUMENTATION.md`: chi tiết Prisma schema.
 
-Source còn có 26 endpoint Blog Owner và Moderator nhưng chưa có hai tài liệu API chi tiết tương ứng.
+> Ba file `PUBLIC_API_DOCUMENTATION.md`, `USER_API_DOCUMENTATION.md`, `ADMIN_API_DOCUMENTATION.md` từng được tài liệu này tham chiếu **không còn tồn tại trong source hiện tại** — nội dung tương ứng đã được thay bằng bộ tài liệu trong `docs/Preview Documentation/` nêu trên.
 
 ---
 
 ## 4. Vai trò và quyền hạn
+
+Hệ thống dùng `RolesGuard` so khớp theo **trọng số vai trò** (`NORMAL=1 < BLOG_OWNER=2 < CONTENT_MODERATOR=3 < SUPER_ADMIN=4`), không phải khớp chính xác — vai trò cao hơn tự động vượt qua được route yêu cầu vai trò thấp hơn (ví dụ Super Admin tự vào được route của Moderator). Chi tiết đầy đủ cùng các hệ quả cần lưu ý nằm ở `ROLE_AND_PERMISSION_MATRIX.md`. Bảng dưới đây mô tả **trách nhiệm chính** của từng vai trò, không phải danh sách quyền loại trừ lẫn nhau.
 
 ### 4.1. `NORMAL`
 
@@ -88,23 +96,24 @@ Người dùng thông thường có thể:
 
 Blog Owner có toàn bộ khả năng tương tác phù hợp của người dùng và thêm các quyền:
 
-- Tạo bài viết.
+- Tạo bài viết, chọn sẵn danh sách ngôn ngữ đích cần dịch (`translationLanguageIds`).
 - Chỉnh sửa hoặc xóa mềm bài viết của chính mình.
 - Upload thumbnail và media đính kèm.
 - Gửi bài sang Moderator duyệt.
-- Xem dashboard nội dung cá nhân.
+- Xem dashboard nội dung cá nhân (3 endpoint: tổng quan, hoạt động theo ngày, bài nổi bật).
 - Xem các tùy chọn ngôn ngữ, danh mục và tag.
-- Tạo bản dịch thủ công hoặc nhận bản dịch tự động để xem trước.
+- Xem trước bản dịch tự động (`translate-preview`) trước khi lưu bài.
+- Theo dõi tiến độ batch dịch nền qua `GET /blog-owner/translation-batches/:batchId`.
 
 ### 4.3. `CONTENT_MODERATOR`
 
 Moderator chịu trách nhiệm vận hành nội dung:
 
-- Xem dashboard kiểm duyệt.
+- Xem dashboard kiểm duyệt (3 endpoint: tổng quan, thống kê report, xu hướng report).
 - Xem bài đang chờ duyệt.
 - Duyệt hoặc từ chối bài viết.
 - Xem và xử lý báo cáo bài viết/bình luận.
-- Quản lý Category Group và các bản dịch danh mục.
+- Quản lý Category Group và các bản dịch danh mục (bao gồm xem trước bản dịch tên danh mục).
 
 ### 4.4. `SUPER_ADMIN`
 
@@ -115,42 +124,49 @@ Super Admin có quyền quản trị cao nhất:
 - Xem, tạo, cập nhật, khóa, mở khóa và xóa người dùng.
 - Tạo tài khoản Moderator.
 - Thay đổi vai trò người dùng.
-- Duyệt hoặc từ chối yêu cầu Blog Owner.
+- Duyệt hoặc từ chối yêu cầu Blog Owner (chia sẻ quyền này với Moderator).
 
 ---
 
 ## 5. Kiến trúc tổng thể
 
-Dự án sử dụng kiến trúc **Modular Monolith**: toàn bộ chức năng chạy trong một ứng dụng NestJS, nhưng được chia thành các module API và module lõi riêng biệt.
+Dự án sử dụng kiến trúc **Modular Monolith**, nhưng **chạy thành 2 process song song** (blue-green: `api-blue`/`api-green`) sau Nginx để triển khai không gián đoạn — không phải 1 process duy nhất như một Modular Monolith cổ điển. Việc dịch bài chạy nền bằng một worker BullMQ nằm trong cùng process API (không phải service tách rời).
 
 ```mermaid
 flowchart LR
-    Client[Web / Mobile / Static UI]
+    Client[Web / Mobile]
+    Nginx[Nginx — reverse proxy]
 
-    subgraph NestJS[Ứng dụng NestJS Modular Monolith]
+    subgraph Slot[Slot API đang nhận traffic — blue hoặc green]
         MW[Logger + Maintenance Middleware]
         GUARD[JWT + Roles Guards]
         PIPE[Trim + Validation Pipes]
         API[Public / User / Blog Owner / Moderator / Admin Controllers]
         SERVICE[API Services]
         CORE[Core Domain Modules]
+        WORKER[BullMQ Worker — dịch nền]
         INTERCEPTOR[Transform Interceptor]
         FILTER[HTTP + Prisma Exception Filters]
     end
 
     DB[(PostgreSQL)]
+    REDIS[(Redis — hàng đợi)]
     CLOUD[Cloudinary]
     MAIL[SMTP Mail Server]
-    TRANS[Translation Service]
+    LT[LibreTranslate]
 
-    Client --> MW --> PIPE --> GUARD --> API --> SERVICE --> CORE
+    Client --> Nginx --> MW --> PIPE --> GUARD --> API --> SERVICE --> CORE
+    SERVICE --> WORKER
+    WORKER --> REDIS
+    WORKER --> LT
     CORE --> DB
     CORE --> CLOUD
     CORE --> MAIL
-    SERVICE --> TRANS
     API --> INTERCEPTOR --> Client
     FILTER --> Client
 ```
+
+Chi tiết đầy đủ về blue-green, CI/CD và hàng đợi dịch nền nằm ở `ARCHITECTURE.md` (mục 4, 14.3, 14.4) và `DEPLOYMENT.md`.
 
 ### 5.1. Tầng API
 
@@ -160,7 +176,7 @@ Nằm trong `src/`, gồm năm module:
 src/
 ├── public/
 ├── user/
-├── blogowner/
+├── blogowner/       # có thêm thư mục queues/ cho worker dịch nền
 ├── moderator/
 ├── admin/
 ├── app.module.ts
@@ -173,15 +189,16 @@ Mỗi module API thường bao gồm:
 - `services/`: triển khai logic riêng cho nhóm người dùng.
 - `dto/`: mô tả và validate dữ liệu đầu vào.
 - `entities/`: chuẩn hóa dữ liệu trả về và ẩn field nội bộ.
+- `queues/` (riêng `blogowner`): producer, processor và service theo dõi trạng thái batch dịch nền (BullMQ).
 
 ### 5.2. Tầng core dùng chung
 
-Nằm trong `libs/core/src/`, bao gồm:
+Nằm trong `libs/core/src/`, gồm 16 nhóm module (15 do Hoàng phụ trách + module `translation` tích hợp LibreTranslate do Sơn xây dựng):
 
-- Domain services: users, auths, posts, comments, categories, tags, languages, reports, media.
+- Domain services: `auths`, `users`, `posts`, `comments`, `categories`, `tags`, `languages`, `reports`, `blog-owner-requests`, `media`, `translation`.
+- Hạ tầng: `cloudinary`, `mail`, `cleanup`, `health`, `security-logs` (đã xây cấu trúc nhưng **chưa được wire vào bất kỳ module nào khác** — xem mục 8).
 - Prisma service và kết nối PostgreSQL.
 - Guard, decorator, filter, interceptor, middleware và pipe dùng chung.
-- Cloudinary, email, cleanup scheduler và các utility bảo mật.
 
 Việc tách `src/*` và `libs/core/*` giúp controller theo vai trò không phải lặp lại toàn bộ logic truy cập dữ liệu.
 
@@ -190,7 +207,8 @@ Việc tách `src/*` và `libs/core/*` giúp controller theo vai trò không ph�
 - Prisma schema nằm tại `database/schema.prisma`.
 - PostgreSQL là hệ quản trị cơ sở dữ liệu chính.
 - Prisma 7 sử dụng `@prisma/adapter-pg` và pool từ package `pg`.
-- Source có hai migration chính và một seed script.
+- Source hiện có **12 migration** và một seed script.
+- Redis lưu trạng thái job dịch nền (BullMQ) — **không có bảng Postgres riêng cho translation batch**; `GET /blog-owner/translation-batches/:batchId` đọc trực tiếp trạng thái job từ Redis qua `Queue.getJob()`.
 
 ---
 
@@ -205,8 +223,9 @@ Public Module cung cấp nội dung không cần đăng nhập:
 - Quên và đặt lại mật khẩu.
 - Danh sách, top và chi tiết bài viết đã xuất bản.
 - Danh sách tác giả nổi bật và trang tác giả.
-- Danh mục và tag.
-- Bình luận công khai của bài viết.
+- Danh mục, tag và danh sách ngôn ngữ.
+- Bình luận công khai của bài viết (bao gồm cả reply).
+- Ghi nhận lượt xem qua endpoint riêng `POST /posts/:id/view` (xem mục 7.5).
 - Lọc nội dung theo ngôn ngữ.
 
 Public service luôn giới hạn bài viết ở trạng thái `PUBLISH`, kể cả khi query DTO có field `status`.
@@ -223,39 +242,39 @@ User Module tập trung vào tài khoản và tương tác cộng đồng:
 - Báo cáo bài viết hoặc bình luận.
 - Tạo, xem và hủy yêu cầu nâng cấp Blog Owner.
 
-Các thao tác tương tác sử dụng khóa duy nhất ở tầng database để tránh like, bookmark hoặc follow trùng.
+Các thao tác tương tác sử dụng khóa duy nhất ở tầng database để tránh like, bookmark hoặc follow trùng. Route comment/report/yêu cầu Blog Owner khai `@Roles(NORMAL, BLOG_OWNER)` nhưng do cơ chế trọng số vai trò, Moderator/Super Admin cũng vượt qua được guard này — xem `ROLE_AND_PERMISSION_MATRIX.md` mục 10.2.
 
 ## 6.3. Blog Owner Module
 
 Blog Owner Module chịu trách nhiệm vòng đời nội dung của tác giả:
 
-- Dashboard thống kê bài viết.
+- Dashboard thống kê bài viết (3 endpoint riêng biệt).
 - Danh sách và chi tiết bài viết của chính tác giả.
-- Tạo bài với `multipart/form-data` hoặc payload thông thường tùy route.
+- Tạo bài với `multipart/form-data`, có thể kèm `translationLanguageIds` để tự động dịch nền sang nhiều ngôn ngữ.
 - Chỉnh sửa bài, thumbnail và media.
 - Xóa mềm bài viết.
 - Gửi bài sang trạng thái chờ duyệt.
 - Upload và xóa media riêng lẻ.
 - Lấy danh sách lựa chọn ngôn ngữ, danh mục và tag.
-- Dịch tự động title/content để preview.
-- Tạo bản dịch liên kết với bài gốc.
+- Dịch tự động title/content để xem trước (`translate-preview`), không lưu bài.
+- Theo dõi tiến độ batch dịch nền (`GET /translation-batches/:batchId`).
 
-Blog Owner chỉ được thao tác trên bài có `authorId` trùng với ID từ JWT.
+Blog Owner chỉ được thao tác trên bài có `authorId` trùng với ID từ JWT. Bản dịch chính thức **không còn được tạo qua một endpoint riêng** (endpoint cũ `POST /blog-owner/posts/:id/translations` đã bị xóa khỏi source) — bản dịch được tạo tự động bởi worker nền khi tạo/sửa bài kèm `translationLanguageIds`, xem mục 7.5.
 
 ## 6.4. Moderator Module
 
 Moderator Module chịu trách nhiệm chất lượng và an toàn nội dung:
 
-- Dashboard số liệu kiểm duyệt.
+- Dashboard số liệu kiểm duyệt (3 endpoint riêng biệt).
 - Danh sách và chi tiết bài viết cần xử lý.
 - Duyệt bài: `PENDING_REVIEW → PUBLISH`.
 - Từ chối bài: `PENDING_REVIEW → REJECT`.
 - Danh sách và chi tiết báo cáo.
 - Xác nhận báo cáo đúng và ẩn nội dung vi phạm.
 - Bác bỏ báo cáo không hợp lệ.
-- Quản lý Category Group cùng các bản dịch theo ngôn ngữ.
+- Quản lý Category Group cùng các bản dịch theo ngôn ngữ, bao gồm xem trước bản dịch tên danh mục và xóa một bản dịch riêng lẻ.
 
-Các thao tác duyệt bài và xử lý báo cáo dùng transaction cùng điều kiện trạng thái để giảm race condition khi nhiều Moderator thao tác đồng thời.
+Các thao tác duyệt bài và xử lý báo cáo dùng transaction cùng điều kiện trạng thái để giảm race condition khi nhiều Moderator (hoặc Super Admin, do kế thừa quyền) thao tác đồng thời.
 
 ## 6.5. Admin Module
 
@@ -269,7 +288,7 @@ Admin Module quản trị tài khoản và cấu hình nền tảng:
 - Khóa và mở khóa tài khoản.
 - Đổi role.
 - Xóa mềm tài khoản.
-- Duyệt yêu cầu Blog Owner.
+- Duyệt yêu cầu Blog Owner (route này chia sẻ quyền với `CONTENT_MODERATOR`).
 
 Khi yêu cầu Blog Owner được duyệt:
 
@@ -326,7 +345,7 @@ stateDiagram-v2
 
 Ràng buộc chính:
 
-- User đã là Blog Owner không được gửi yêu cầu mới.
+- User đã là Blog Owner không được gửi yêu cầu mới (service chỉ chặn đúng trường hợp này — về mặt kỹ thuật Moderator/Super Admin không bị chặn riêng, xem `ROLE_AND_PERMISSION_MATRIX.md` mục 8.6).
 - User không được có nhiều request `PENDING` cùng lúc.
 - User chỉ được hủy request của chính mình và request phải còn `PENDING`.
 
@@ -352,7 +371,7 @@ Quy tắc đáng chú ý:
 - Khi xuất bản lần đầu, `publishedAt` được gán thời điểm duyệt.
 - Nếu bài đã từng xuất bản rồi được sửa và duyệt lại, hệ thống giữ `publishedAt` ban đầu.
 
-## 7.5. Bài viết đa ngôn ngữ
+## 7.5. Bài viết đa ngôn ngữ và dịch tự động chạy nền
 
 Bản dịch được biểu diễn bằng quan hệ tự tham chiếu của `Post`:
 
@@ -360,10 +379,24 @@ Bản dịch được biểu diễn bằng quan hệ tự tham chiếu của `Po
 - Bản dịch trỏ tới bài gốc bằng `parentPostId`.
 - Mỗi bài gốc chỉ có tối đa một bản dịch cho mỗi `languageId`.
 - Category được ánh xạ qua `CategoryGroup`, giúp các tên danh mục khác ngôn ngữ cùng đại diện cho một nhóm khái niệm.
+- `viewCount` trả về cho client ở API public luôn là **tổng của cả nhóm ngôn ngữ** (bài gốc + mọi bản dịch), tính lúc đọc (read-time aggregate), không phải cột lưu sẵn theo nhóm.
 
-Dịch tự động gọi dịch vụ ngoài được cấu hình bằng `TRANSLATE_API_URL` và gửi title/content tới endpoint `/translate`. Kết quả preview không tự động được lưu thành bài dịch.
+**Dịch tự động** dùng LibreTranslate tự triển khai (`TRANSLATE_API_URL`, endpoint `/translate`), theo hai cơ chế khác nhau tùy mục đích:
 
-## 7.6. Comment và reply
+1. **Xem trước** (`POST /blog-owner/posts/:id/translate-preview`, `POST /moderator/category-groups/translate-preview`): gọi LibreTranslate đồng bộ, trả kết quả ngay, **không lưu database**.
+2. **Tạo bản dịch chính thức**: khi tạo hoặc sửa bài kèm `translationLanguageIds`, service đưa 1 job "tổng hợp" (finalize) và N job "dịch" (1 job/ngôn ngữ) vào hàng đợi BullMQ (`FlowProducer`), trả kết quả ngay cho client kèm `batchId` — **không chặn người dùng chờ dịch xong**. Worker nền xử lý từng job dịch, lưu bản dịch mới vào `Post`; job "tổng hợp" chỉ chạy sau khi toàn bộ job "dịch" hoàn tất. Client theo dõi tiến độ qua `GET /blog-owner/translation-batches/:batchId`. Chi tiết đầy đủ và sơ đồ tuần tự ở `BUSINESS_WORKFLOWS.md` (WF-13, WF-14) và `ARCHITECTURE.md` (mục 14.4).
+
+## 7.6. Ghi nhận lượt xem
+
+Tách thành endpoint riêng `POST /posts/:id/view`, do frontend chủ động gọi sau khi xác nhận người đọc thật sự đã xem bài, tránh tính view giả từ bot/prefetch:
+
+- `postId` trong request là đúng phiên bản ngôn ngữ đang đọc — `viewCount` của đúng bản ghi đó được tăng.
+- Định danh người xem (`viewerKey`) dựa trên `userId` (đã đăng nhập) hoặc `visitorId` do frontend tự sinh (khách) — không dùng IP, tránh nhiều người dùng chung mạng bị tính gộp.
+- Chống tính trùng: cùng viewer, cùng bản ghi, trong vòng **10 phút** chỉ tính một lượt xem.
+- Ghi đồng thời vào `PostDailyMetric` trong cùng transaction với việc tăng `viewCount`.
+- Dùng transaction mức `Serializable` kèm tự thử lại khi có xung đột.
+
+## 7.7. Comment và reply
 
 - Chỉ bài `PUBLISH` chưa xóa mới nhận comment.
 - Comment hỗ trợ một cấp comment gốc và danh sách reply.
@@ -372,7 +405,7 @@ Dịch tự động gọi dịch vụ ngoài được cấu hình bằng `TRANSL
 - Nội dung comment được kiểm tra từ cấm.
 - Source có cơ chế chống spam theo số lượng và nội dung trùng trong khoảng thời gian ngắn.
 
-## 7.7. Báo cáo và kiểm duyệt vi phạm
+## 7.8. Báo cáo và kiểm duyệt vi phạm
 
 User có thể báo cáo:
 
@@ -384,7 +417,7 @@ Moderator có hai lựa chọn:
 - **Resolve**: báo cáo được xác nhận; nội dung bị soft delete và các report `PENDING` khác cùng target được chuyển sang `RESOLVED`.
 - **Reject**: chỉ report đang xét chuyển sang `REJECTED`; nội dung không thay đổi.
 
-## 7.8. Xóa mềm và dọn dữ liệu
+## 7.9. Xóa mềm và dọn dữ liệu
 
 Các bảng quan trọng như User, Post, Comment, Media, Category, Language và Tag dùng `deletedAt` để xóa mềm.
 
@@ -398,7 +431,7 @@ Các bảng quan trọng như User, Post, Comment, Media, Category, Language và
 
 ## 8. Mô hình dữ liệu
 
-Prisma schema hiện có 20 model, có thể chia thành các nhóm sau.
+Prisma schema hiện có **20 model**. Model `SecurityLog` tồn tại trong schema nhưng `SecurityLogsModule`/`SecurityLogsService` **chưa được import ở bất kỳ module nào khác** trong toàn bộ source — chưa có controller hay service nào gọi tới để ghi log khi có sự kiện bảo mật thật. Đây là tính năng **chưa thực sự phát triển**, nên phần phân nhóm domain dưới đây liệt kê nó riêng, không gộp vào nhóm đang hoạt động. Chi tiết đầy đủ về toàn bộ 20 model ở `DATABASE_DOCUMENTATION.md`.
 
 ### 8.1. Tài khoản và xác thực
 
@@ -407,7 +440,6 @@ Prisma schema hiện có 20 model, có thể chia thành các nhóm sau.
 | `User` | Tài khoản, role, trạng thái, hồ sơ và thông tin khóa |
 | `UserSession` | Phiên đăng nhập và refresh token đã băm |
 | `PasswordResetToken` | Token đặt lại mật khẩu |
-| `SecurityLog` | Nhật ký hành động bảo mật |
 
 ### 8.2. Nội dung và đa ngôn ngữ
 
@@ -430,7 +462,7 @@ Prisma schema hiện có 20 model, có thể chia thành các nhóm sau.
 | `PostLike` | Like bài viết |
 | `PostBookmark` | Bookmark bài viết |
 | `UserFollow` | Quan hệ follower/following |
-| `PostViewLog` | Log lượt xem theo viewer key |
+| `PostViewLog` | Log lượt xem theo `viewerKey` (userId/visitorId), dedup 10 phút |
 | `PostDailyMetric` | Chỉ số view/like theo ngày |
 
 ### 8.4. Quy trình xét duyệt
@@ -440,7 +472,13 @@ Prisma schema hiện có 20 model, có thể chia thành các nhóm sau.
 | `BlogOwnerRequest` | Yêu cầu nâng cấp Blog Owner |
 | `Report` | Báo cáo bài viết hoặc bình luận |
 
-### 8.5. Quan hệ dữ liệu rút gọn
+### 8.5. Model chưa được wire vào hệ thống
+
+| Model | Ghi chú |
+|---|---|
+| `SecurityLog` | Có struct/service/DTO/entity đầy đủ nhưng chưa có nơi nào trong source gọi tới để ghi log thật — xem giải thích đầu mục 8 |
+
+### 8.6. Quan hệ dữ liệu rút gọn
 
 ```mermaid
 erDiagram
@@ -490,7 +528,7 @@ Giá trị có thể thay đổi qua biến môi trường `API_PREFIX`.
   "success": true,
   "statusCode": 200,
   "data": {},
-  "timestamp": "2026-07-30T08:50:00.000Z"
+  "timestamp": "2026-09-19T08:50:00.000Z"
 }
 ```
 
@@ -508,7 +546,7 @@ response.data.data
   "statusCode": 400,
   "message": "Nội dung lỗi hoặc mảng lỗi validation",
   "path": "/api/v1/example",
-  "timestamp": "2026-07-30T08:50:00.000Z"
+  "timestamp": "2026-09-19T08:50:00.000Z"
 }
 ```
 
@@ -572,6 +610,10 @@ Tùy service, `languageId` hoặc query `lang` có thể được ưu tiên hơn
 - Cloudinary là nơi lưu file ngoài.
 - Database lưu URL và, đối với media, lưu `publicId` để phục vụ xóa file.
 
+## 9.9. Rate limiting
+
+`ThrottlerModule`/`ThrottlerGuard` (`@nestjs/throttler`) được bật **toàn cục** ở `app.module.ts` — mọi route mặc định bị giới hạn tần suất gọi; route nào cần miễn trừ dùng decorator `@Throttle()` riêng.
+
 ---
 
 ## 10. Công nghệ và tích hợp
@@ -583,16 +625,22 @@ Tùy service, `languageId` hoặc query `lang` có thể được ưu tiên hơn
 | ORM | Prisma 7 |
 | Database | PostgreSQL |
 | DB Driver/Adapter | `pg`, `@prisma/adapter-pg` |
+| Xử lý nền | Redis + BullMQ (`@nestjs/bullmq`) |
+| Dịch tự động | LibreTranslate tự triển khai (Docker, CPU-only) |
 | Authentication | JWT access/refresh token |
 | Hash mật khẩu | bcrypt + password pepper |
+| Rate limiting | `@nestjs/throttler`, bật toàn cục |
 | Validation | class-validator, class-transformer |
 | Upload | Multer |
 | Media storage | Cloudinary |
 | Email | Nodemailer, `@nestjs-modules/mailer`, EJS |
 | Scheduler | `@nestjs/schedule` |
-| Translation | Dịch vụ tương thích LibreTranslate qua HTTP |
 | Testing | Jest, ts-jest, Supertest |
-| Static UI | HTML, CSS, JavaScript, Bootstrap CDN |
+| Container hóa | Docker, Docker Compose (tách `compose.shared.yml`/`compose.slot.yml`) |
+| Reverse proxy | Nginx (điều phối traffic giữa 2 slot blue/green) |
+| CI/CD | GitHub Actions (lint/test/build → build & push image GHCR → deploy SSH + blue-green trên VPS) |
+| Container registry | GitHub Container Registry (GHCR) |
+| Giám sát container | `willfarrell/autoheal` (tự restart container hỏng theo healthcheck) |
 
 ---
 
@@ -612,29 +660,30 @@ Tùy service, `languageId` hoặc query `lang` có thể được ưu tiên hơn
 - Prisma transaction được dùng cho các thao tác cần tính nguyên tử.
 - Conditional update chống hai quản trị viên cùng xử lý một bản ghi.
 - Có kiểm tra từ cấm cho tìm kiếm và nội dung cộng đồng ở các luồng liên quan.
-- Maintenance mode có thể chặn toàn bộ request bằng biến môi trường.
+- Maintenance mode có thể chặn toàn bộ request bằng biến môi trường (route `health/live` luôn miễn trừ, `health/ready` vẫn đi qua để báo `503` đúng chủ đích).
+- Rate limiting toàn cục qua `@nestjs/throttler` (mục 9.9) — **đã khắc phục** so với lần rà soát trước.
+- CORS đọc danh sách origin từ `FRONTEND_URL` (hỗ trợ nhiều origin phân tách bằng dấu phẩy), bật `credentials: true` — **đã khắc phục** so với lần rà soát trước (trước đây chỉ nhận đúng 1 origin).
+- Pipeline CI/CD có bước `npm run lint`, `npm test`, `npm run build`, `prisma validate` **bắt buộc pass** trước khi build/deploy — một bước fail thì không có bản nào lên production.
 
 ### 11.2. Các điểm cần ưu tiên xử lý
 
 #### Mức nghiêm trọng cao
 
-1. **Không giữ credential thật trong `.env.example`.** File hiện chứa các giá trị có hình thức giống database URL, Cloudinary secret, JWT secret và SMTP credential thực. Cần thu hồi/rotate toàn bộ credential liên quan và thay file mẫu bằng placeholder.
+1. **`.env.example` vẫn đang chứa credential thật, tính đến 19/09/2026** — không phải giá trị mẫu: connection string PostgreSQL thật, Cloudinary key/secret thật, và `MAIL_USER`/`MAIL_PASSWORD` là tài khoản Gmail + App Password thật. Đây là secret đã được commit và push lên remote. **Cần thu hồi/rotate toàn bộ credential này ngay** (đổi App Password Gmail, xoay Cloudinary key/secret, đổi mật khẩu database) và thay file mẫu bằng placeholder — vấn đề này đã được tài liệu trước đó flag nhưng vẫn chưa được xử lý.
 
 #### Mức quan trọng
 
-3. Chưa thấy cấu hình global rate limiting bằng `@nestjs/throttler`; nên bổ sung cho login, register, forgot-password, comment, report và upload.
-4. Chưa thấy `helmet`, security headers hoặc chính sách CSP ở backend.
-5. CORS chỉ cho một origin cấu hình qua `FRONTEND_URL` và bật `credentials: true`; production cần cấu hình whitelist rõ ràng.
-6. Logger hiện ghi URL, IP và User-Agent ra console; cần kết hợp log rotation, masking và centralized logging khi deploy.
-7. Chưa thấy tài liệu Swagger/OpenAPI được sinh tự động từ DTO và controller.
-8. Cần kiểm tra giới hạn kích thước file, MIME type và dung lượng tổng cho mọi route upload.
-9. Cleanup hiện quản lý `Media.publicId`; cần kiểm tra thêm vòng đời avatar và thumbnail để tránh file Cloudinary mồ côi.
+2. Chưa thấy `helmet`, security headers hoặc chính sách CSP ở backend.
+3. Chưa thấy tài liệu Swagger/OpenAPI được sinh tự động từ DTO và controller.
+4. Cần kiểm tra giới hạn kích thước file, MIME type và dung lượng tổng cho mọi route upload.
+5. Cleanup hiện quản lý `Media.publicId`; cần kiểm tra thêm vòng đời avatar và thumbnail để tránh file Cloudinary mồ côi.
+6. `SecurityLogsModule` đã có struct nhưng chưa được wire vào nơi nào để ghi log thật (mục 8) — nếu muốn dùng cho mục đích bảo mật, cần import và gọi từ các luồng đăng nhập sai, khóa tài khoản, đổi quyền...
 
 ---
 
 ## 12. Cấu hình môi trường
 
-Tạo `.env` từ `.env.example`, nhưng chỉ sử dụng placeholder và secret mới.
+Tạo `.env` từ `.env.example`, nhưng chỉ sử dụng placeholder và secret mới — **không dùng nguyên giá trị có sẵn trong file mẫu hiện tại** (xem cảnh báo P0 ở mục 11.2).
 
 ### 12.1. Ứng dụng
 
@@ -643,9 +692,12 @@ NODE_ENV=development
 APP_NAME="Blog API"
 APP_PORT=8080
 API_PREFIX=api/v1
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:4200
 MAINTENANCE_MODE=false
+TRUST_PROXY_HOPS=0
 ```
+
+`TRUST_PROXY_HOPS`: đặt `0` khi app chạy trực tiếp, `1` khi có đúng 1 reverse proxy (Nginx) đứng trước — ảnh hưởng cách đọc IP thật của client.
 
 ### 12.2. Database
 
@@ -654,8 +706,6 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
 DB_POOL_SIZE=10
 DB_LOG_QUERIES=true
 ```
-
-Lưu ý: `DB_POOL_SIZE` đã có trong config nhưng `PrismaService` hiện chưa truyền giá trị này vào `pg.Pool`; pool đang chỉ nhận `connectionString`.
 
 ### 12.3. JWT và mật khẩu
 
@@ -688,7 +738,7 @@ MAIL_FROM="Blog System <noreply@example.com>"
 MAIL_IGNORE_TLS=false
 ```
 
-### 12.6. Dịch tự động
+### 12.6. Dịch tự động (LibreTranslate)
 
 ```dotenv
 TRANSLATE_API_URL=http://localhost:5000
@@ -700,7 +750,28 @@ Service dịch cần cung cấp endpoint:
 POST /translate
 ```
 
-và trả `translatedText` là mảng chứa bản dịch của title và content.
+và trả `translatedText` là mảng chứa bản dịch của title và content. Production tự triển khai LibreTranslate bằng Docker (xem `DEPLOYMENT.md`), không dùng dịch vụ dịch trả phí ngoài.
+
+### 12.7. Redis (hàng đợi dịch nền)
+
+```dotenv
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_USERNAME=
+REDIS_PASSWORD=
+```
+
+Redis phục vụ BullMQ cho hàng đợi dịch bài viết nền (mục 7.5). Production giới hạn bộ nhớ Redis qua cấu hình Docker Compose (`--maxmemory 200mb --maxmemory-policy noeviction`), không đặt trong `.env`.
+
+### 12.8. Lượt xem và xếp hạng
+
+```dotenv
+VIEWER_KEY_SECRET=replace-with-a-long-random-secret
+TOP_POSTS_CANDIDATE_DAYS=90
+TOP_POSTS_CACHE_TTL_SECONDS=120
+```
+
+`VIEWER_KEY_SECRET` dùng để tạo `viewerKey` ổn định cho khách chưa đăng nhập (mục 7.6). `TOP_POSTS_*` cấu hình phạm vi ứng viên và thời gian cache cho `GET /posts/top`.
 
 ---
 
@@ -720,12 +791,12 @@ npm install
 cp .env.example .env
 ```
 
-Sau đó thay toàn bộ secret và credential bằng giá trị của môi trường local.
+Sau đó thay toàn bộ secret và credential bằng giá trị của môi trường local — **không giữ nguyên giá trị mẫu hiện có trong `.env.example`** (mục 11.2).
 
 ### 13.3. Sinh Prisma Client
 
 ```bash
-npx prisma generate
+npx prisma generate --schema database/schema.prisma
 ```
 
 ### 13.4. Khởi tạo database
@@ -733,13 +804,13 @@ npx prisma generate
 Môi trường development:
 
 ```bash
-npx prisma migrate dev
+npx prisma migrate dev --schema database/schema.prisma
 ```
 
 Môi trường đã có migration và chỉ cần apply:
 
 ```bash
-npx prisma migrate deploy
+npx prisma migrate deploy --schema database/schema.prisma
 ```
 
 ### 13.5. Seed dữ liệu
@@ -762,14 +833,20 @@ npm run start:dev
 http://localhost:8080/api/v1
 ```
 
-### 13.7. Build và chạy production
+### 13.7. Chạy bằng Docker Compose (khuyến nghị để có đủ Redis/LibreTranslate)
+
+Xem hướng dẫn đầy đủ ở `DEPLOYMENT.md` — dự án dùng `compose.shared.yml` (Nginx, PostgreSQL, Redis, LibreTranslate, autoheal, frontend) kết hợp `compose.slot.yml` (slot API + migration).
+
+### 13.8. Build và chạy production
 
 ```bash
 npm run build
 npm run start:prod
 ```
 
-### 13.8. Kiểm tra chất lượng
+Production thực tế không chạy lệnh này trực tiếp — image được build và deploy tự động qua CI/CD blue-green (xem `DEPLOYMENT.md`).
+
+### 13.9. Kiểm tra chất lượng
 
 ```bash
 npm run lint
@@ -778,7 +855,7 @@ npm run test:cov
 npm run test:e2e
 ```
 
-Tài liệu này chỉ xác nhận source có 58 file spec; chưa xác nhận toàn bộ test đang chạy thành công trong môi trường hiện tại.
+Source hiện có 68 file spec / 518 test case; các lệnh trên cũng chính là 4 bước bắt buộc pass trong job `ci` của pipeline GitHub Actions trước khi build image.
 
 ---
 
@@ -787,7 +864,7 @@ Tài liệu này chỉ xác nhận source có 58 file spec; chưa xác nhận to
 ```text
 backend/
 ├── database/
-│   ├── migrations/
+│   ├── migrations/        # 12 migration
 │   ├── schema.prisma
 │   └── seed.ts
 ├── libs/core/src/
@@ -802,70 +879,61 @@ backend/
 │   │   └── utils/
 │   ├── config/
 │   ├── core/prisma/
-│   └── modules/
+│   └── modules/            # 16 module, gồm cả translation (LibreTranslate) và health
 ├── src/
 │   ├── public/
 │   ├── user/
-│   ├── blogowner/
+│   ├── blogowner/           # có thêm queues/ cho worker dịch nền
 │   ├── moderator/
 │   ├── admin/
 │   ├── app.module.ts
 │   └── main.ts
-├── ADMIN_API_DOCUMENTATION.md
-├── PUBLIC_API_DOCUMENTATION.md
-├── USER_API_DOCUMENTATION.md
+├── docker/                  # Dockerfile multi-stage (production/migration)
+├── scripts/                 # deploy-blue-green.sh, rollback.sh, switch-slot.sh...
+├── compose.shared.yml
+├── compose.slot.yml
 ├── package.json
 └── README.md
 ```
 
-Static UI demo nằm ngoài backend:
+Tài liệu chi tiết nằm ở cấp repo, không nằm trong `backend/`:
 
 ```text
-template/
-├── assets/
-├── components/
-└── pages/
+docs/
+├── Preview Documentation/    # ARCHITECTURE, BUSINESS_WORKFLOWS, DATABASE_DOCUMENTATION,
+│                              # PROJECT_OVERVIEW (file này), ROLE_AND_PERMISSION_MATRIX
+└── phancongcongviec/          # phân công việc từng thành viên, nội dung slide báo cáo
 ```
 
-Có thể mở trực tiếp:
-
-```text
-template/pages/public/index.html
-```
+> Thư mục `template/` (static UI demo bằng HTML/CSS/JS/Bootstrap) từng được tài liệu này nhắc tới **không còn tồn tại trong source hiện tại** — frontend thật của dự án là repo Angular riêng (`blog-frontend`), triển khai cùng VPS qua `compose.shared.yml`.
 
 ---
-
 
 ## 15. Hạn chế và hướng phát triển đề xuất
 
 ### Ưu tiên 1 — An toàn triển khai
 
-- Rotate toàn bộ credential từng xuất hiện trong `.env.example` hoặc Git history.
-- Bổ sung secret scanning trong CI.
-- Thêm rate limiting và security headers.
-- Định nghĩa chính sách upload file rõ ràng.
+- **Rotate ngay** toàn bộ credential thật đang nằm trong `.env.example` (mục 11.2) — đây là việc cấp thiết nhất, không phải đề xuất dài hạn.
+- Bổ sung secret scanning trong CI để chặn credential thật lọt vào commit tương lai.
+- Thêm `helmet`/security headers ở backend.
+- Định nghĩa chính sách upload file rõ ràng (giới hạn kích thước, MIME type).
 - Không log dữ liệu nhạy cảm.
 
 ### Ưu tiên 2 — Tài liệu và hợp đồng API
 
-- Sinh Swagger/OpenAPI.
-- Bổ sung tài liệu Blog Owner và Moderator.
-- Đồng bộ quyền Admin giữa code và tài liệu.
+- Sinh Swagger/OpenAPI tự động từ DTO/controller.
 - Bổ sung bảng error code và trường hợp lỗi cho từng endpoint.
-- Cập nhật README chính thức.
 
 ### Ưu tiên 3 — Vận hành
 
-- Bổ sung Dockerfile và Docker Compose cho backend, PostgreSQL và translation service.
-- Kiểm soát retry/timeout cho Cloudinary, SMTP và translation service.
+- Kiểm soát retry/timeout cho Cloudinary, SMTP và LibreTranslate khi các dịch vụ này chậm/lỗi.
+- Cân nhắc dashboard giám sát Redis/BullMQ (ví dụ Bull Board) để dễ theo dõi hàng đợi dịch nền khi vận hành thật.
 
 ### Ưu tiên 4 — Chất lượng code
 
-- Chạy test và lưu baseline coverage trong CI.
-- Bổ sung e2e test cho các workflow xuyên module.
-- Đưa `DB_POOL_SIZE` vào cấu hình `pg.Pool`.
 - Chuẩn hóa naming `blogowner` và `blog-owner` trong folder/class/route.
 - Xem xét tách các service dài thành use case nhỏ hơn.
+- Quyết định rõ: giữ `SecurityLogsModule` và wire nó vào các luồng bảo mật thật, hoặc gỡ bỏ nếu không còn nằm trong kế hoạch.
 
 ### Ưu tiên 5 — Sản phẩm
 
