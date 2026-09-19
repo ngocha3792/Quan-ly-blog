@@ -109,6 +109,7 @@ describe('PostInteractionService', () => {
 
       prisma.post.findFirst.mockResolvedValueOnce({
         id: 100,
+        parentPostId: null,
       });
 
       prisma.postLike.createMany.mockResolvedValueOnce({
@@ -164,6 +165,7 @@ describe('PostInteractionService', () => {
     it('should not increment daily metric when the like already exists', async () => {
       prisma.post.findFirst.mockResolvedValueOnce({
         id: 100,
+        parentPostId: null,
       });
 
       /**
@@ -187,12 +189,69 @@ describe('PostInteractionService', () => {
 
       expect(result.postId).toBe(100);
     });
+
+    it('should like the group ROOT when the user is reading a translation, not the translation itself', async () => {
+      /**
+       * Yêu cầu nghiệp vụ: thích một bài viết là thích cho CẢ BÀI
+       * (mọi ngôn ngữ), không phải riêng bản dịch đang đọc. Thích bản
+       * tiếng Việt rồi không được thích tiếp bản tiếng Anh cùng bài.
+       *
+       * postId=200 là bản dịch, parentPostId=100 là bài gốc — like
+       * phải được ghi vào postId=100 (root), không phải 200.
+       */
+      prisma.post.findFirst
+        .mockResolvedValueOnce({
+          id: 200,
+          parentPostId: 100,
+        })
+        .mockResolvedValueOnce({
+          id: 100,
+          parentPostId: null,
+        });
+
+      prisma.postLike.createMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      prisma.postDailyMetric.upsert.mockResolvedValueOnce({
+        id: 1,
+      });
+
+      prisma.postLike.findUniqueOrThrow.mockResolvedValueOnce({
+        postId: 100,
+        userId: 1,
+        createdAt: new Date(),
+      });
+
+      const result = await service.likePost(1, 200);
+
+      expect(prisma.post.findFirst).toHaveBeenNthCalledWith(1, {
+        where: { id: 200, deletedAt: null, status: 'PUBLISH' },
+      });
+
+      expect(prisma.post.findFirst).toHaveBeenNthCalledWith(2, {
+        where: { id: 100, deletedAt: null, status: 'PUBLISH' },
+      });
+
+      expect(prisma.postLike.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            postId: 100,
+            userId: 1,
+          },
+        ],
+        skipDuplicates: true,
+      });
+
+      expect(result.postId).toBe(100);
+    });
   });
 
   describe('unlikePost', () => {
     it('should delete an existing like and decrement today daily metric by 1', async () => {
       prisma.post.findFirst.mockResolvedValueOnce({
         id: 100,
+        parentPostId: null,
       });
 
       prisma.postLike.deleteMany.mockResolvedValueOnce({
@@ -240,6 +299,7 @@ describe('PostInteractionService', () => {
     it('should not decrement daily metric when the like does not exist', async () => {
       prisma.post.findFirst.mockResolvedValueOnce({
         id: 100,
+        parentPostId: null,
       });
 
       /**
@@ -257,11 +317,43 @@ describe('PostInteractionService', () => {
         'Đã bỏ thích bài viết thành công',
       );
     });
+
+    it('should unlike the group ROOT when called from a translation id', async () => {
+      prisma.post.findFirst
+        .mockResolvedValueOnce({
+          id: 200,
+          parentPostId: 100,
+        })
+        .mockResolvedValueOnce({
+          id: 100,
+          parentPostId: null,
+        });
+
+      prisma.postLike.deleteMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      prisma.postDailyMetric.upsert.mockResolvedValueOnce({
+        id: 1,
+      });
+
+      await service.unlikePost(1, 200);
+
+      expect(prisma.postLike.deleteMany).toHaveBeenCalledWith({
+        where: {
+          postId: 100,
+          userId: 1,
+        },
+      });
+    });
   });
 
   describe('bookmarkPost and unbookmarkPost', () => {
     it('should bookmark post successfully with upsert', async () => {
-      prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
+      prisma.post.findFirst.mockResolvedValueOnce({
+        id: 100,
+        parentPostId: null,
+      });
       prisma.postBookmark.upsert.mockResolvedValueOnce({
         postId: 100,
         userId: 1,
@@ -278,7 +370,10 @@ describe('PostInteractionService', () => {
     });
 
     it('should unbookmark post successfully with deleteMany', async () => {
-      prisma.post.findFirst.mockResolvedValueOnce({ id: 100 });
+      prisma.post.findFirst.mockResolvedValueOnce({
+        id: 100,
+        parentPostId: null,
+      });
       prisma.postBookmark.deleteMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await service.unbookmarkPost(1, 100);
@@ -286,6 +381,33 @@ describe('PostInteractionService', () => {
         where: { postId: 100, userId: 1 },
       });
       expect(result.message).toBe('Đã bỏ lưu bài viết thành công');
+    });
+
+    it('should bookmark the group ROOT when called from a translation id', async () => {
+      prisma.post.findFirst
+        .mockResolvedValueOnce({
+          id: 200,
+          parentPostId: 100,
+        })
+        .mockResolvedValueOnce({
+          id: 100,
+          parentPostId: null,
+        });
+
+      prisma.postBookmark.upsert.mockResolvedValueOnce({
+        postId: 100,
+        userId: 1,
+        createdAt: new Date(),
+      });
+
+      const result = await service.bookmarkPost(1, 200);
+
+      expect(prisma.postBookmark.upsert).toHaveBeenCalledWith({
+        where: { postId_userId: { postId: 100, userId: 1 } },
+        update: {},
+        create: { postId: 100, userId: 1 },
+      });
+      expect(result.postId).toBe(100);
     });
   });
 

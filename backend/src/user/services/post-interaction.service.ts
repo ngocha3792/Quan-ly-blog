@@ -65,8 +65,24 @@ export class PostInteractionService {
     return post;
   }
 
+  /**
+   * Like/bookmark là hành động theo CẢ BÀI VIẾT (mọi ngôn ngữ), không
+   * phải riêng một bản dịch — thích bản tiếng Việt rồi không được thích
+   * tiếp bản tiếng Anh của cùng bài đó. Nên mọi thao tác like/bookmark
+   * đều được quy về đúng một hàng: bài GỐC của nhóm, bất kể user đang
+   * đọc bản dịch nào khi bấm nút.
+   */
+  private async findGroupRootPost(id: number) {
+    const post = await this.findOnePost(id);
+    if (post.parentPostId === null) {
+      return post;
+    }
+    return this.findOnePost(post.parentPostId);
+  }
+
 async likePost(userId: number, postId: number) {
-  await this.findOnePost(postId);
+  const root = await this.findGroupRootPost(postId);
+  const rootId = root.id;
 
   const metricDate = getVietnamCalendarDate();
 
@@ -83,7 +99,7 @@ async likePost(userId: number, postId: number) {
     const created = await tx.postLike.createMany({
       data: [
         {
-          postId,
+          postId: rootId,
           userId,
         },
       ],
@@ -98,12 +114,12 @@ async likePost(userId: number, postId: number) {
       await tx.postDailyMetric.upsert({
         where: {
           postId_metricDate: {
-            postId,
+            postId: rootId,
             metricDate,
           },
         },
         create: {
-          postId,
+          postId: rootId,
           metricDate,
           viewCount: 0,
           likeCount: 1,
@@ -119,7 +135,7 @@ async likePost(userId: number, postId: number) {
     return tx.postLike.findUniqueOrThrow({
       where: {
         postId_userId: {
-          postId,
+          postId: rootId,
           userId,
         },
       },
@@ -130,14 +146,15 @@ async likePost(userId: number, postId: number) {
 }
 
 async unlikePost(userId: number, postId: number) {
-  await this.findOnePost(postId);
+  const root = await this.findGroupRootPost(postId);
+  const rootId = root.id;
 
   const metricDate = getVietnamCalendarDate();
 
   await this.prisma.$transaction(async (tx) => {
     const deleted = await tx.postLike.deleteMany({
       where: {
-        postId,
+        postId: rootId,
         userId,
       },
     });
@@ -155,12 +172,12 @@ async unlikePost(userId: number, postId: number) {
       await tx.postDailyMetric.upsert({
         where: {
           postId_metricDate: {
-            postId,
+            postId: rootId,
             metricDate,
           },
         },
         create: {
-          postId,
+          postId: rootId,
           metricDate,
           viewCount: 0,
           likeCount: -1,
@@ -178,18 +195,19 @@ async unlikePost(userId: number, postId: number) {
 }
 
   async bookmarkPost(userId: number, postId: number) {
-    await this.findOnePost(postId);
+    const root = await this.findGroupRootPost(postId);
+    const rootId = root.id;
 
     const postBookmark = await this.prisma.postBookmark.upsert({
       where: {
         postId_userId: {
-          postId,
+          postId: rootId,
           userId,
         },
       },
       update: {},
       create: {
-        postId,
+        postId: rootId,
         userId,
       },
     });
@@ -198,11 +216,12 @@ async unlikePost(userId: number, postId: number) {
   }
 
   async unbookmarkPost(userId: number, postId: number) {
-    await this.findOnePost(postId);
+    const root = await this.findGroupRootPost(postId);
+    const rootId = root.id;
 
     await this.prisma.postBookmark.deleteMany({
       where: {
-        postId,
+        postId: rootId,
         userId,
       },
     });
