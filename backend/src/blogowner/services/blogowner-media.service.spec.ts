@@ -7,7 +7,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostStatus } from '@prisma/client';
 
-import { MediaService, PrismaService } from '@app/core';
+import { CloudinaryService, MediaService, PrismaService } from '@app/core';
 
 import { BlogownerMediaService } from './blogowner-media.service';
 import { BlogownerPostHelperService } from './blogowner-post-helper.service';
@@ -30,6 +30,11 @@ describe('BlogownerMediaService', () => {
     findOwnedPostGroup: jest.fn(),
     assertEditable: jest.fn(),
     updateOwnedPostGroupStatus: jest.fn(),
+    validateContentImageFile: jest.fn(),
+  };
+
+  const mockCloudinaryService = {
+    uploadFile: jest.fn(),
   };
 
   const file = {
@@ -88,6 +93,11 @@ describe('BlogownerMediaService', () => {
             provide:
               BlogownerPostHelperService,
             useValue: mockHelper,
+          },
+
+          {
+            provide: CloudinaryService,
+            useValue: mockCloudinaryService,
           },
         ],
       }).compile();
@@ -352,6 +362,61 @@ describe('BlogownerMediaService', () => {
       ).toBeLessThan(
         mockHelper.updateOwnedPostGroupStatus
           .mock.invocationCallOrder[0],
+      );
+    });
+  });
+
+  describe('uploadContentImage', () => {
+    it('should validate, upload to Cloudinary and return the secure url', async () => {
+      mockCloudinaryService.uploadFile.mockResolvedValue({
+        secure_url: 'https://res.cloudinary.com/demo/image/upload/v1/content/pic.png',
+      });
+
+      const result = await service.uploadContentImage(file);
+
+      expect(
+        mockHelper.validateContentImageFile,
+      ).toHaveBeenCalledWith(file);
+
+      expect(
+        mockCloudinaryService.uploadFile,
+      ).toHaveBeenCalledWith(
+        file,
+        'nestjs_blog/posts/content',
+      );
+
+      expect(result).toEqual({
+        url: 'https://res.cloudinary.com/demo/image/upload/v1/content/pic.png',
+      });
+    });
+
+    it('should not call Cloudinary when validation fails', async () => {
+      mockHelper.validateContentImageFile.mockImplementation(() => {
+        throw new BadRequestException('Ảnh nội dung không được vượt quá 10 MB.');
+      });
+
+      await expect(
+        service.uploadContentImage(file),
+      ).rejects.toThrow(
+        'Ảnh nội dung không được vượt quá 10 MB.',
+      );
+
+      expect(
+        mockCloudinaryService.uploadFile,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should wrap a Cloudinary failure in BadRequestException', async () => {
+      mockCloudinaryService.uploadFile.mockRejectedValue(
+        new Error('Cloudinary timeout'),
+      );
+
+      await expect(
+        service.uploadContentImage(file),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Lỗi khi upload ảnh nội dung: Cloudinary timeout',
+        ),
       );
     });
   });

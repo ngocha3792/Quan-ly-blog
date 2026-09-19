@@ -302,7 +302,7 @@ export class BlogownerPostHelperService {
   }
 
   /**
-   * Validate ảnh bìa trước khi tạo/update Post.
+   * Validate ảnh trước khi upload lên Cloudinary.
    *
    * Security rule:
    * - chỉ JPEG / PNG / WEBP;
@@ -312,24 +312,36 @@ export class BlogownerPostHelperService {
    *
    * Nhờ đó file HTML/SVG/JS/PDF đổi tên thành .png hoặc giả MIME
    * vẫn bị từ chối trước khi gửi lên Cloudinary.
+   *
+   * `label` chỉ dùng để message lỗi đúng ngữ cảnh (ảnh bìa / ảnh nội
+   * dung) — logic kiểm tra giống hệt nhau cho mọi loại ảnh.
    */
-  validateThumbnailFile(file: Express.Multer.File): void {
+  private validateImageFile(
+    file: Express.Multer.File,
+    label: string,
+  ): void {
+    /**
+     * label viết hoa chữ cái đầu — dùng cho message bắt đầu câu bằng
+     * chính label (khác với các message có label nằm giữa câu).
+     */
+    const Label = label.charAt(0).toUpperCase() + label.slice(1);
+
     if (!file?.buffer || file.buffer.length === 0) {
-      throw new BadRequestException('File ảnh bìa không hợp lệ hoặc bị rỗng.');
+      throw new BadRequestException(`File ${label} không hợp lệ hoặc bị rỗng.`);
     }
 
     if (
       file.size > MAX_THUMBNAIL_SIZE ||
       file.buffer.length > MAX_THUMBNAIL_SIZE
     ) {
-      throw new BadRequestException('Ảnh bìa không được vượt quá 10 MB.');
+      throw new BadRequestException(`${Label} không được vượt quá 10 MB.`);
     }
 
     const detectedType = detectThumbnailType(file.buffer);
 
     if (!detectedType) {
       throw new BadRequestException(
-        'Ảnh bìa chỉ hỗ trợ file JPEG, PNG hoặc WEBP hợp lệ.',
+        `${Label} chỉ hỗ trợ file JPEG, PNG hoặc WEBP hợp lệ.`,
       );
     }
 
@@ -338,7 +350,7 @@ export class BlogownerPostHelperService {
 
     if (!allowedType.mimeTypes.some((mimeType) => mimeType === file.mimetype)) {
       throw new BadRequestException(
-        'MIME type của ảnh bìa không khớp với nội dung file thực tế.',
+        `MIME type của ${label} không khớp với nội dung file thực tế.`,
       );
     }
 
@@ -348,9 +360,19 @@ export class BlogownerPostHelperService {
       )
     ) {
       throw new BadRequestException(
-        'Phần mở rộng ảnh bìa không khớp với định dạng file thực tế.',
+        `Phần mở rộng ${label} không khớp với định dạng file thực tế.`,
       );
     }
+  }
+
+  /** Validate ảnh bìa trước khi tạo/update Post. */
+  validateThumbnailFile(file: Express.Multer.File): void {
+    this.validateImageFile(file, 'ảnh bìa');
+  }
+
+  /** Validate ảnh chèn vào nội dung bài viết (Quill editor). */
+  validateContentImageFile(file: Express.Multer.File): void {
+    this.validateImageFile(file, 'ảnh nội dung');
   }
 
   /** Upload thumbnail đã được validate lên Cloudinary. */

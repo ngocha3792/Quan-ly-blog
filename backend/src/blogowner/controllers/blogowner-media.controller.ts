@@ -46,6 +46,28 @@ export class BlogownerMediaController {
   }
 
   /**
+   * Upload ảnh chèn vào nội dung bài viết (nút "image" trên Quill).
+   *
+   * Không cần :postId — dùng được cả lúc đang soạn bài MỚI (bài chưa
+   * có id). Trả về { url } để frontend tự insertEmbed vào editor.
+   *
+   * POST /api/v1/blog-owner/posts/content-image
+   */
+  @Post('content-image')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
+  uploadContentImage(
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.blogownerMediaService.uploadContentImage(file);
+  }
+
+  /**
    * Xóa media khỏi bài viết.
    *
    * DELETE /api/v1/blog-owner/posts/:postId/media/:mediaId
