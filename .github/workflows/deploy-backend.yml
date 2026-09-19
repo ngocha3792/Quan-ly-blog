@@ -157,7 +157,12 @@ jobs:
           REMOTE
 
       - name: Smoke test domain công khai (lớp kiểm tra thứ hai, ngoài VPS)
+        # --retry-all-errors: chịu được DNS resolver của runner GitHub bị
+        # trục trặc vãng lai (đã gặp thật 2026-09-19 — deploy trên VPS
+        # thành công, site trả 200 khi curl từ máy khác, nhưng step này
+        # vẫn báo fail vì "Resolving timed out" ngay trên runner GitHub).
         run: |
-          curl --fail --max-time 10 "https://blogy.id.vn/api/v1/health/live"
-          curl --fail --max-time 10 "https://blogy.id.vn/api/v1/health/ready"
-          curl --fail --max-time 10 "https://blogy.id.vn/api/v1/posts?limit=1"
+          CURL_RETRY="--retry 3 --retry-delay 2 --retry-all-errors"
+          curl --fail --max-time 10 $CURL_RETRY "https://blogy.id.vn/api/v1/health/live"
+          curl --fail --max-time 10 $CURL_RETRY "https://blogy.id.vn/api/v1/health/ready"
+          curl --fail --max-time 10 $CURL_RETRY "https://blogy.id.vn/api/v1/posts?limit=1"
