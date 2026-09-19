@@ -1,6 +1,6 @@
 # PHÂN CHIA CÔNG VIỆC — HOÀNG
 
-> Phạm vi phụ trách: `libs/core`, `src/admin`, `src/user`, `src/public` của backend dự án **Quản lý Blog**.
+> Phạm vi phụ trách: `libs/core`, `src/admin`, `src/user`, `src/public` của backend, và toàn bộ hạ tầng triển khai (CI/CD, blue-green, script vận hành VPS) dự án **Quản lý Blog**.
 
 ## 1. Thông tin tài liệu
 
@@ -8,7 +8,7 @@
 |---|---|
 | Thành viên | Hoàng |
 | Vai trò đề xuất | Backend Developer — Core Platform, Public/User/Admin APIs |
-| Phạm vi chính | Nền tảng dùng chung, xác thực, người dùng, API công khai và quản trị hệ thống |
+| Phạm vi chính | Nền tảng dùng chung, xác thực, người dùng, API công khai, quản trị hệ thống và hạ tầng triển khai (CI/CD, blue-green, VPS) |
 | Công nghệ | NestJS 11, TypeScript, Prisma 7, PostgreSQL |
 | Ngày rà soát | 19/09/2026 |
 | Căn cứ đánh giá | Source hiện tại và phạm vi thư mục được xác nhận Hoàng phụ trách |
@@ -67,7 +67,7 @@ flowchart LR
 | Thành phần | Công việc đã thực hiện | Giá trị mang lại |
 |---|---|---|
 | `JwtAuthGuard` | Đọc Bearer access token, xác minh JWT, đọc lại user từ database, chặn tài khoản bị khóa hoặc xóa | Không chỉ tin vào dữ liệu cũ trong token; trạng thái tài khoản được áp dụng ngay |
-| `RolesGuard` | Đọc metadata từ `@Roles()` và kiểm tra role chính xác | Phân quyền rõ ràng theo controller/route |
+| `RolesGuard` | Đọc metadata từ `@Roles()` và so khớp theo **trọng số vai trò** (`RoleHierarchy`), không phải khớp chính xác — vai trò cao hơn tự kế thừa quyền của vai trò thấp hơn | Phân quyền rõ theo controller/route, cho phép Moderator/Super Admin xử lý sự vụ mà không cần cấp thêm role thủ công; chi tiết và các hệ quả cần lưu ý ở `ROLE_AND_PERMISSION_MATRIX.md` |
 | Decorator | Tạo `@CurrentUser`, `@Public`, `@Roles`, `@Pagination`, `@LangCode` | Giảm mã lặp trong controller |
 | Validation từ cấm | Chuẩn hóa Unicode và kiểm tra từ cấm theo ranh giới từ | Hạn chế false positive như chặn `admin` vì chứa `dm` |
 | `TrimPipe` | Trim đệ quy string trong request body | Chuẩn hóa đầu vào trước validation/nghiệp vụ |
@@ -299,3 +299,44 @@ Triển khai **16 endpoint Admin**, phục vụ thống kê, cấu hình hệ th
 - Soft-delete user.
 - Không cho admin tự khóa, tự đổi role hoặc tự xóa.
 - Không cho tác động tới Super Admin khác và bảo vệ Super Admin cuối cùng.
+
+---
+
+## 7. Công việc đã thực hiện ở hạ tầng triển khai (CI/CD, Blue-Green, VPS)
+
+Ngoài phần code API, Hoàng là người trực tiếp xây dựng và vận hành toàn bộ pipeline triển khai — xác nhận qua `git log`: 16/18 commit chạm vào `backend/scripts/`, `.github/workflows/deploy-backend.yml`, `compose.shared.yml`, `compose.slot.yml` là của Hoàng.
+
+### 7.1. Pipeline CI/CD (`.github/workflows/deploy-backend.yml`)
+
+Chạy 3 job tuần tự khi push vào `develop` có chạm `backend/**`, job sau chỉ chạy nếu job trước pass — không có bản lỗi nào lên production:
+
+1. **`ci`**: `npm ci` → `prisma generate` → `npm run lint` → `npm test` → `npm run build` → `prisma validate`.
+2. **`build-push`**: build 2 Docker image (production + migration) bằng multi-stage Dockerfile, push lên GHCR với tag là **commit SHA** (không dùng `:latest`, tránh mơ hồ image nào đang chạy).
+3. **`deploy`**: SSH vào VPS, đóng gói và gửi `compose.shared.yml`/`compose.slot.yml`/`docker/`/`scripts/` sang server, chạy `deploy-blue-green.sh <sha> <commit_epoch>` dưới `flock` (chống 2 lần deploy chạy song song), rồi smoke-test trực tiếp domain thật (`blogy.id.vn/api/v1/health/live`, `/health/ready`, `/posts?limit=1`) như một lớp kiểm tra độc lập ngoài VPS.
+
+### 7.2. Script triển khai Blue-Green (`backend/scripts/`)
+
+| Script | Vai trò |
+|---|---|
+| `deploy-blue-green.sh` | Điều phối chính: build slot mới (blue hoặc green, xen kẽ với slot đang chạy), chạy migration, healthcheck slot mới trước khi chuyển traffic, ghi nhận release |
+| `lib/blue-green-common.sh` | Hàm dùng chung: đọc/ghi file release (`color sha commit_epoch`), `is_older_commit()` để so sánh commit theo thời gian |
+| `switch-slot.sh` | Đổi symlink Nginx upstream sang slot mới sau khi slot đó healthy |
+| `rollback.sh` | Quay lại slot trước đó khi slot mới có vấn đề sau khi đã nhận traffic |
+| `cleanup-images.sh` | Xóa Docker image cũ trên VPS để tránh đầy ổ đĩa |
+| `backup-postgres.sh` / `restore-postgres.sh` | Sao lưu/khôi phục database định kỳ |
+| `smoke-test.sh` | Kiểm tra nhanh các endpoint trọng yếu ngay trên VPS trước khi chuyển traffic |
+| `renew-cert.sh` | Gia hạn chứng chỉ TLS |
+
+**Chặn race điều kiện triển khai (sự cố thật, 2026-09-08)**: hai lần push gần nhau khiến job deploy của commit cũ chạy sau và đè lên bản mới hơn, dù cả hai GitHub Actions run đều báo *Success*. Khắc phục bằng cách CI tính `COMMIT_EPOCH` (thời điểm commit) và truyền cho `deploy-blue-green.sh`; script tự bỏ qua nếu phát hiện một bản mới hơn hoặc bằng đã được deploy trước đó (`is_older_commit()`). Chi tiết ở `DEPLOYMENT.md` mục 9.
+
+### 7.3. Cấu hình Docker Compose (`compose.shared.yml`, `compose.slot.yml`)
+
+- Tách `compose.shared.yml` (thành phần chạy dài hạn: Nginx, PostgreSQL, Redis, LibreTranslate, autoheal, frontend) khỏi `compose.slot.yml` (template slot API + migration theo màu, tạo mới ở mỗi lần deploy).
+- Thêm service Redis (giới hạn bộ nhớ `--maxmemory 200mb --maxmemory-policy noeviction`) phục vụ hàng đợi dịch nền BullMQ.
+- Thêm `willfarrell/autoheal` giám sát healthcheck và tự khởi động lại container hỏng thật; tinh chỉnh ngưỡng healthcheck của LibreTranslate (`interval: 30s, timeout: 10s, retries: 40`) sau sự cố autoheal giết nhầm job dịch dài đang chạy bình thường (không phải service chết) — xem `DEPLOYMENT.md` mục 8.
+- Thêm `stop_grace_period: 15m` cho service `api` để job dịch đang chạy dở kịp hoàn thành khi container bị thay thế lúc deploy, thay vì bị ngắt giữa chừng.
+
+### 7.4. Sự cố sản xuất đã xử lý trực tiếp trên VPS
+
+- **Migration chặn deploy do BOM UTF-8**: file migration `.sql` dính byte-order-mark khi tạo trên Windows khiến Postgres báo lỗi cú pháp (`P3018`); xử lý bằng cách strip BOM, chuẩn hóa CRLF→LF, thêm `*.sql text eol=lf` vào `.gitattributes`, và chạy `prisma migrate resolve --rolled-back` trên production để gỡ bản ghi migration lỗi còn treo.
+- **502 Bad Gateway do Nginx cache DNS cũ**: sau khi frontend container được recreate, Nginx vẫn trỏ tới IP container cũ; xử lý bằng cách thêm bước `nginx -s reload` tường minh sau mỗi lần recreate.
