@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PostStatus } from '@prisma/client';
 
-import { MediaService, PrismaService } from '@app/core';
+import { CloudinaryService, MediaService, PrismaService } from '@app/core';
 
 import { BlogownerPostHelperService } from './blogowner-post-helper.service';
 
@@ -17,7 +17,35 @@ export class BlogownerMediaService {
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
     private readonly helper: BlogownerPostHelperService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
+
+  /**
+   * Upload ảnh chèn vào nội dung bài viết (Quill editor).
+   *
+   * Cố tình KHÔNG gắn với postId hay group nào — lúc Blog Owner đang
+   * gõ bài MỚI thì bài chưa hề tồn tại trong DB (chưa có id), nên
+   * không thể tái dùng endpoint `:postId/media` (gắn Media vào 1 Post
+   * cụ thể, khóa cả group theo trạng thái). Ảnh nội dung không cần
+   * một bản ghi Media riêng — nó chỉ là URL nằm trong `content` HTML,
+   * giống hệt cách thumbnail hoạt động.
+   */
+  async uploadContentImage(file: Express.Multer.File) {
+    this.helper.validateContentImageFile(file);
+
+    try {
+      const result = await this.cloudinary.uploadFile(
+        file,
+        'nestjs_blog/posts/content',
+      );
+
+      return { url: result.secure_url };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Lỗi không xác định';
+      throw new BadRequestException(`Lỗi khi upload ảnh nội dung: ${message}`);
+    }
+  }
 
   /**
    * Upload media cho POST GROUP của Blog Owner.
