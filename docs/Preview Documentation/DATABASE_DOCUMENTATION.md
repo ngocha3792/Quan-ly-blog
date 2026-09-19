@@ -13,12 +13,15 @@
 | Schema chính | `database/schema.prisma` |
 | Migration | `database/migrations` |
 | Seed | `database/seed.ts` |
-| Số Prisma model | 20 |
+| Số Prisma model trong schema | 20 |
+| Số model được tài liệu hóa chi tiết trong tài liệu này | 19 |
 | Số enum nghiệp vụ đang dùng | 8 |
 | Kiểu khóa chính chủ đạo | `Int` tự tăng / PostgreSQL `SERIAL` |
 | Quy ước tên Prisma | `camelCase` |
 | Quy ước tên database | `snake_case` qua `@map` và `@@map` |
-| Ngày rà soát source | 30/07/2026 |
+| Ngày rà soát source | 19/09/2026 |
+
+> **Về model `SecurityLog`**: tồn tại trong `schema.prisma` (nên tổng schema vẫn là 20 model), nhưng `SecurityLogsModule`/`SecurityLogsService` **chưa được import ở bất kỳ module nào khác** trong toàn bộ source — không controller, không service nào gọi tới để ghi log khi có sự kiện bảo mật thật (đăng nhập sai, khóa tài khoản, đổi role...). Đây là tính năng **chưa thực sự phát triển**, chỉ mới có scaffold (entity, DTO, service CRUD cơ bản), nên tài liệu này **không đưa `SecurityLog` vào** phần mô tả domain/ERD/quan hệ bên dưới — tránh để người đọc hiểu nhầm đây là một phần đang hoạt động của hệ thống.
 
 
 ---
@@ -83,11 +86,11 @@ số instance × pool max mỗi instance + connection từ migration/monitoring
 
 ## 3. Tổng quan domain dữ liệu
 
-20 model được chia thành sáu nhóm.
+19 model đang thực sự được dùng trong luồng nghiệp vụ, chia thành sáu nhóm (không tính `SecurityLog` — xem ghi chú ở mục 1).
 
 | Domain | Model |
 |---|---|
-| Identity và bảo mật | `User`, `UserSession`, `PasswordResetToken`, `SecurityLog` |
+| Identity và bảo mật | `User`, `UserSession`, `PasswordResetToken` |
 | Phân quyền nghiệp vụ | `BlogOwnerRequest` |
 | Phân loại và đa ngôn ngữ | `Language`, `CategoryGroup`, `Category` |
 | Nội dung | `Post`, `PostCategory`, `Media`, `Tag`, `PostTag` |
@@ -201,7 +204,6 @@ erDiagram
     USER ||--o{ POST_BOOKMARK : bookmarks
     USER ||--o{ BLOG_OWNER_REQUEST : requests
     USER ||--o{ REPORT : reports
-    USER ||--o{ SECURITY_LOG : generates
 
     LANGUAGE ||--o{ CATEGORY : localizes
     LANGUAGE ||--o{ POST : localizes
@@ -312,7 +314,6 @@ Các field dùng PostgreSQL `TEXT`:
 - `Comment.content`
 - `Report.description`
 - `Report.resolutionNote`
-- `SecurityLog.userAgent`
 
 ---
 
@@ -852,20 +853,20 @@ Unique `(post_id, metric_date)` bảo đảm một dòng cho mỗi bài/ngày. I
 
 ### 26.1. Vai trò
 
-- `Post.viewCount`: tổng đếm nhanh.
-- `PostDailyMetric.viewCount`: chuỗi thời gian theo ngày.
+- `Post.viewCount`: đếm nhanh, nhưng chỉ là view của **đúng bản ghi đó** (một phiên bản ngôn ngữ cụ thể) — số hiển thị cho người đọc (`GET /posts/:id`) là tổng cộng dồn của `viewCount` trên toàn bộ nhóm ngôn ngữ (root + các bản dịch), tính bằng một aggregate query riêng tại thời điểm đọc, không lưu sẵn thành cột tổng.
+- `PostDailyMetric.viewCount`: chuỗi thời gian theo ngày, cộng dồn cùng lúc với `Post.viewCount` trong cùng transaction khi ghi một lượt xem hợp lệ.
 - `PostDailyMetric.likeCount`: tương tác like theo ngày.
 
 
 ## 27. Model `PostViewLog`
 
-Lưu lượt xem gần nhất theo `viewerKey` để giới hạn một lượt xem hợp lệ trong khoảng thời gian.
+Lưu lượt xem gần nhất theo `viewerKey` để giới hạn một lượt xem hợp lệ trong khoảng thời gian — dùng cho endpoint riêng `POST /posts/:id/view` (không còn ghi tự động khi đọc chi tiết bài, xem `BUSINESS_WORKFLOWS.md` WF-05).
 
 | Field | Kiểu | Null | Ghi chú |
 |---|---|---:|---|
 | `id` | `Int` | Không | PK |
-| `postId` | `Int` | Không | FK cascade |
-| `viewerKey` | `String @db.VarChar(128)` | Không | User/session/IP-derived key |
+| `postId` | `Int` | Không | FK cascade — **là ID của đúng bản ghi/ngôn ngữ được xem**, không tự quy về bài gốc |
+| `viewerKey` | `String @db.VarChar(128)` | Không | Suy ra từ `userId` (đã đăng nhập) hoặc `visitorId` do frontend tự sinh (khách) — không còn dựa theo IP |
 | `viewedAt` | `DateTime` | Không | `now()` |
 
 Index:
@@ -875,7 +876,7 @@ Index:
 viewed_at
 ```
 
-Source dùng log để giới hạn một view trong khoảng 30 phút.
+Giới hạn một lượt view hợp lệ cho cùng `(postId, viewerKey)` trong khoảng **10 phút** (thiết kế lại 2026-09-10 — trước đó là 5 phút, tính theo IP, ghi kiểu fire-and-forget ngay trong `GET /posts/:id`). Nay việc ghi chạy trong một transaction mức Serializable, có tự thử lại khi xung đột.
 
 
 ## 28. Ma trận quan hệ và hành vi xóa
@@ -888,7 +889,6 @@ Source dùng log để giới hạn một view trong khoảng 30 phút.
 | User → Comment | Cascade | Hard-delete user xóa comment |
 | User → Like/Bookmark/Follow | Cascade | Xóa tương tác liên quan |
 | User → Report (reporter) | Cascade | Có thể mất lịch sử report |
-| User → SecurityLog | SetNull | Giữ log, ẩn user |
 | Language → Post/Category | Restrict | Không xóa khi còn tham chiếu |
 | CategoryGroup → Category | Restrict | Không xóa khi còn bản dịch |
 | Post → các bảng con | Cascade | Xóa sạch dữ liệu nội dung con |
@@ -939,7 +939,6 @@ Sau đó kiểm tra `count === 1`. Đây là optimistic claim phù hợp để c
 | `users` | unique username, unique email, role, status |
 | `user_sessions` | unique refresh token hash, user ID, expires at |
 | `password_reset_tokens` | unique token hash, user ID, expires at |
-| `security_logs` | user ID, action, created at |
 
 ### 30.2. Content và taxonomy
 

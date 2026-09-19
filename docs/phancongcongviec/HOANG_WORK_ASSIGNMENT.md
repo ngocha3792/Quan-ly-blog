@@ -10,7 +10,7 @@
 | Vai trò đề xuất | Backend Developer — Core Platform, Public/User/Admin APIs |
 | Phạm vi chính | Nền tảng dùng chung, xác thực, người dùng, API công khai và quản trị hệ thống |
 | Công nghệ | NestJS 11, TypeScript, Prisma 7, PostgreSQL |
-| Ngày rà soát | 30/07/2026 |
+| Ngày rà soát | 19/09/2026 |
 | Căn cứ đánh giá | Source hiện tại và phạm vi thư mục được xác nhận Hoàng phụ trách |
 
 
@@ -18,7 +18,7 @@
 
 ## 2. Tổng quan phần việc
 
-Phụ trách lớp nền tảng và ba nhóm API phục vụ phần lớn hoạt động của hệ thống. Phần mã này không chỉ cung cấp **57 endpoint Public/User/Admin**, mà còn tạo ra các domain service dùng chung cho Blog Owner và Moderator.
+Phụ trách lớp nền tảng và ba nhóm API phục vụ phần lớn hoạt động của hệ thống. Phần mã này không chỉ cung cấp **60 endpoint Public/User/Admin**, mà còn tạo ra các domain service dùng chung cho Blog Owner và Moderator.
 
 ### 2.1. Vai trò của phần việc trong kiến trúc
 
@@ -27,7 +27,7 @@ flowchart LR
     CLIENT[Web / Mobile Client]
 
     subgraph API[API do Hoàng phụ trách]
-        PUBLIC[src/public\n13 endpoint]
+        PUBLIC[src/public\n16 endpoint]
         USER[src/user\n28 endpoint]
         ADMIN[src/admin\n16 endpoint]
     end
@@ -75,6 +75,8 @@ flowchart LR
 | Exception filters | Chuẩn hóa lỗi HTTP và ánh xạ lỗi Prisma phổ biến | Giảm phụ thuộc của frontend vào lỗi mặc định của framework/database |
 | Middleware | Ghi log request và hỗ trợ maintenance mode | Hỗ trợ theo dõi vận hành và tạm dừng hệ thống |
 | Custom exceptions | Tách lỗi auth, user, post, comment, category, language, tag và system | Message nghiệp vụ rõ hơn, service dễ đọc hơn |
+| `ThrottlerModule`/`ThrottlerGuard` | Bật rate limiting toàn cục ở `app.module.ts` (`@nestjs/throttler`), route nào cần miễn trừ dùng `@Throttle()` | Chống spam/tấn công brute-force ở tầng framework, không phải tự viết tay |
+| `HealthController` | Endpoint `health/live`, `health/ready` cho readiness/liveness probe | Cho phép Nginx và các script deploy kiểm tra API còn sống trước khi nhận traffic |
 
 ## 3.2. Xây dựng lớp cấu hình và hạ tầng
 
@@ -91,7 +93,7 @@ flowchart LR
 
 ## 3.3. Xây dựng các domain module dùng chung
 
-`libs/core` hiện chứa 14 nhóm module nghiệp vụ/hạ tầng:
+`libs/core` hiện chứa 15 nhóm module nghiệp vụ/hạ tầng do Hoàng phụ trách (không tính module `translation` — tích hợp LibreTranslate do Sơn xây dựng, dù cũng nằm trong `libs/core`):
 
 | Module | Nội dung Hoàng đã triển khai |
 |---|---|
@@ -109,6 +111,7 @@ flowchart LR
 | `mail` | Email khôi phục mật khẩu |
 | `security-logs` | Cấu trúc service, DTO và entity cho nhật ký bảo mật |
 | `cleanup` | Cron dọn dữ liệu soft-delete quá 30 ngày |
+| `health` | Endpoint kiểm tra sống/sẵn sàng phục vụ deploy blue-green |
 
 ## 3.4. Xử lý xác thực và phiên đăng nhập
 
@@ -140,7 +143,7 @@ Các công việc nổi bật:
 
 ## 4. Công việc đã thực hiện trong `src/public`
 
-Triển khai **13 endpoint Public**, phục vụ người dùng chưa đăng nhập và nội dung công khai.
+Triển khai **16 endpoint Public**, phục vụ người dùng chưa đăng nhập và nội dung công khai.
 
 ## 4.1. Xác thực công khai
 
@@ -155,20 +158,32 @@ Triển khai **13 endpoint Public**, phục vụ người dùng chưa đăng nh�
 - Danh sách bài đã xuất bản với filter theo search, category, ngôn ngữ, tác giả, tag và pagination.
 - Luôn ép trạng thái về `PUBLISH`, tránh client lợi dụng query để đọc draft/rejected post.
 - Xem chi tiết bài và tự tìm bản dịch cùng nhóm bài khi có `lang`/`Accept-Language`.
-- Ghi nhận lượt xem theo IP với cửa sổ chống trùng 5 phút.
-- Tăng `viewCount` theo atomic increment.
 - Trả author, language, category, tag, media và like count theo public entity.
+- `viewCount` trả về cho client luôn là **tổng của cả nhóm ngôn ngữ** (bài gốc + mọi bản dịch), không phải riêng bản đang đọc — để người đọc chuyển ngôn ngữ không thấy view "biến mất" (đã sửa 2026-09-10 sau khi phát hiện bug thật khi refactor tính năng dịch nền, xem `DEPLOYMENT.md` mục 10b và 8).
+
+### Ghi nhận lượt xem — endpoint riêng (`POST /posts/:id/view`)
+
+Thiết kế lại 2026-09-10 cùng lúc với tính năng dịch nền (BullMQ) — trước đó lượt xem được ghi ngay trong `GET /posts/:id`, giờ tách thành một endpoint riêng do frontend chủ động gọi sau khi xác nhận người đọc thật sự đã xem bài (qua khoảng thời gian đọc hợp lệ), tránh tính view giả từ bot/prefetch:
+
+- `postId` trong request là **đúng phiên bản ngôn ngữ đang đọc** (không tự quy về bài gốc) — `viewCount` của đúng bản ghi đó được tăng lên.
+- Định danh người xem (`viewerKey`) dựa trên `userId` (nếu đã đăng nhập) hoặc `visitorId` do frontend tự sinh (khách chưa đăng nhập) — không còn dùng IP như thiết kế cũ, tránh nhiều người dùng chung mạng/NAT bị tính gộp làm một.
+- Chống tính trùng: cùng một viewer, cùng một bản ghi, trong vòng **10 phút** (trước là 5 phút) chỉ tính một lượt xem.
+- Ghi đồng thời vào bảng thống kê theo ngày (`PostDailyMetric`) trong cùng transaction với việc tăng `viewCount`, đảm bảo hai số liệu luôn khớp nhau.
+- Dùng transaction mức `Serializable` kèm cơ chế tự thử lại khi có xung đột — chống trường hợp nhiều tab/request cùng lúc từ một người vẫn bị tính trùng.
 
 ## 4.3. Xếp hạng nội dung
-Triển khai truy vấn xếp hạng bài viết và tag nổi bật dựa trên:
 
-- Lượt xem.
-- Lượt thích.
-- Bình luận.
-- Bookmark.
-- Độ mới của bài viết.
+Triển khai truy vấn xếp hạng bài viết nổi bật (`GET /posts/top`), tính điểm theo công thức:
 
-Điểm số giảm dần theo thời gian, giúp bài mới có khả năng cạnh tranh nhưng vẫn giữ được bài có tương tác tốt.
+```
+điểm = (0.05 × lượt xem + 2 × lượt thích + 5 × bình luận + 3 × bookmark)
+       ÷ (số giờ kể từ khi đăng + 2) ^ 1.3
+```
+
+- Mẫu số tăng theo thời gian khiến điểm giảm dần — bài mới vẫn có cơ hội cạnh tranh, nhưng bài cũ có tương tác thật sự tốt không bị loại ngay.
+- Chỉ xét các bài đăng trong **90 ngày gần nhất** làm ứng viên xếp hạng, tránh phải quét toàn bộ lịch sử hàng trăm nghìn bài mỗi lần tính.
+- Kết quả được cache **2 phút trong bộ nhớ** theo từng ngôn ngữ — nhiều request liên tiếp không phải tính lại truy vấn nặng.
+- Tag nổi bật (`GET /tags/top`) xếp hạng theo số lượt dùng.
 
 ## 4.4. Tác giả, danh mục, tag và bình luận
 

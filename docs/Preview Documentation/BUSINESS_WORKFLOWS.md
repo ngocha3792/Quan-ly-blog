@@ -12,10 +12,10 @@
 | ORM | Prisma 7 |
 | Cơ sở dữ liệu | PostgreSQL |
 | Base URL mặc định | `/api/v1` |
-| Ngày rà soát source | 30/07/2026 |
+| Ngày rà soát source | 19/09/2026 |
 | Phạm vi | Public, User, Blog Owner, Moderator, Admin và tác vụ nền |
 | Tổng số nhóm API | 5 |
-| Tổng số endpoint trong source | 83 |
+| Tổng số endpoint trong source | 92 |
 | Mục tiêu sử dụng | Phân tích nghiệp vụ, phát triển frontend, kiểm thử, nghiệm thu và bảo trì |
 
 ---
@@ -211,7 +211,7 @@ Khi report được `RESOLVED`:
 | WF-02 | Đăng nhập và tạo session | Khách/User | Nhận access token và refresh token |
 | WF-03 | Làm mới token và đăng xuất | User | Cấp access token mới hoặc revoke session |
 | WF-04 | Quên và đặt lại mật khẩu | User | Đổi password, revoke toàn bộ session |
-| WF-05 | Khám phá và đọc nội dung công khai | Khách/User | Nhận bài `PUBLISH`, ghi nhận lượt xem |
+| WF-05 | Khám phá và đọc nội dung công khai | Khách/User | Nhận bài `PUBLISH` (view hiển thị = tổng cả nhóm ngôn ngữ); ghi lượt xem qua endpoint riêng |
 | WF-06 | Quản lý hồ sơ và avatar | User | Cập nhật hoặc xóa mềm tài khoản |
 | WF-07 | Follow và unfollow | User | Tạo hoặc xóa quan hệ theo dõi |
 | WF-08 | Like và bookmark | User | Ghi hoặc bỏ tương tác với bài public |
@@ -219,8 +219,8 @@ Khi report được `RESOLVED`:
 | WF-10 | Gửi report | User | Tạo report `PENDING` |
 | WF-11 | Gửi và quản lý yêu cầu Blog Owner | User | Tạo, xem hoặc hủy request |
 | WF-12 | Duyệt yêu cầu Blog Owner | Admin/Moderator | Đổi trạng thái request và có thể đổi role |
-| WF-13 | Soạn và quản lý bài viết | Blog Owner | Tạo, sửa, xóa và gửi kiểm duyệt |
-| WF-14 | Quản lý media và bản dịch | Blog Owner | Upload media, tạo preview hoặc bản dịch `DRAFT` |
+| WF-13 | Soạn và quản lý bài viết | Blog Owner | Tạo, sửa, xóa, gửi kiểm duyệt — nếu chọn ngôn ngữ dịch, tự động đưa vào hàng đợi dịch nền |
+| WF-14 | Quản lý media, xem trước dịch và theo dõi hàng đợi dịch nền | Blog Owner | Upload media, xem trước bản dịch, theo dõi tiến độ batch dịch |
 | WF-15 | Kiểm duyệt bài viết | Moderator | `PENDING_REVIEW` → `PUBLISH` hoặc `REJECT` |
 | WF-16 | Xử lý report | Moderator | Ẩn target hoặc bác report |
 | WF-17 | Quản lý danh mục đa ngôn ngữ | Moderator | CRUD Category Group và translations |
@@ -466,15 +466,16 @@ Khách hoặc mọi role.
 ### Endpoint chính
 
 ```http
-GET /api/v1/posts
-GET /api/v1/posts/top
-GET /api/v1/posts/:id
-GET /api/v1/authors/top
-GET /api/v1/authors/:id
-GET /api/v1/categories
-GET /api/v1/tags
-GET /api/v1/tags/top
-GET /api/v1/posts/:postId/comments
+GET  /api/v1/posts
+GET  /api/v1/posts/top
+GET  /api/v1/posts/:id
+POST /api/v1/posts/:id/view
+GET  /api/v1/authors/top
+GET  /api/v1/authors/:id
+GET  /api/v1/categories
+GET  /api/v1/tags
+GET  /api/v1/tags/top
+GET  /api/v1/posts/:postId/comments
 ```
 
 ### Luồng danh sách bài viết
@@ -498,12 +499,21 @@ GET /api/v1/posts/:postId/comments
    - tìm bản dịch `PUBLISH` cùng nhóm;
    - nếu có thì trả bản dịch;
    - nếu không có thì giữ bài đang xem.
-4. Backend trả bài cho client.
-5. Tác vụ ghi view chạy theo kiểu fire-and-forget.
-6. Backend chống trùng view theo `postId + viewerKey` trong 5 phút.
-7. Nếu chưa có log gần đây:
-   - tăng `viewCount`;
-   - tạo `post_view_logs`.
+4. `viewCount` trả về **luôn là tổng của cả nhóm ngôn ngữ** (bài gốc + mọi bản dịch), tính bằng một aggregate riêng — không phải view thô của đúng bản ghi đang đọc, để người đọc chuyển ngôn ngữ không thấy số lượt xem "biến mất" (bug thật đã gặp và sửa 2026-09-10 khi refactor sang ghi view bất đồng bộ, xem `DEPLOYMENT.md`).
+5. Backend trả bài cho client. **Endpoint này không còn tự ghi lượt xem** — xem luồng riêng bên dưới.
+
+### Luồng ghi nhận lượt xem — `POST /posts/:id/view` (endpoint riêng, tách khỏi luồng đọc bài)
+
+Thiết kế lại 2026-09-10 cùng đợt thêm hàng đợi dịch nền: trước đó ghi view ngay khi gọi chi tiết bài (fire-and-forget, theo IP, cửa sổ 5 phút) — giờ chuyển hẳn sang endpoint riêng do frontend chủ động gọi sau khi xác nhận người đọc đã thực sự xem bài (qua thời gian đọc hợp lệ), tránh tính view giả từ bot/prefetch.
+
+1. Client gửi `postId` **đúng phiên bản ngôn ngữ đang đọc** (không tự quy về bài gốc) kèm `visitorId` (nếu khách) trong body.
+2. Backend xác định `viewerKey` từ `userId` (đã đăng nhập, đọc từ access token nếu có) hoặc `visitorId` (khách) — không còn dùng IP.
+3. Backend chống trùng theo `(postId, viewerKey)` trong cửa sổ **10 phút** (trước là 5 phút).
+4. Nếu chưa có log gần đây, trong **một transaction** (mức Serializable, tự thử lại khi xung đột):
+   - tăng `viewCount` của đúng bản ghi (`postId` trong request, không phải bài gốc);
+   - tạo `post_view_logs`;
+   - cập nhật `PostDailyMetric` của ngày hiện tại.
+5. Nếu thiếu cấu hình khóa bí mật cho viewer key, backend trả `counted: false` kèm viewCount hiện tại thay vì lỗi — không làm hỏng trải nghiệm đọc bài.
 
 ### Luồng bài nổi bật
 
@@ -859,6 +869,7 @@ POST   /api/v1/blog-owner/posts
 PATCH  /api/v1/blog-owner/posts/:id
 DELETE /api/v1/blog-owner/posts/:id
 POST   /api/v1/blog-owner/posts/:id/submit
+POST   /api/v1/blog-owner/posts/:id/translate-preview
 ```
 
 ### Actor
@@ -874,13 +885,13 @@ Chỉ `BLOG_OWNER`.
 
 ### Tạo bài
 
-1. Owner gửi title, content, language, category, tag và file tùy chọn.
+1. Owner gửi title, content, language, category, tag, file tùy chọn và (tùy chọn) `translationLanguageIds` — danh sách ngôn ngữ muốn tự động dịch kèm theo.
 2. `submitForReview` là business flag, không phải cột database.
-3. Backend luôn tạo bài `DRAFT` trước.
-4. Backend upload thumbnail.
-5. Backend upload media.
-6. Nếu `submitForReview = true`, chỉ sau khi upload hoàn tất mới chuyển bài sang `PENDING_REVIEW`.
-7. Cách làm này tránh Moderator thấy một bài đang chờ duyệt nhưng file chưa hoàn tất.
+3. Backend luôn tạo bài gốc `DRAFT` trước.
+4. Backend upload thumbnail, upload media.
+5. **Nếu `translationLanguageIds` rỗng** (không dịch): backend quyết định trạng thái ngay — `PENDING_REVIEW` nếu `submitForReview = true`, ngược lại giữ `DRAFT`. Response trả về ngay, không có `translationBatch`.
+6. **Nếu `translationLanguageIds` có giá trị** (thiết kế lại 2026-09-10, xem WF-14.3): backend **đưa vào hàng đợi nền (BullMQ)** một batch gồm N job dịch (một job/ngôn ngữ) và một job "tổng hợp" chạy sau khi toàn bộ job dịch hoàn tất. Request trả về **ngay lập tức** (không chờ dịch xong), kèm `translationBatch: { batchId, status }` để frontend theo dõi tiến độ (xem WF-14.4). Job "tổng hợp" chỉ chuyển cả group sang `PENDING_REVIEW` nếu `submitForReview = true` VÀ toàn bộ bản dịch đã tạo thành công.
+7. Cách làm này tránh Moderator thấy một bài đang chờ duyệt nhưng bản dịch/file chưa hoàn tất — đồng thời tránh chặn request chờ dịch xong (có thể mất 10-20 phút với bài dài, từng gây lỗi 502 thật trước khi có hàng đợi, xem `DEPLOYMENT.md`).
 
 ### Chỉnh sửa bài
 
@@ -897,6 +908,7 @@ Quy tắc bổ sung:
 - Khi sửa bài `REJECT` hoặc `PUBLISH`, review metadata được reset.
 - Thumbnail mới được upload trước; nếu cập nhật DB thất bại, backend cố cleanup file mới.
 - Thumbnail cũ chỉ được xóa sau khi DB đã trỏ sang thumbnail mới.
+- Cũng nhận `translationLanguageIds` giống lúc tạo bài — nếu gửi kèm, backend enqueue một batch dịch nền mới cho các ngôn ngữ chưa có bản dịch, theo đúng cơ chế mô tả ở phần "Tạo bài" (không chặn request chờ dịch xong).
 
 ### Gửi kiểm duyệt
 
@@ -919,19 +931,31 @@ sequenceDiagram
     participant OwnerAPI
     participant PostService
     participant Cloudinary
+    participant Queue as Hàng đợi BullMQ
+    participant Worker as Translation Worker
     participant DB as PostgreSQL
     actor Moderator
     participant ModeratorAPI
 
-    Owner->>OwnerAPI: POST /blog-owner/posts
+    Owner->>OwnerAPI: POST /blog-owner/posts (translationLanguageIds?)
     OwnerAPI->>PostService: create status=DRAFT
-    PostService->>DB: INSERT post DRAFT
+    PostService->>DB: INSERT post gốc DRAFT
     OwnerAPI->>Cloudinary: upload thumbnail/media
     Cloudinary-->>OwnerAPI: URLs
     OwnerAPI->>DB: UPDATE file URLs
 
-    alt Owner gửi duyệt ngay
-        OwnerAPI->>DB: UPDATE status=PENDING_REVIEW
+    alt Không chọn dịch
+        alt Owner gửi duyệt ngay
+            OwnerAPI->>DB: UPDATE status=PENDING_REVIEW
+        end
+        OwnerAPI-->>Owner: Trả bài (không có translationBatch)
+    else Có chọn ngôn ngữ dịch
+        OwnerAPI->>Queue: enqueue batch (N job dịch + 1 job tổng hợp)
+        OwnerAPI-->>Owner: Trả bài NGAY kèm translationBatch{batchId}
+        Note over Owner,Queue: Owner không phải chờ — worker xử lý phía sau
+        Worker->>DB: Tạo từng bản dịch (post con) khi dịch xong
+        Note over Worker,Queue: Job tổng hợp chạy khi mọi bản dịch xong
+        Worker->>DB: UPDATE status=PENDING_REVIEW cho cả group (nếu submitForReview)
     end
 
     Moderator->>ModeratorAPI: POST /moderator/posts/:id/approve
@@ -980,22 +1004,33 @@ Luồng:
 7. API trả title và content đã dịch để preview.
 8. Không tạo hoặc cập nhật post.
 
-### 14.3. Lưu bản dịch
+### 14.3. Tự động dịch và lưu bản dịch — qua hàng đợi nền (không còn endpoint lưu thủ công)
+
+> **Thay đổi lớn 2026-09-10**: endpoint `POST /blog-owner/posts/:id/translations` (lưu tay một bản dịch đã xác nhận) **đã bị xóa khỏi source** cùng với `translation.service.ts` cũ. Việc tạo bản dịch thật giờ **hoàn toàn tự động**, xảy ra như một phần của WF-13 (tạo/sửa bài với `translationLanguageIds`) — Owner không còn thao tác "xem preview rồi tự tay lưu từng bản dịch" nữa, chỉ chọn sẵn danh sách ngôn ngữ muốn dịch ngay lúc tạo/sửa bài, phần còn lại hàng đợi tự làm.
+
+Quy tắc khi worker tạo bản dịch (chạy nền, không phải trong request của Owner):
+
+1. `rootPostId` luôn xác định qua `parentPostId ?? sourcePost.id`.
+2. Mỗi ngôn ngữ chỉ có một phiên bản trong cùng nhóm dịch.
+3. Category được ánh xạ qua `CategoryGroup` sang ngôn ngữ đích, không dịch tên category.
+4. Tag được sao chép từ bài nguồn.
+5. Thumbnail kế thừa từ bài nguồn.
+6. Bài dịch luôn được tạo ở trạng thái `DRAFT` (chỉ cả group được chuyển `PENDING_REVIEW` sau khi job "tổng hợp" xác nhận mọi bản dịch đã xong, nếu Owner có chọn gửi duyệt).
+7. Nếu bản dịch cũ cùng ngôn ngữ đã soft-delete, worker khôi phục và tái sử dụng record đó thay vì tạo mới.
+8. Nếu một job dịch thất bại (lỗi kết nối LibreTranslate...), BullMQ tự thử lại tối đa 3 lần với backoff tăng dần trước khi đánh dấu job đó `FAILED` — batch vẫn tiếp tục xử lý các ngôn ngữ còn lại.
+
+### 14.4. Theo dõi tiến độ batch dịch
 
 ```http
-POST /api/v1/blog-owner/posts/:id/translations
+GET /api/v1/blog-owner/translation-batches/:batchId
 ```
 
-1. Owner gửi title/content đã xác nhận và `targetLanguageId`.
-2. Backend xác định `rootPostId = parentPostId ?? sourcePost.id`.
-3. Mỗi ngôn ngữ chỉ có một phiên bản trong cùng nhóm dịch.
-4. Category được ánh xạ qua `CategoryGroup`, không dịch tên category tại thời điểm tạo bài.
-5. Tag được sao chép từ bài nguồn.
-6. Thumbnail mặc định kế thừa từ bài nguồn nếu client không gửi URL khác.
-7. Bài dịch luôn được tạo ở trạng thái `DRAFT`.
-8. Nếu bản dịch cũ cùng ngôn ngữ đã soft-delete, backend khôi phục và tái sử dụng record đó.
+1. Owner truyền `batchId` nhận được từ response tạo/sửa bài (WF-13).
+2. Backend trả về trạng thái tổng của batch (`QUEUED`/`PROCESSING`/`COMPLETED`/`FAILED`) cùng tiến độ **từng ngôn ngữ riêng lẻ**.
+3. Frontend thường gọi lặp lại endpoint này (polling) cho tới khi batch `COMPLETED` hoặc `FAILED` để cập nhật giao diện.
+4. `batchId` chỉ thuộc về đúng Owner đã tạo — không xem được batch của người khác.
 
-### Sequence diagram bản dịch
+### Sequence diagram bản dịch (xem trước + dịch nền)
 
 ```mermaid
 sequenceDiagram
@@ -1003,20 +1038,24 @@ sequenceDiagram
     participant API as Blog Owner API
     participant DB as PostgreSQL
     participant Translate as Translation Service
+    participant Queue as Hàng đợi BullMQ
 
+    Note over Owner,Translate: Xem trước — vẫn đồng bộ, không ghi DB
     Owner->>API: POST translate-preview(targetLanguageId)
-    API->>DB: kiểm tra ownership và language
-    API->>DB: kiểm tra translation đã tồn tại
-    API->>DB: ánh xạ Category Group sang language đích
+    API->>DB: kiểm tra ownership, category group khớp ngôn ngữ đích
     API->>Translate: dịch title + content
     Translate-->>API: nội dung preview
     API-->>Owner: preview, chưa ghi DB
 
-    Owner->>API: POST translations(title, content)
-    API->>DB: kiểm tra lại toàn bộ điều kiện
-    API->>DB: INSERT/RESTORE post status=DRAFT
-    API->>DB: COPY tags + translated categories
-    API-->>Owner: bài dịch DRAFT
+    Note over Owner,Queue: Dịch thật — chạy nền, xem chi tiết ở WF-13
+    Owner->>API: POST /blog-owner/posts (translationLanguageIds)
+    API->>Queue: enqueue batch
+    API-->>Owner: trả ngay, kèm batchId
+
+    loop Owner chủ động hỏi lại tiến độ
+        Owner->>API: GET translation-batches/{batchId}
+        API-->>Owner: trạng thái từng ngôn ngữ
+    end
 ```
 
 ---
@@ -1155,7 +1194,9 @@ sequenceDiagram
 GET    /api/v1/moderator/category-groups
 GET    /api/v1/moderator/category-groups/:groupId
 POST   /api/v1/moderator/category-groups
+POST   /api/v1/moderator/category-groups/translate-preview
 PATCH  /api/v1/moderator/category-groups/:groupId
+DELETE /api/v1/moderator/category-groups/:groupId/translations/:languageId
 DELETE /api/v1/moderator/category-groups/:groupId
 ```
 
@@ -1197,6 +1238,25 @@ CategoryGroup: PROGRAMMING
 4. Nếu không được sử dụng:
    - soft-delete toàn bộ category translations;
    - soft-delete Category Group trong cùng transaction.
+
+### Dịch thử tên danh mục (mới)
+
+```http
+POST /api/v1/moderator/category-groups/translate-preview
+```
+
+- Moderator nhập tên danh mục ở một ngôn ngữ nguồn, chọn danh sách ngôn ngữ đích.
+- Backend gọi `LibreTranslateService` **đồng bộ, trực tiếp trong request** (khác với luồng dịch bài viết ở WF-14 — tên danh mục ngắn, không cần đưa vào hàng đợi).
+- Chỉ trả preview, **không ghi database** — Moderator xem gợi ý rồi tự chỉnh sửa trước khi thật sự tạo/cập nhật group.
+
+### Xóa một bản dịch riêng lẻ (mới)
+
+```http
+DELETE /api/v1/moderator/category-groups/:groupId/translations/:languageId
+```
+
+- Xóa mềm đúng một bản dịch (một ngôn ngữ) trong group, không xóa cả group.
+- Dùng khi Moderator chỉ muốn gỡ một ngôn ngữ không còn phù hợp mà vẫn giữ các ngôn ngữ khác.
 
 ---
 
@@ -1357,13 +1417,19 @@ Mỗi ngày lúc 00:00 theo timezone của process
 
 Các API dashboard không tạo trạng thái mới nhưng tổng hợp dữ liệu để actor ra quyết định.
 
+> Cập nhật 19/09/2026: cả dashboard Blog Owner lẫn Moderator đã được **tách nhỏ thành nhiều endpoint riêng** (thay vì một endpoint gộp tất cả) — mỗi phần dữ liệu (tổng quan, hoạt động, thống kê...) tải độc lập, giúp giao diện hiển thị phần nào xong trước thì hiện trước, không phải chờ toàn bộ dashboard tính xong mới hiện gì cả.
+
 ### 8.1. Blog Owner dashboard
 
 ```http
-GET /api/v1/blog-owner/dashboard
+GET /api/v1/blog-owner/dashboard/summary
+GET /api/v1/blog-owner/dashboard/activity
+GET /api/v1/blog-owner/dashboard/featured
 ```
 
-Dùng để tổng hợp số bài theo trạng thái, lượt xem và tương tác của các bài thuộc Owner.
+- `summary`: tổng số bài theo trạng thái, tổng lượt xem/tương tác của Owner.
+- `activity`: hoạt động gần đây (bài mới tạo, mới được duyệt/từ chối...).
+- `featured`: các bài nổi bật nhất của Owner theo lượt xem/tương tác.
 
 ### 8.2. Blog Owner options
 
@@ -1376,10 +1442,14 @@ Dùng để tải các language, category và tag hợp lệ cho form tạo/sử
 ### 8.3. Moderator dashboard
 
 ```http
-GET /api/v1/moderator/dashboard
+GET /api/v1/moderator/dashboard/overview
+GET /api/v1/moderator/dashboard/report-stats
+GET /api/v1/moderator/dashboard/report-trend
 ```
 
-Dùng để theo dõi số bài chờ duyệt, report chờ xử lý và thống kê kiểm duyệt.
+- `overview`: số bài chờ duyệt, số report chờ xử lý, số nhóm danh mục đang hoạt động, số nội dung đã xử lý hôm nay.
+- `report-stats`: thống kê report theo trạng thái và theo lý do.
+- `report-trend`: xu hướng report trong 7 ngày gần nhất, dùng để vẽ biểu đồ.
 
 ### 8.4. Admin dashboard
 
@@ -1387,7 +1457,7 @@ Dùng để theo dõi số bài chờ duyệt, report chờ xử lý và thống
 GET /api/v1/admin/dashboard
 ```
 
-Source hiện cho `SUPER_ADMIN` và `CONTENT_MODERATOR` truy cập. Dashboard tổng hợp trạng thái người dùng, bài viết và các yêu cầu vận hành.
+Chỉ `SUPER_ADMIN` truy cập được (không giống Blog Owner/Moderator, dashboard Admin vẫn là một endpoint gộp duy nhất). Tổng hợp trạng thái người dùng, bài viết và các yêu cầu vận hành.
 
 ---
 
@@ -1487,7 +1557,7 @@ Ví dụ với post:
 
 - Cloudinary thành công/thất bại.
 - SMTP thành công/thất bại.
-- Translation API timeout, lỗi HTTP hoặc response sai định dạng.
+- Translation API timeout, lỗi HTTP hoặc response sai định dạng — riêng với luồng dịch bài viết qua hàng đợi (WF-13/14), còn cần kiểm thử thêm: job tự thử lại đúng số lần khi lỗi tạm thời, batch vẫn hoàn tất đúng khi một ngôn ngữ thất bại còn các ngôn ngữ khác thành công, và trạng thái trả về qua `GET translation-batches/:batchId` khớp với tiến độ thật.
 
 ---
 
@@ -1499,27 +1569,24 @@ Ví dụ với post:
 | `PROJECT_OVERVIEW.md` | Tổng quan sản phẩm và module |
 | `ARCHITECTURE.md` | Kiến trúc kỹ thuật |
 | `DATABASE_DOCUMENTATION.md` | Model, relation, constraint và index |
-| `PUBLIC_API_DOCUMENTATION.md` | API Public |
-| `USER_API_DOCUMENTATION.md` | API User |
-| `ADMIN_API_DOCUMENTATION.md` | API Admin |
-| `HOANG_WORK_ASSIGNMENT.md` | Phạm vi và kế hoạch công việc của Hoàng |
-| `SEARCH_AND_RECOMMENDATION_DESIGN.md` | Thiết kế TF-IDF và recommendation trong tương lai |
-
-Hai tài liệu API nên bổ sung để hoàn thiện bộ tài liệu:
-
-```text
-BLOG_OWNER_API_DOCUMENTATION.md
-MODERATOR_API_DOCUMENTATION.md
-```
+| `../../DEPLOYMENT.md` | Kiến trúc triển khai production, CI/CD, sự cố thật đã gặp |
+| `../api documentation/PUBLIC_API_DOCUMENTATION.md` | API Public |
+| `../api documentation/USER_API_DOCUMENTATION.md` | API User |
+| `../api documentation/BLOGOWNER_API_DOCUMENTATION.md` | API Blog Owner |
+| `../api documentation/MODERATOR_API_DOCUMENTATION.md` | API Moderator |
+| `../api documentation/ADMIN_API_DOCUMENTATION.md` | API Admin |
+| `../phancongcongviec/HOANG_WORK_ASSIGNMENT.md` | Phạm vi công việc của Hoàng |
+| `../phancongcongviec/SON_WORK_ASSIGNMENT.md` | Phạm vi công việc của Sơn — Blog Owner/Moderator API, hàng đợi dịch nền |
+| `../future development documentation/SEARCH_2_0_ROADMAP.md` | Định hướng tìm kiếm nâng cao (chưa triển khai) |
 
 ---
 
-## 16. Kết luận
+## 13. Kết luận
 
 Nghiệp vụ cốt lõi của hệ thống được xây quanh ba chuỗi giá trị chính:
 
 1. **Người dùng khám phá và tương tác với nội dung.**
-2. **Blog Owner tạo nội dung và đưa qua quy trình kiểm duyệt.**
+2. **Blog Owner tạo nội dung, dịch tự động chạy nền và đưa qua quy trình kiểm duyệt.**
 3. **Moderator/Admin duy trì chất lượng nội dung, quyền truy cập và an toàn hệ thống.**
 
-Các workflow quan trọng đã có những biện pháp tốt như kiểm tra ownership từ JWT, soft delete, transaction và conditional update chống race condition. Giai đoạn tiếp theo nên tập trung vào đồng bộ migration, audit log, notification, queue nền, bảo mật session và xây dựng workflow search/recommendation có khả năng đo lường.
+Các workflow quan trọng đã có những biện pháp tốt như kiểm tra ownership từ JWT, soft delete, transaction và conditional update chống race condition. Từ 2026-09-10, tác vụ nặng nhất (dịch bài viết) đã có hàng đợi nền (BullMQ + Redis) với retry tự động — không còn nằm trong danh sách "chưa làm" như trước. Giai đoạn tiếp theo nên tập trung vào đồng bộ migration, audit log, notification, bảo mật session và xây dựng workflow search/recommendation có khả năng đo lường (xem `SEARCH_2_0_ROADMAP.md`).

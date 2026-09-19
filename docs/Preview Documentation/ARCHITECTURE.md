@@ -13,13 +13,13 @@
 | Cơ sở dữ liệu | PostgreSQL |
 | Base URL mặc định | `/api/v1` |
 | Cổng mặc định | `8080` |
-| Ngày rà soát source | 30/07/2026 |
+| Ngày rà soát source | 19/09/2026 |
 | Phạm vi | `src`, `libs/core`, Prisma schema, migration, seed và cấu hình runtime |
 | Số nhóm API | 5 |
-| Tổng số endpoint hiện tại | 83 |
+| Tổng số endpoint hiện tại | 92 |
 | Số model Prisma | 20 |
 | Số enum nghiệp vụ | 8 |
-| Số file unit test/spec | 58 |
+| Số file unit test/spec | 68 |
 
 
 ---
@@ -65,6 +65,7 @@ flowchart LR
     Cloudinary[Cloudinary]
     SMTP[SMTP / Mail Server]
     Translate[LibreTranslate-compatible API]
+    Redis[(Redis — hàng đợi BullMQ)]
 
     Guest --> System
     User --> System
@@ -75,7 +76,8 @@ flowchart LR
     System --> DB
     System --> Cloudinary
     System --> SMTP
-    System --> Translate
+    System --> Redis
+    Redis --> Translate
 ```
 
 ### 3.1. Actor chính
@@ -95,34 +97,41 @@ flowchart LR
 | PostgreSQL | Dữ liệu nghiệp vụ chính | Prisma Client qua `@prisma/adapter-pg` |
 | Cloudinary | Lưu avatar, thumbnail, ảnh và video | Cloudinary SDK, upload stream |
 | SMTP | Gửi email đặt lại mật khẩu | Nodemailer qua Nest Mailer |
-| Translation API | Dịch tiêu đề và nội dung | HTTP `POST /translate` |
+| Redis | Backing store cho hàng đợi dịch bài viết nền | `ioredis`, qua `@nestjs/bullmq` |
+| Translation API | Dịch tiêu đề và nội dung, gọi từ worker BullMQ (không còn gọi trực tiếp trong request) | HTTP `POST /translate` |
 
 ---
 
 ## 4. Kiến trúc triển khai hiện tại
 
-Hệ thống được triển khai dưới dạng một ứng dụng Node.js duy nhất.
+> Cập nhật 19/09/2026: khác với mô tả trước đây (một tiến trình Node.js đơn lẻ), hệ thống hiện **đang chạy thật trên production** (`blogy.id.vn`), triển khai theo mô hình **blue-green** — luôn có tối đa 2 tiến trình API tồn tại song song trong lúc deploy, và có một hàng đợi nền (Redis + BullMQ) chạy ngay trong tiến trình API. Chi tiết vận hành đầy đủ (CI/CD, runbook, sự cố thật đã gặp) nằm ở `DEPLOYMENT.md` ở thư mục gốc backend — mục này chỉ tóm tắt phần liên quan tới kiến trúc.
 
 ```mermaid
 flowchart TB
     Client[Frontend / Mobile / API Client]
+    Nginx[Nginx — reverse proxy]
 
-    subgraph NodeProcess[Node.js Process]
+    subgraph Slot["Tiến trình NestJS đang nhận traffic (1 trong 2 slot blue/green)"]
         Nest[NestJS Application]
         Scheduler[Nest Schedule]
         Cleanup[Cleanup Cron Job]
+        Worker[BullMQ Translation Worker]
     end
 
     DB[(PostgreSQL)]
+    Redis[(Redis)]
     Media[Cloudinary]
     Mail[SMTP]
-    Translation[Translation API]
+    Translation[LibreTranslate — self-hosted]
 
-    Client -->|HTTP JSON / multipart| Nest
+    Client --> Nginx -->|HTTP JSON / multipart| Nest
     Nest --> DB
     Nest --> Media
     Nest --> Mail
-    Nest --> Translation
+    Nest -.enqueue job dịch.-> Worker
+    Worker <--> Redis
+    Worker --> Translation
+    Worker --> DB
     Scheduler --> Cleanup
     Cleanup --> DB
     Cleanup --> Media
@@ -130,19 +139,21 @@ flowchart TB
 
 ### 4.1. Đơn vị triển khai
 
-- Một package backend.
-- Một tiến trình NestJS.
-- Một PostgreSQL database.
-- Không có message broker trong source hiện tại.
-- Không có Redis/cache phân tán trong source hiện tại.
-- Background task hiện được thực hiện bằng `@nestjs/schedule` trong cùng tiến trình.
+- Một package backend, đóng gói thành Docker image, build và lưu trên GitHub Container Registry (GHCR) theo từng commit.
+- **2 tiến trình NestJS chạy song song theo mô hình blue-green** (`api-blue`, `api-green`) — tại một thời điểm chỉ một slot thực sự nhận traffic qua Nginx; slot còn lại rảnh hoặc đang được deploy phiên bản mới. Trong khoảng "grace period" ngắn ngay sau khi chuyển traffic, cả 2 slot cùng tồn tại.
+- Một PostgreSQL database dùng chung cho cả 2 slot.
+- **Có message broker**: Redis, dùng làm backing store cho hàng đợi BullMQ xử lý việc dịch bài viết chạy nền — khác với mô tả cũ ("không có message broker").
+- Worker xử lý hàng đợi (`@Processor` của `@nestjs/bullmq`) chạy **ngay trong cùng tiến trình NestJS**, không phải một container/service tách riêng — nghĩa là mỗi slot blue/green đều tự mang theo một worker riêng.
+- Background task định kỳ (dọn dữ liệu soft-delete) vẫn dùng `@nestjs/schedule` chạy cùng tiến trình như trước.
+- Toàn bộ hạ tầng (Nginx, Postgres, Redis, LibreTranslate, frontend Angular) chạy trên **một VPS duy nhất** qua Docker Compose.
 
 ### 4.2. Hệ quả vận hành
 
-- Triển khai đơn giản và dễ debug.
-- Transaction nội bộ thuận tiện.
-- Cron job chạy cùng tiến trình API; khi scale nhiều instance phải tránh để nhiều instance chạy cùng một job.
-- Không có hàng đợi nên các tác vụ nặng hoặc cần retry bền vững chưa được tách khỏi request lifecycle.
+- Deploy không gây downtime cho người dùng — phiên bản mới được kiểm tra kỹ trước khi Nginx chuyển traffic sang, phiên bản cũ vẫn giữ sống một khoảng ngắn để phòng cần quay lại ngay.
+- Transaction nội bộ (trong cùng một request, cùng một slot) vẫn thuận tiện như trước; nhưng vì có 2 slot cùng đọc/ghi chung một database trong lúc deploy, **mọi thay đổi schema phải tuân theo nguyên tắc expand → migrate → contract** (xem `DEPLOYMENT.md`) để tránh slot cũ bị lỗi vì không hiểu schema mới.
+- Cron job (`CleanupService`) chạy cùng tiến trình API — vì có 2 slot cùng tồn tại trong grace period, về lý thuyết cả 2 có thể cùng kích hoạt job trong cùng khung giờ; job hiện tại là idempotent (chạy lại không gây hại) nên chưa cần cơ chế khóa phân tán, nhưng đây là điểm cần lưu ý nếu sau này thêm cron job không idempotent.
+- **Đã có hàng đợi** (BullMQ + Redis) — tác vụ nặng (dịch bài viết, có thể chạy 10-20 phút với bài dài) được tách hẳn khỏi request lifecycle, có cơ chế retry tự động (3 lần, backoff tăng dần) khi thất bại tạm thời.
+- Vì worker sống chung tiến trình với API, khi một slot bị dừng lúc deploy, ứng dụng chủ động chờ job dịch đang xử lý dở hoàn tất trước khi thoát hẳn (tối đa 15 phút) thay vì ngắt đột ngột.
 
 ---
 
@@ -154,6 +165,8 @@ backend/
 │   ├── migrations/
 │   ├── schema.prisma
 │   └── seed.ts
+├── docker/                      # nginx.conf, nginx-blogy/, libretranslate/
+├── scripts/                     # deploy-blue-green.sh, rollback.sh, backup/restore...
 ├── libs/
 │   └── core/
 │       └── src/
@@ -169,15 +182,18 @@ backend/
 │           │   └── utils/
 │           ├── config/
 │           ├── core/prisma/
-│           └── modules/
+│           └── modules/         # + health/, translation/ (mới)
 ├── src/
 │   ├── public/
 │   ├── user/
 │   ├── blogowner/
+│   │   └── queues/               # BullMQ: processor, queue service, status service (mới)
 │   ├── moderator/
 │   ├── admin/
 │   ├── app.module.ts
 │   └── main.ts
+├── compose.shared.yml            # prod: layer sống lâu dài (nginx, postgres, redis...)
+├── compose.slot.yml              # prod: template 1 slot API blue-green
 ├── package.json
 ├── prisma.config.ts
 └── tsconfig.json
@@ -212,6 +228,7 @@ flowchart TB
     Common[Common Infrastructure]
     Prisma[Global PrismaModule]
     Cleanup[CleanupModule]
+    Queue[BlogownerTranslationQueueModule\nBullMQ + Redis]
 
     App --> Public
     App --> UserApi
@@ -227,6 +244,9 @@ flowchart TB
     Moderator --> Core
     Admin --> Core
 
+    Owner --> Queue
+    Queue --> Core
+
     Core --> Prisma
     Public --> Common
     UserApi --> Common
@@ -239,10 +259,10 @@ flowchart TB
 
 | Module | Prefix chính | Endpoint | Core dependency chính |
 |---|---|---:|---|
-| `PublicApiModule` | `/register`, `/login`, `/posts`, `/authors`, `/categories`, `/tags` | 13 | Users, Auths, Posts, Categories, Tags, Languages |
+| `PublicApiModule` | `/register`, `/login`, `/posts`, `/authors`, `/categories`, `/tags` | 16 | Users, Auths, Posts, Categories, Tags, Languages |
 | `UserApiModule` | `/auth`, `/user` | 28 | Users, Auths, Comments, Reports, Cloudinary, Blog Owner Requests |
-| `BlogownerApiModule` | `/blog-owner` | 12 | Auths, Posts, Media, Cloudinary |
-| `ModeratorApiModule` | `/moderator` | 14 | Auths, Posts, Reports, Prisma |
+| `BlogownerApiModule` | `/blog-owner` | 14 | Auths, Posts, Media, Cloudinary, Translation, BullMQ Queue (Redis) |
+| `ModeratorApiModule` | `/moderator` | 18 | Auths, Posts, Reports, Translation, Prisma |
 | `AdminApiModule` | `/admin` | 16 | Users, Auths, Blog Owner Requests, Languages, Prisma |
 
 ### 6.2. Core domain modules
@@ -263,6 +283,8 @@ flowchart TB
 | `MailModule` | Gửi email đặt lại mật khẩu |
 | `CleanupModule` | Xóa cứng dữ liệu soft-delete quá 30 ngày |
 | `SecurityLogsModule` | Service lưu security log; hiện chưa được tích hợp rộng vào request flow |
+| `HealthModule` | Endpoint `health/live`, `health/ready` phục vụ health-check của Docker và Nginx trong deploy blue-green |
+| `TranslationModule` | `LibreTranslateService` — gọi API LibreTranslate tự host; được worker BullMQ và Moderator (dịch thử tên danh mục) dùng chung |
 
 ### 6.3. Dependency rule đề xuất
 
@@ -449,7 +471,7 @@ Quy tắc quan trọng:
 - Public post service ghi đè `status` thành `PUBLISH`.
 - Nội dung soft-delete bị loại khỏi query.
 - Có thể chọn ngôn ngữ qua `languageId`, query `lang` hoặc `Accept-Language`.
-- Chi tiết bài viết ghi lượt xem theo cơ chế fire-and-forget.
+- Lượt xem **không** còn ghi tự động khi gọi chi tiết bài viết — client gọi riêng `POST /posts/:id/view` sau khi xác nhận người đọc thật sự xem bài, chạy trong transaction (không phải fire-and-forget), xem mục 13.1.
 
 ### 9.2. User boundary
 
@@ -746,8 +768,8 @@ Nguyên tắc hiện tại:
 
 - Tác vụ external có thể hoàn thành một phần.
 - Không có outbox/inbox pattern.
-- Không có queue để retry bền vững.
-- Fire-and-forget view log có thể mất dữ liệu nếu process dừng ngay sau response.
+- Riêng tác vụ dịch bài viết đã có queue (BullMQ) với retry tự động — nhưng các tác vụ external khác (Cloudinary, SMTP) vẫn theo mô hình best-effort compensation ở trên, chưa được đưa vào queue.
+- Ghi lượt xem đã chuyển từ fire-and-forget sang endpoint riêng chạy trong transaction (xem mục 13.1) — rủi ro mất dữ liệu do process dừng giữa chừng đã giảm đáng kể so với thiết kế cũ, nhưng vẫn phụ thuộc frontend có gọi đúng endpoint hay không (không tự động ở tầng đọc bài).
 
 ---
 
@@ -755,11 +777,13 @@ Nguyên tắc hiện tại:
 
 ### 13.1. Lượt xem
 
-Khi đọc chi tiết bài public:
+Thiết kế lại 2026-09-10 (cùng đợt thêm hàng đợi dịch nền) — tách hẳn khỏi luồng đọc chi tiết bài, chuyển thành endpoint riêng `POST /posts/:id/view` do frontend chủ động gọi khi xác nhận người đọc thật sự đã xem bài (qua thời gian đọc hợp lệ), tránh tính view giả từ bot/prefetch:
 
-- Dùng IP làm `viewerKey`, fallback `anonymous`.
-- Deduplicate theo `(postId, viewerKey)` trong cửa sổ 5 phút.
-- Tăng `viewCount` và tạo `PostViewLog` bằng fire-and-forget.
+- `postId` trong request là **đúng phiên bản ngôn ngữ đang đọc**, không tự quy về bài gốc — `viewCount` của đúng bản ghi đó được tăng.
+- `viewerKey` dựa trên `userId` (đã đăng nhập) hoặc `visitorId` do frontend tự sinh (khách) — không còn dùng IP, tránh nhiều người dùng chung mạng/NAT bị tính gộp làm một.
+- Deduplicate theo `(postId, viewerKey)` trong cửa sổ **10 phút** (trước là 5 phút).
+- Tăng `viewCount`, tạo `PostViewLog` và cập nhật `PostDailyMetric` trong **cùng một transaction mức Serializable**, có tự động thử lại khi xung đột — không còn là fire-and-forget.
+- Khi trả bài viết cho client (`GET /posts/:id`, danh sách...), `viewCount` hiển thị luôn là **tổng của cả nhóm ngôn ngữ** (bài gốc + mọi bản dịch), tính bằng một aggregate query riêng — để người đọc chuyển ngôn ngữ không thấy view "biến mất" dù dữ liệu tăng view vẫn ghi theo từng bản ghi riêng lẻ ở trên. Đây là bug thật đã gặp và sửa trong quá trình refactor (xem `DEPLOYMENT.md`).
 
 ### 13.2. Top post
 
@@ -828,13 +852,57 @@ Media lưu cả `mediaUrl` và `publicId`. `publicId` dùng để xóa file th�
 
 ### 14.3. Translation service
 
-- Blog Owner gọi API dịch tương thích LibreTranslate.
-- Gửi title và content trong một request.
-- `format: html` giữ nội dung HTML.
-- Lỗi kết nối trả `502`; thiếu cấu hình trả `503`.
-- Translation preview không tự động xuất bản bản dịch.
+`LibreTranslateService` (`libs/core/src/modules/translation`) gọi `TRANSLATE_API_URL` theo API contract của LibreTranslate:
 
-### 14.4. PostgreSQL và Prisma
+- Gửi title và content trong một request (`q` dạng mảng), `format: html` giữ nguyên thẻ HTML.
+- Lỗi kết nối trả `502`; thiếu cấu hình (`TRANSLATE_API_URL` rỗng) trả `503`.
+- Có 2 nơi gọi tới service này:
+  - **Moderator "dịch thử tên danh mục"** (`POST /moderator/category-groups/translate-preview`) — vẫn gọi **đồng bộ, trực tiếp trong request** vì chỉ dịch một chuỗi ngắn (tên danh mục), không cần đưa vào hàng đợi.
+  - **Blog Owner dịch bài viết** — xem mục 14.4, đã chuyển hẳn sang chạy nền qua hàng đợi, không còn gọi đồng bộ trong request tạo/sửa bài.
+
+### 14.4. Hàng đợi dịch bài viết nền (BullMQ + Redis)
+
+Thiết kế lại 2026-09-10, sau khi xác nhận thật trên production rằng dịch một bài viết dài ra nhiều ngôn ngữ trong cùng một request `POST/PATCH /blog-owner/posts` có thể chạy hợp lệ 10-20 phút trên hạ tầng CPU-only — chặn cả request đó tới khi dịch xong từng gây lỗi 502 thật cho người dùng (chi tiết sự cố ở `DEPLOYMENT.md`).
+
+```mermaid
+sequenceDiagram
+    actor Owner as Blog Owner
+    participant Ctrl as BlogownerPostsController
+    participant Svc as BlogownerPostsService
+    participant Flow as BullMQ FlowProducer
+    participant Worker as TranslationProcessor
+    participant LT as LibreTranslate
+    participant DB as PostgreSQL
+
+    Owner->>Ctrl: POST /blog-owner/posts (targetLanguageIds)
+    Ctrl->>Svc: create(...)
+    Svc->>DB: Tạo bài gốc (DRAFT)
+    Svc->>Flow: add() — 1 job cha "finalize" + N job con "translate" (1/ngôn ngữ)
+    Svc-->>Owner: Trả kết quả NGAY, kèm batchId
+
+    par Mỗi job con chạy song song trong hàng đợi
+        Worker->>LT: translate(title, content)
+        LT-->>Worker: bản dịch
+        Worker->>DB: Tạo bài dịch (post con)
+    end
+
+    Note over Worker,Flow: Job cha "finalize" chỉ chạy khi TẤT CẢ job con hoàn tất
+    Worker->>DB: Cập nhật trạng thái cả group (nếu submitForReview)
+
+    Owner->>Ctrl: GET /blog-owner/translation-batches/{batchId}
+    Ctrl-->>Owner: Tiến độ từng ngôn ngữ (QUEUED/PROCESSING/COMPLETED/FAILED)
+```
+
+Các điểm kiến trúc đáng chú ý:
+
+- Dùng **BullMQ Flow** (`FlowProducer`), không phải queue đơn giản — job "finalize" là cha, mỗi ngôn ngữ đích là một job con; BullMQ đảm bảo cha chỉ chạy sau khi toàn bộ con hoàn tất (dù thành công hay thất bại).
+- Mỗi job có `attempts: 3` kèm backoff kiểu exponential (3s, 6s, 12s...) — lỗi tạm thời (mất kết nối LibreTranslate) tự thử lại thay vì thất bại ngay.
+- `removeOnComplete`/`removeOnFail` giới hạn số lượng job giữ lại trong Redis — tránh Redis phình dữ liệu không kiểm soát theo thời gian.
+- Worker (`@Processor`) chạy **ngay trong tiến trình API** (`api-blue`/`api-green`), không phải container riêng — xem hệ quả vận hành ở mục 4.
+- `GET /blog-owner/translation-batches/:batchId` cho phép frontend chủ động hỏi lại tiến độ thay vì chờ WebSocket/SSE (hệ thống hiện chưa có kênh đẩy dữ liệu thời gian thực).
+- Redis giới hạn RAM cứng ở tầng ứng dụng (`--maxmemory 200mb --maxmemory-policy noeviction`) — đầy bộ nhớ thì từ chối ghi job mới (lỗi bắt được) thay vì bị hệ điều hành buộc dừng đột ngột và mất toàn bộ job đang xếp hàng.
+
+### 14.5. PostgreSQL và Prisma
 
 `PrismaService`:
 
@@ -966,6 +1034,7 @@ Cấu hình được nạp bằng `ConfigModule` và chia namespace:
 | `cloudinary` | Cloud name, API key, API secret và folder |
 | `mail` | SMTP host, port, secure, user, password và from |
 | Translation | `TRANSLATE_API_URL` được đọc trực tiếp từ `ConfigService` |
+| Redis/BullMQ | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` — đọc trực tiếp từ `ConfigService` trong `BullModule.forRootAsync` |
 
 ---
 
