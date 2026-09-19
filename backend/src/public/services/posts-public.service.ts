@@ -163,10 +163,74 @@ export class PostsPublicService {
      *
      * Phải rebuild theo rankedIds.
      */
-    return rankedIds
+    const entities = rankedIds
       .map((postId) => postMap.get(postId))
       .filter((post): post is (typeof posts)[number] => post !== undefined)
       .map((post) => new PublicPostEntity(post));
+
+    await this.applyGroupViewCounts(entities);
+
+    return entities;
+  }
+
+  /**
+   * Ghi đè viewCount của từng entity bằng tổng cả nhóm ngôn ngữ
+   * (root + mọi bản dịch) thay vì viewCount thô của riêng bản ghi đó —
+   * cùng nguyên tắc với findOne()/getGroupViewCount(), nhưng gộp thành
+   * MỘT query cho cả danh sách thay vì N query riêng lẻ.
+   *
+   * Bug thật đã gặp: trang chủ (GET /posts) và top posts (GET /posts/top)
+   * từng bỏ sót bước này nên hiển thị viewCount thô của đúng bản ghi,
+   * trong khi trang chi tiết bài (GET /posts/:id) đã hiển thị tổng nhóm —
+   * khiến cùng một bài hiện hai con số view khác nhau tùy trang.
+   */
+  private async applyGroupViewCounts(
+    entities: PublicPostEntity[],
+  ): Promise<void> {
+    if (entities.length === 0) {
+      return;
+    }
+
+    const rootIds = [
+      ...new Set(entities.map((entity) => entity.parentPostId ?? entity.id)),
+    ];
+
+    const rows = await this.prisma.post.findMany({
+      where: {
+        deletedAt: null,
+
+        OR: [
+          {
+            id: { in: rootIds },
+            parentPostId: null,
+          },
+          {
+            parentPostId: { in: rootIds },
+          },
+        ],
+      },
+
+      select: {
+        id: true,
+        parentPostId: true,
+        viewCount: true,
+      },
+    });
+
+    const sumByRootId = new Map<number, number>();
+
+    for (const row of rows) {
+      const rootId = row.parentPostId ?? row.id;
+      sumByRootId.set(
+        rootId,
+        (sumByRootId.get(rootId) ?? 0) + row.viewCount,
+      );
+    }
+
+    for (const entity of entities) {
+      const rootId = entity.parentPostId ?? entity.id;
+      entity.viewCount = sumByRootId.get(rootId) ?? entity.viewCount;
+    }
   }
 
   async findAll(
@@ -230,9 +294,12 @@ export class PostsPublicService {
       PUBLIC_POST_WHERE,
     );
 
+    const items = result.items.map((post) => new PublicPostEntity(post));
+    await this.applyGroupViewCounts(items);
+
     return {
       ...result,
-      items: result.items.map((post) => new PublicPostEntity(post)),
+      items,
     };
   }
 

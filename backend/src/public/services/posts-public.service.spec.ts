@@ -176,6 +176,58 @@ const mockPrismaService = {
         },
       );
     });
+
+    it('should return the group total (root + all translations) as viewCount for every item in the list', async () => {
+      /**
+       * Bug thật đã gặp: trang chủ (GET /posts) hiển thị viewCount thô
+       * của đúng bản ghi (2), trong khi trang chi tiết bài (GET /posts/:id)
+       * đã hiển thị tổng nhóm (137) — cùng một bài hiện hai số khác nhau
+       * tùy đang ở trang nào.
+       */
+      mockPostsService.findAll.mockResolvedValueOnce({
+        items: [
+          {
+            id: 12,
+            parentPostId: 10,
+            title: 'Bản dịch tiếng Nhật',
+            status: PostStatus.PUBLISH,
+            viewCount: 2,
+          },
+        ],
+        meta: {
+          totalItems: 1,
+          itemCount: 1,
+          itemsPerPage: 10,
+          totalPages: 1,
+          currentPage: 1,
+        },
+      });
+
+      mockPrismaService.post.findMany.mockResolvedValueOnce([
+        { id: 10, parentPostId: null, viewCount: 120 },
+        { id: 12, parentPostId: 10, viewCount: 2 },
+        { id: 15, parentPostId: 10, viewCount: 15 },
+      ]);
+
+      const result = await service.findAll(
+        {},
+        { page: 1, skip: 0, take: 10 },
+        null,
+      );
+
+      expect(result.items[0].viewCount).toBe(137);
+
+      expect(mockPrismaService.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { id: { in: [10] }, parentPostId: null },
+              { parentPostId: { in: [10] } },
+            ],
+          }),
+        }),
+      );
+    });
   });
 
   describe('findOne', () => {
@@ -603,17 +655,25 @@ describe('recordView', () => {
         { id: 1 },
       ]);
 
-      mockPrismaService.post.findMany.mockResolvedValue([
-        { id: 1, title: 'Post 1', status: PostStatus.PUBLISH },
-        { id: 2, title: 'Post 2', status: PostStatus.PUBLISH },
-        { id: 3, title: 'Post 3', status: PostStatus.PUBLISH },
-      ]);
+      mockPrismaService.post.findMany.mockImplementation(async ({ where }) => {
+        if (where.id?.in) {
+          return [
+            { id: 1, title: 'Post 1', status: PostStatus.PUBLISH },
+            { id: 2, title: 'Post 2', status: PostStatus.PUBLISH },
+            { id: 3, title: 'Post 3', status: PostStatus.PUBLISH },
+          ];
+        }
+
+        // Query gộp viewCount theo nhóm — không cần dữ liệu để test cache.
+        return [];
+      });
 
       const firstResult = await service.getTopPosts(2, null);
       const secondResult = await service.getTopPosts(2, null);
 
       expect(mockPrismaService.$queryRaw).toHaveBeenCalledTimes(1);
-      expect(mockPrismaService.post.findMany).toHaveBeenCalledTimes(2);
+      // 2 lần gọi getTopPosts × (1 lấy bài theo id + 1 gộp viewCount).
+      expect(mockPrismaService.post.findMany).toHaveBeenCalledTimes(4);
       expect(firstResult.map((post) => post.id)).toEqual([3, 2]);
       expect(secondResult.map((post) => post.id)).toEqual([3, 2]);
     });
@@ -628,12 +688,16 @@ describe('recordView', () => {
       ]);
 
       mockPrismaService.post.findMany.mockImplementation(async ({ where }) => {
-        const ids = where.id.in;
-        return ids.map((id: number) => ({
-          id,
-          title: `Post ${id}`,
-          status: PostStatus.PUBLISH,
-        }));
+        if (where.id?.in) {
+          const ids = where.id.in;
+          return ids.map((id: number) => ({
+            id,
+            title: `Post ${id}`,
+            status: PostStatus.PUBLISH,
+          }));
+        }
+
+        return [];
       });
 
       const topTwo = await service.getTopPosts(2, null);
@@ -657,13 +721,17 @@ describe('recordView', () => {
         .mockResolvedValueOnce([{ id: 10 }])
         .mockResolvedValueOnce([{ id: 20 }]);
 
-      mockPrismaService.post.findMany.mockImplementation(async ({ where }) =>
-        where.id.in.map((id: number) => ({
-          id,
-          title: `Post ${id}`,
-          status: PostStatus.PUBLISH,
-        })),
-      );
+      mockPrismaService.post.findMany.mockImplementation(async ({ where }) => {
+        if (where.id?.in) {
+          return where.id.in.map((id: number) => ({
+            id,
+            title: `Post ${id}`,
+            status: PostStatus.PUBLISH,
+          }));
+        }
+
+        return [];
+      });
 
       await service.getTopPosts(10, 'vi');
       await service.getTopPosts(10, 'en');
@@ -683,6 +751,33 @@ describe('recordView', () => {
       expect(result).toEqual([]);
       expect(mockPrismaService.$queryRaw).not.toHaveBeenCalled();
       expect(mockPrismaService.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should return the group total (root + all translations) as viewCount', async () => {
+      mockPrismaService.$queryRaw.mockResolvedValueOnce([{ id: 12 }]);
+
+      mockPrismaService.post.findMany.mockImplementation(async ({ where }) => {
+        if (where.id?.in) {
+          return [
+            {
+              id: 12,
+              parentPostId: 10,
+              title: 'Bản dịch tiếng Nhật',
+              status: PostStatus.PUBLISH,
+              viewCount: 2,
+            },
+          ];
+        }
+
+        return [
+          { id: 10, parentPostId: null, viewCount: 120 },
+          { id: 12, parentPostId: 10, viewCount: 2 },
+        ];
+      });
+
+      const result = await service.getTopPosts(10, null);
+
+      expect(result[0].viewCount).toBe(122);
     });
   });
 
