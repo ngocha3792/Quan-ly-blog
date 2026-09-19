@@ -1,4 +1,4 @@
-import { FlowProducer } from 'bullmq';
+import { FlowProducer, Queue } from 'bullmq';
 
 import {
   BLOGOWNER_TRANSLATION_JOB,
@@ -14,11 +14,16 @@ describe('BlogownerTranslationQueueService', () => {
     add: jest.fn(),
   };
 
+  const mockQueue = {
+    getJobs: jest.fn(),
+  };
+
   beforeEach(() => {
     jest.resetAllMocks();
 
     service = new BlogownerTranslationQueueService(
       mockFlowProducer as unknown as FlowProducer,
+      mockQueue as unknown as Queue,
     );
   });
 
@@ -214,5 +219,42 @@ describe('BlogownerTranslationQueueService', () => {
     expect(
       mockFlowProducer.add,
     ).not.toHaveBeenCalled();
+  });
+
+  describe('hasActiveBatch', () => {
+    it('should return true when a non-terminal job belongs to the root post', async () => {
+      mockQueue.getJobs.mockResolvedValueOnce([
+        { data: { rootPostId: 999 } },
+        { data: { rootPostId: 100 } },
+      ]);
+
+      const result = await service.hasActiveBatch(100);
+
+      expect(result).toBe(true);
+
+      expect(mockQueue.getJobs).toHaveBeenCalledWith(
+        ['waiting', 'active', 'delayed', 'waiting-children', 'prioritized'],
+        0,
+        999,
+      );
+    });
+
+    it('should return false when no non-terminal job belongs to the root post', async () => {
+      mockQueue.getJobs.mockResolvedValueOnce([
+        { data: { rootPostId: 999 } },
+      ]);
+
+      const result = await service.hasActiveBatch(100);
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when the queue has no pending jobs at all', async () => {
+      mockQueue.getJobs.mockResolvedValueOnce([]);
+
+      const result = await service.hasActiveBatch(100);
+
+      expect(result).toBe(false);
+    });
   });
 });
