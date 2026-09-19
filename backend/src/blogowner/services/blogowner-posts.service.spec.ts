@@ -61,10 +61,17 @@ describe('BlogownerPostsService', () => {
 
   const mockTranslationQueueService = {
     enqueueBatch: jest.fn(),
+    hasActiveBatch: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.resetAllMocks();
+
+    /**
+     * Mặc định không có batch dịch nào đang chạy — các test không
+     * liên quan tới submitForReview()/batch không cần tự set lại.
+     */
+    mockTranslationQueueService.hasActiveBatch.mockResolvedValue(false);
 
     /**
      * Giả lập helper.uploadThumbnail()
@@ -1662,5 +1669,38 @@ describe('BlogownerPostsService', () => {
     expect(service.findOne).toHaveBeenCalledWith(3, 3);
 
     expect(result.status).toBe(PostStatus.PENDING_REVIEW);
+  });
+
+  it('should refuse to submit for review while a background translation batch is still running', async () => {
+    /**
+     * Race condition thật đã gặp: gửi duyệt trong lúc batch dịch nền
+     * chưa xong khiến job dịch còn dang dở ghi đè DRAFT lên group đã
+     * PENDING_REVIEW — Moderator không duyệt được (group lệch trạng
+     * thái), Blog Owner cũng không sửa được (root đang PENDING_REVIEW).
+     * submitForReview() phải chặn ngay từ đầu, không cho race xảy ra.
+     */
+    const root = {
+      id: 3,
+      authorId: 3,
+      status: PostStatus.DRAFT,
+    };
+
+    mockHelper.findOwnedPostGroup.mockResolvedValue({
+      rootPostId: 3,
+      root,
+      translations: [],
+      posts: [root],
+    });
+
+    mockTranslationQueueService.hasActiveBatch.mockResolvedValue(true);
+
+    await expect(service.submitForReview(3, 3)).rejects.toThrow(
+      new BadRequestException(
+        'Bài đang dịch tự động ở chế độ nền, vui lòng đợi dịch xong (xem tiến độ qua translation-batches) rồi mới gửi duyệt.',
+      ),
+    );
+
+    expect(mockTranslationQueueService.hasActiveBatch).toHaveBeenCalledWith(3);
+    expect(mockHelper.updateOwnedPostGroupStatus).not.toHaveBeenCalled();
   });
 });

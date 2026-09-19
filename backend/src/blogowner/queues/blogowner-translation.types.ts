@@ -50,6 +50,19 @@ export interface BlogownerTranslationQueuePort {
   enqueueBatch(
     input: EnqueueTranslationBatchInput,
   ): Promise<EnqueueTranslationBatchResult>;
+
+  /**
+   * Còn job dịch (translate hoặc finalize) nào của rootPostId này
+   * chưa xong (waiting/active/delayed/waiting-children) không.
+   *
+   * Dùng để chặn submitForReview() thủ công trong lúc batch dịch
+   * nền còn chạy — nếu không chặn, root.updatedAt bị đổi giữa chừng
+   * khiến job dịch còn dang dở ghi đè trạng thái DRAFT lên một group
+   * đã PENDING_REVIEW, tạo group kẹt vĩnh viễn (Moderator không
+   * duyệt được vì group lệch trạng thái, Blog Owner không sửa được
+   * vì root đang PENDING_REVIEW).
+   */
+  hasActiveBatch(rootPostId: number): Promise<boolean>;
 }
 
 export interface TranslationLanguageJobStatus {

@@ -1313,6 +1313,26 @@ async update(
     }
 
     /**
+     * Chặn race condition với batch dịch nền còn đang chạy.
+     *
+     * Nếu cho submit ngay lúc này, root.updatedAt sẽ đổi — job dịch
+     * nào đang ở giữa chừng (đã qua bước kiểm tra "job cũ" nhưng
+     * chưa kịp ghi DB, ví dụ còn đang chờ LibreTranslate trả lời)
+     * vẫn ghi status DRAFT vào một group đã PENDING_REVIEW, tạo ra
+     * group kẹt vĩnh viễn: Moderator không duyệt được (group lệch
+     * trạng thái), Blog Owner cũng không sửa được (root đang
+     * PENDING_REVIEW).
+     */
+    const hasActiveBatch =
+      await this.translationQueueService.hasActiveBatch(root.id);
+
+    if (hasActiveBatch) {
+      throw new BadRequestException(
+        'Bài đang dịch tự động ở chế độ nền, vui lòng đợi dịch xong (xem tiến độ qua translation-batches) rồi mới gửi duyệt.',
+      );
+    }
+
+    /**
      * Tất cả phiên bản trong group đều phải DRAFT.
      *
      * Bình thường flow mới luôn giữ chúng cùng status.

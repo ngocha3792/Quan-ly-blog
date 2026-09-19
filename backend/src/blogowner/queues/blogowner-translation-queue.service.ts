@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
-import { InjectFlowProducer } from '@nestjs/bullmq';
+import {
+  InjectFlowProducer,
+  InjectQueue,
+} from '@nestjs/bullmq';
 
-import { FlowProducer } from 'bullmq';
+import {
+  FlowProducer,
+  Queue,
+} from 'bullmq';
 
 import {
   BLOGOWNER_TRANSLATION_FLOW,
@@ -19,12 +25,36 @@ import {
   TranslatePostJobData,
 } from './blogowner-translation.types';
 @Injectable()
-export class BlogownerTranslationQueueService 
+export class BlogownerTranslationQueueService
   implements BlogownerTranslationQueuePort {
   constructor(
     @InjectFlowProducer(BLOGOWNER_TRANSLATION_FLOW)
     private readonly flowProducer: FlowProducer,
+
+    @InjectQueue(BLOGOWNER_TRANSLATION_QUEUE)
+    private readonly queue: Queue,
   ) {}
+
+  async hasActiveBatch(rootPostId: number): Promise<boolean> {
+    /**
+     * Chỉ cần các state CHƯA kết thúc — completed/failed không
+     * còn khả năng ghi đè gì vào Post nữa.
+     *
+     * Giới hạn 0-999: đủ cho quy mô dự án, tránh quét không giới
+     * hạn nếu Redis có nhiều job tồn đọng.
+     */
+    const jobs = await this.queue.getJobs(
+      ['waiting', 'active', 'delayed', 'waiting-children', 'prioritized'],
+      0,
+      999,
+    );
+
+    return jobs.some(
+      (job) =>
+        (job.data as { rootPostId?: number } | undefined)?.rootPostId ===
+        rootPostId,
+    );
+  }
 
   async enqueueBatch(
     input: EnqueueTranslationBatchInput,
